@@ -1,0 +1,6 @@
+001. Write advanced FORCE block editor with cursor keys in gforth (try 1024/block with 16×64 and 4096/block with 32×128)
+     Using block editor, write modules:
+002. Write FORCE REPL in gforth
+003. Write FORCE Compiler in gforth
+004. Write FORCE core: REPL, interpreter, compiler, assembler, simple FORTH vocabulary
+005. Write FORCE/Linux adapter: ELF library, module compiler to generate Linux binaries.
