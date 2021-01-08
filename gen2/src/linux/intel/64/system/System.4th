@@ -4,7 +4,7 @@
 
 vocabulary: System  package force/intel/64/linux
   requires force/intel/64/core/RichForce
-  uses force/intel/64/linux/SystemMacro
+  uses linux/intel/64/system/SystemMacro
 
 
 
@@ -12,7 +12,19 @@ vocabulary: System  package force/intel/64/linux
 
 
 
-=== System Calls ===
+=== Process Management ===
 
 : bye ( -- )  BYE, ;                                  ( Terminates system with exit code 0 [OK] )
 : terminate ( u -- )  SYS-TERMINATE, ;                ( Terminates system with exit code u )
+
+
+
+=== Various ===
+
+: poll ( Polls n|-1 -- # t | err f )                  ( wait for up to n ms for events in a list of polls¹ )
+  swap Polls >a# swap SYS-POLL, RESULT1, ;            ( ¹ n=0: return instantly; n<0: wait forever )
+
+
+
+
+vocabulary;

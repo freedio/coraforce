@@ -51,7 +51,12 @@
   r|0|-errno    Depending on selected operation, return positive result r, 0 for "nothing", or negative error code.
 )
 
-vocabulary: SystemMacro  package force/intel/64/linux
+vocabulary: SystemMacro  package linux/intel/64/system
+
+code: RESULT0, ( 0|-errno -- t | errno f )            ( transform SYS-result into FORCE result )
+  RAX NEG  CY IF  RAX PUSH  THEN  CMC  RAX RAX SBB ;
+code: RESULT1, ( x|-errno -- x t | errno f )          ( transform SYS-result into FORCE result )
+  63 # RAX BT  CY IF  RAX NEG  THEN  RAX PUSH  CMC  RAX RAX SBB ;
 
 code: BYE, ( -- )  RDI RDI XOR  60 # CALLINUX ;       ( terminate the current process with exit code 0 [success] )
 code: SYS-TERMINATE, ( u -- )  RAX RDI MOV  60 # CALLINUX ;    ( terminate the current process with exit code u )
@@ -69,7 +74,7 @@ code: SYS-FSTAT, ( a fd -- 0|-errno )                 ( report status of open fi
   RSI 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV  5 # CALLINUX  RDI POP  RSI POP ;
 code: SYS-LSTAT, ( a fn⁰ -- 0|-errno )                ( report status of link with name fn⁰ in buffer a )
   RSI 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV  6 # CALLINUX  RDI POP  RSI POP ;
-code: SYS-POLL, ( @p[] #p t -- #|-errno )             ( poll for events @p[]#p with timeout t ad report #events in @p )
+code: SYS-POLL, ( @p[] #p t -- #|-errno )             ( poll for events @p[]#p with timeout t and report #events in # )
   RDI CELL [RSP] XCHG  RSI 0 [RSP] XCHG  RAX RDX MOV  7 # CALLINUX  RSI POP  RDI POP ;
 code: SYS-SEEK, ( u1 og fd -- u2|-errno )             ( position cursor of fd at u1 from origin og and report cursor pos u2 )
   RSI CELL [RSP] XCHG  RDX POP  RDI PUSH  RAX RDI MOV  8 # CALLINUX  RDI POP  RSI POP ;
@@ -565,3 +570,167 @@ code: SYS-MBIND, ( @nm #nm fl md a # -- 0|-errno )    ( set NUMA policy of block
 code: SYS-SET_MEMPOLICY, ( @nm #nm md -- 0|-errno )   ( set caller's default NUMA policy to md for node mask @nm#nm¹ )
   ( ¹ @nm points at a node mask of #nm bits )
   RSI CELL [RSP] XCHG  RDX POP  RDI PUSH  RAX RDI MOV  238 # CALLINUX  RDI POP  RSI POP ;
+code: SYS-GET_MEMPOLICY, ( @nm #nm fl @m -- 0|-errno ) ( get callerd NUMA police regarding fl at a in @nm#nm and mode in @m )
+  RSI 3 CELLS [RSP] XCHG  RDX 2 CELLS [RSP] XCHG  R10 CELL [RSP] XCHG  R08 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV  239 # CALLINUX
+  RDI POP  R08 POP  R10 POP  RDX POP  RSI POP ;
+code: SYS-MQ_OPEN, ( mn⁰ @attr fl md -- mqd|-errno )  ( create/open POSIX MQ mn⁰ with attrs @attr, permissions md for mode fl¹ )
+  ( ¹ returns message queue descriptor mqd )
+  RDI 2 CELLS [RSP] XCHG  R10 CELL [RSP] XCHG  RSI 0 [RSP] XCHG  RAX RDX MOV  240 # CALLINUX  RSI POP  R10 POP  RDI POP ;
+code: SYS-MQ_UNLINK, ( mn⁰ -- 0|-errno )              ( destroy message queue mn⁰ )
+  RDI PUSH  RAX RDI MOV  241 # CALLINUX  RDI POP ;
+code: SYS-MQ_TIMEDSEND, ( @tm @m #m u mqd -- 0|-errno ) ( send message @m#m with prio u to MQ mqd, waiting until abstime @tm¹ )
+  ( ¹ if MQ is open in non-blocking mode, does not wait for free slot )
+  R08 3 CELLS [RSP] XCHG  RSI 2 CELLS [RSP] XCHG  RDX CELL [RSP] XCHG  R10 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV  242 # CALLINUX
+  RDI POP  R10 POP  RDX POP  RSI POP  R08 POP ;
+code: SYS-MQ_TIMEDRECEIVE, ( @tm @m #m @u|0 mqd -- 0|-errno ) ( remove oldest message from mqd and return it in @m#m¹, prio→@u )
+  ( ¹ waits up to absolute time @tm, unless MQ is non-blocking; reports message prio in @u, unless it is 0 )
+  R08 3 CELLS [RSP] XCHG  RSI 2 CELLS [RSP] XCHG  RDX CELL [RSP] XCHG  R10 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV  243 # CALLINUX
+  RDI POP  R10 POP  RDX POP  RSI POP  R08 POP ;
+code: SYS-MQ_NOTIFY, ( @sev|0 mqd -- 0|-errno )       ( un~/register caller for asynch msg delivery with mqd with mode @sev¹ )
+  ( ¹ unregister if @sev = 0, else @sev defines detail of event delivery mode )
+  RSI 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV  244 # CALLINUX  RDI POP  RSI POP ;
+code: SYS-MQ_GETSETATTR, ( @n|0 @o|0 mqd -- 0|-errno ) ( get/set MQ attributes of mqd in @o/@n respectively¹ )
+  ( ¹ if @n is 0, no attributes will be changed; if @o is 0, no attributes will be reported )
+  RSI CELL [RSP] XCHG  RDX POP  RDI PUSH  RAX RDI MOV  245 # CALLINUX  RDI POP  RSI POP ;
+code: SYS-KEXEC_LOAD, ( @s #s @e fl -- 0|-errno )     ( load reboot/crash kernel according to flags fl¹ )
+  ( ¹ use #s segments starting at @s, set entry point to @e )
+  RDX 2 CELLS [RSP] XCHG  RSI CELL [RSP] XCHG  RDI 0 [RSP] XCHG  R10 PUSH  RAX R10 MOV  246 # CALLINUX
+  R10 POP  RDI POP  RSI POP  RDX POP ;
+code: SYS-WAITID, ( @ru @sg opt pid tp -- 0|-errno )  ( wait for state change in child proc pid|0 of type tp of caller¹ )
+  ( ¹type of state change in opt, returns signal in @sg and resource usage in @ru )
+  R08 3 CELLS [RSP] XCHG  RDX 2 CELLS [RSP] XCHG  R10 CELL [RSP] XCHG  RSI 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV  247 # CALLINUX
+  RDI POP  RSI POP  R10 POP  RDX POP  R08 POP ;
+code: SYS-ADD_KEY, ( @t @d @pl #pl kr -- sn|-errno )  ( create|update kernel key of type @t with payload @pl#pl to keyring kr¹ )
+  ( ¹ @d is the key description; returns the key's serial number sn )
+  RDI 3 CELLS [RSP] XCHG  RSI 2 CELLS [RSP] XCHG  RDX CELL [RSP] XCHG  R10 0 [RSP] XCHG  R08 PUSH  RAX R08 MOV  248 # CALLINUX
+  R08 POP  R10 POP  RDX POP  RSI POP  RDI POP ;
+code: SYS-REQUEST_KEY, ( @t @d @co kr -- sn|-errno )  ( lookup key of type @t and attach to kernel keyring kr¹ )
+  ( ¹ looks further according to callout @co if key was not found internally; returns found key's serial number sn )
+  RDI 2 CELLS [RSP] XCHG  RSI CELL [RSP] XCHG  RDX POP  R10 PUSH  RAX R10 MOV  249 # CALLINUX  R10 POP  RSI POP  RDI POP ;
+code: SYS-KEYCTL, ( a1 a2 a3 a4 op -- sn|-errno )     ( perform key control op using further arguments a1..a4¹ )
+  ( ¹ returns key's serial number sn )
+  R08 3 CELLS [RSP] XCHG  R10 2 CELLS [RSP] XCHG  RDX CELL [RSP] XCHG  RSI 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV  250 # CALLINUX
+  RDI POP  RSI POP  RDX POP  R10 POP  R08 POP ;
+code: SYS-IOPRIO_SET, ( pr pid tp -- 0|-errno )       ( set I/O prio of pid of type tp to pr )
+  RDX CELL [RSP] XCHG  RSI 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV  251 # CALLINUX  RDI POP  RSI POP  RDX POP ;
+code: SYS-IOPRIO_GET, ( pid tp -- pr|-errno )         ( I/O prio of pid of type tp → pr )
+  RSI 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV  252 # CALLINUX  RDI POP  RSI POP ;
+code: SYS-INOTIFY_INIT, ( -- fd|-errno )  SAVE, 253 # CALLINUX ;    ( New inotify instance → fd )
+code: SYS-INOTIFY_ADD_WATCH, ( fn⁰ m fd -- wd|-errno )  ( add file fn⁰ to inotify fd watching for events in mask m¹ )
+  ( ¹ returns watch descriptor wd )
+  RSI CELL [RSP] XCHG  RDX POP  RDI PUSH  RAX RDI MOV  254 # CALLINUX  RDI POP  RSI POP ;
+code: SYS-INOTIFY_RM_WATCH, ( wd fd -- 0|-errno )     ( remove watch wd from inotify fd )
+  RSI 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV  255 # CALLINUX  RDI POP  RSI POP ;
+code: SYS-MIGRATE_PAGES, ( @o @n #p pid -- u|-errno ) ( migrate #p pages of process pid in @o nodes to @n nodes¹ )
+  ( ¹ reports number of pages migrated u )
+  RDX 2 CELLS [RSP] XCHG  R10 CELL [RSP] XCHG  RSI 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV  256 # CALLINUX
+  RDI POP  RSI POP  R10 POP  RDX POP ;
+code: SYS-OPENAT, ( fn⁰ fl md dfd -- fd|-errno )      ( like SYS-OPEN, but relative to directory descriptor dfd instead of CWD )
+  RSI 2 CELLS [RSP] XCHG  RDX CELL [RSP] XCHG  R10 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV  257 # CALLINUX
+  RDI POP  R10 POP  RDX POP  RSI POP ;
+code: SYS-MKDIRAT, ( fn⁰ md dfd -- 0|-errno )         ( like SYS-MKDIR, but relative to directory descr dfd instead of CWD )
+  RSI CELL [RSP] XCHG  RDX POP  RDI PUSH  RAX RDI MOV  258 # CALLINUX  RDI POP  RSI POP ;
+code: SYS-MKNODAT, ( fn⁰ md dev dfd -- 0|-errno )     ( like SYS-MKNOD, but relative to directory descr dfd instead of CWD )
+  RSI 2 CELLS [RSP] XCHG  RDX CELL [RSP] XCHG  R10 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV  259 # CALLINUX
+  RDI POP  R10 POP  RDX POP  RSI POP ;
+code: SYS-FCHOWNAT, ( fl uid gid fn⁰ dfd -- 0|-errno ) ( like SYS-FCHOWN, but relative to directory descr dfd instead of CWD )
+  R08 3 CELLS [RSP] XCHG  RDX 2 CELLS [RSP] XCHG  R10 CELL [RSP] XCHG  RSI 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV
+  260 # CALLINUX  RDI POP  RSI POP  R10 POP  RDX POP  R08 POP ;
+code: SYS-FSTATAT, ( a fn⁰ fl dfd -- 0|-errno )       ( like SYS-FSTAT, but relative to directory descr dfd instead of CWD )
+  RDX 2 CELLS [RSP] XCHG  RSI CELL [RSP] XCHG  R10 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV  262 # CALLINUX
+  RDI POP  R10 POP  RSI POP  RDX POP ;
+code: SYS-UNLINKAT, ( fn⁰ fl dfd -- 0|-errno )        ( like SYS-UNLINK, but relative to directory descr dfd instead of CWD )
+  RSI CELL [RSP] XCHG  RDX POP  RDI PUSH  RAX RDI MOV  263 # CALLINUX  RDI POP  RSI POP ;
+code: SYS-RENAMEAT, ( fn1⁰ fn2⁰ dfd1 dfd2 -- 0|-errno )  ( like SYS-RENAME, but relative to dfd1 and dfd2 instead of CWD )
+  RSI 2 CELLS [RSP] XCHG  R10 CELL [RSP] XCHG  RDI 0 [RSP] XCHG  RAX RDX MOV  264 # CALLINUX  RDI POP  R10 POP  RSI POP ;
+code: SYS-LINKAT, ( fn1⁰ fn2⁰ dfd1 dfd2 -- 0|-errno ) ( like SYS-LINK, but relative to dfd1 and dfd2 instead of CWD )
+  RSI 3 CELLS [RSP] XCHG  R10 2 CELLS [RSP] XCHG  R08 CELL [RSP] XCHG  RDI 0 [RSP] XCHG  RAX RDX MOV  265 # CALLINUX
+  RDI POP  R08 POP  R10 POP  RSI POP ;
+code: SYS-SYMLINKAT, ( fn1⁰ fn2⁰ dfd2 -- 0|-errno )   ( like SYS-SYMLINK, but fn2⁰ relative to dfd2 instead of CWD )
+  RDI CELL [RSP] XCHG  RDX POP  RSI PUSH  RAX RSI MOV  266 # CALLINUX  RSI POP  RDI POP ;
+code: SYS-READLINKAT, ( a # fn⁰ dfd -- 0|-errno )     ( like SYS-READLINK, but relative to directory descr dfd instead of CWD )
+  RDX 2 CELLS [RSP] XCHG  R10 CELL [RSP] XCHG  RSI 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV  267 # CALLINUX
+  RDI POP  RSI POP  R10 POP  RDX POP ;
+code: SYS-FCHMODAT, ( fl md fn⁰ dfd -- 0|-errno )     ( like SYS-CHMOD, but relative to directory descr dfd instead of CWD )
+  R10 2 CELLS [RSP] XCHG  RDX CELL [RSP] XCHG  RSI 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV  268 # CALLINUX
+  RSI POP  RDX POP  R10 POP ;
+code: SYS-FACCESSAT, ( fl fn⁰ mode dfd -- 0|-errno )  ( like SYS-ACCESS, but relative to directory descr dfd instead of CWD )
+  R10 2 CELLS [RSP] XCHG  RSI CELL [RSP] XCHG  RDX POP  RDI PUSH  RAX RDI MOV  269 # CALLINUX  RDI POP  RSI POP  R10 POP ;
+code: SYS-PSELECT6, ( @sgm @in @out @ex @to fds -- u|-errno )  ( like SYS-SELECT, but allows to temporarily use sigmask @sgm¹ )
+  ( ¹ @sgm is set and reset around the actual SELECT to prevent race conditions )
+  R09 4 CELLS [RSP] XCHG  RSI 3 CELLS [RSP] XCHG  RDX 2 CELLS [RSP] XCHG  R10 CELL [RSP] XCHG  R08 0 [RSP] XCHG  RDI PUSH
+  RAX RDI MOV  270 # CALLINUX  RDI POP  R08 POP  R10 POP  RDX POP  RSI POP  R09 POP ;
+code: SYS-PPOLL, ( sst# @sgm @p[] #p @to -- #|-errno )  ( almost like SYSPOLL, but allows to temporarily use sigmask @sgm¹ )
+  ( ¹ @sgm is set and reset around the actual SELECT to prevent race conditions )
+  R08 3 CELLS [RSP] XCHG  R10 2 CELLS [RSP] XCHG  RDI CELL [RSP] XCHG  RSI 0 [RSP] XCHG  RAX RDX MOV  271 # CALLINUX
+  RSI POP  RDI POP  R10 POP  R08 POP ;
+code: SYS-UNSHARE, ( fl -- 0|-errno )                 ( dissociate part of shared mem in exe context according to flags fl )
+  RDI PUSH  RAX RDI MOV  272 # CALLINUX  RDI POP ;
+code: SYS-SET_ROBUST_LIST, ( l #l -- 0|-errno )       ( set head l and length #l of caller's robust futexes )
+  RSI CELL [RSP] XCHG  RDX POP  RDI PUSH  RAX RDI MOV  273 # CALLINUX  RDI POP  RSI POP ;
+code: SYS-GET_ROBUST_LIST, ( @l @#l pid -- 0|-errno ) ( Head → @l and length → @#l of pid's robust futexes )
+  RSI CELL [RSP] XCHG  RDX POP  RDI PUSH  RAX RDI MOV  274 # CALLINUX  RDI POP  RSI POP ;
+code: SYS-SPLICE, ( # @in fdi @out fdo fl -- #'|-errno ) ( move # bytes from in of fdi to out of fdo according to flags fl¹ )
+  ( ¹ returns actual #bytes transferred #' )
+  R08 4 CELLS [RSP] XCHG  RSI 3 CELLS [RSP] XCHG  RDI 2 CELLS [RSP] XCHG  R10 CELL [RSP] XCHG  RDX POP  R09 PUSH  RAX R09 MOV
+  275 # CALLINUX  R09 POP  R10 POP  RDI POP  RSI POP  R08 POP ;
+code: SYS-TEE, ( # fdi fdo fl -- #'|-errno )          ( dup/branch # bytes from fdi to fdo, return #' actually transferred )
+  RDX 2 CELLS [RSP] XCHG  RDI CELL [RSP] XCHG  RSI 0 [RSP] XCHG  R10 PUSH  RAX R10 MOV  276 # CALLINUX
+  R10 POP t RSI POP  RDI POP  RDX POP ;
+code: SYS-SYNC_FILE_RANGE, ( o # fl fd -- 0|-errno )  ( sync # bytes in file fd with underlying storage controlled by fl )
+  RSI 2 CELLS [RSP] XCHG  RDX CELL [RSP] XCHG  R10 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV  277 # CALLINUX
+  RDI POP  R10 POP  RDX POP  RSI POP ;
+code: SYS-VMSPLICE, ( @p #p fl fd -- #'|-errno )      ( map #p virtual mem pages described by @p to pipe fd according to fl¹ )
+  ( ¹ retruns number of pages #' actually written )
+  RSI 2 CELLS [RSP] XCHG  RDX CELL [RSP] XCHG  R10 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV  278 # CALLINUX
+  RDI POP  R10 POP  RDX POP  RSI POP ;
+code: SYS-MOVE_PAGES, ( @p[] n[] st[] #ps fl pid -- 0|-errno )  ( move #p pages, addresses in @p[] of pid to nodes n[]¹ )
+  ( ¹ controlled by flags fl; reports statuses in st[] )
+  RDX 4 CELLS [RSP] XCHG  R10 3 CELLS [RSP] XCHG  R08 2 CELLS [RSP] XCHG  RSI CELL [RSP] XCHG  R09 0 [RSP] XCHG  RDI PUSH
+  RAX RDI MOV  279 # CALLINUX  RDI POP  R09 POP  RSI POP  R08 POP  R10 POP  RDX POP ;
+code: SYS-UTIMENSAT, ( fn⁰ t[2] fl dfd -- 0|-errno )  ( set last-acc and last-mod times of file fn⁰ to t[0]/t[1]¹ )
+  ( ¹ controlled by flags fl; dfd is the base directory for relative filenames; t[n] are in nanoseconds )
+  RSI 2 CELLS [RSP] XCHG  RDX CELL [RSP] XCHG  R10 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV  280 # CALLINUX
+  RDI POP  R10 POP  RDX POP  RSI POP ;
+code: SYS-EPOLL_PWAIT, ( @s #s @to @e[] #e epfd -- u|-errno )
+  ( wait for at most #e events of type spec'd in sigmask @s#s on epoll file epfd within timeout @to, to be reported in array
+    @e[#e]; returns #e number of events delivered )
+  R08 4 CELLS [RSP] XCHG  R09 3 CELLS [RSP] XCHG  R10 2 CELLS [RSP] XCHG  RSI CELL [RSP] XCHG  RDX POP  RDI PUSH  RAX RDI MOV
+  281 @ CALLINUX  RDI POP  RSI POP  R10 POP  R09 POP  R08 POP ;
+code: SYS-SIGNALFD, ( @s #s sfd|-1 -- sfd'|-errno )   ( create or update signal fd sfd for signal mask @s#s¹ )
+  ( ¹ if sfd=-1, a new signal fd sfd' is created, otherwise the signal mask is updated on sfd, and sfd'=sfd )
+  RSI CELL [RSP] XCHG  RDX POP  RDI PUSH  RAX RDI MOV  282 # CALLINUX  RDI POP  RSI POP ;
+code: SYS-TIMERFD_CREATE, ( clk fl -- tfd|-errno )    ( create timer fd tfd based on clock clk according to flags fl )
+  RDI 0 [RSP] XCHG  RDI PUSH  RAX RSI MOV  283 # CALLINUX  RSI POP  RDI POP ;
+code: SYS-EVENTFD, ( cnt -- efd|-errno )              ( create event fd efd with initial count cnt )
+  RDI PUSH  RAX RDI MOV  284 # CALLINUX  RDI POP ;
+code: SYS-FALLOCATE, ( off len md fd -- 0|-errno )    ( manipulate fd range at off with length len in fd according to mode md )
+  RDX 2CELLS [RSP] XCHG  R10 CELL [RSP] XCHG  RSI 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV  285 # CALLINUX
+  RDI POP  RSI POP  R10 POP  RDX POP ;
+code: SYS-TIMERFD_SETTIME, ( @n @o|0 fl tfd -- 0|-errno )  ( dis~/arms timer fd tfd from @n according to flags fl¹ )
+  ( ¹ returns previous timer value in @o, unless it's 0 )
+  R10 2 CELLS [RSP] XCHG  RDX CELL [RSP] XCHG  RSI 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV  286 # CALLINUX
+  RSI POP  RDI POP  R10 POP ;
+code: SYS-TIMERFD_GETTIME, ( @cur tfd -- 0|-errno )   ( report current timer value of timer fd tfd in @cur )
+  RSI 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV  287 # CALLINUX  RDI POP  RSI POP ;
+code: SYS-ACCEPT4, ( a # fl sfd -- cfd|-errno )       ( create client socket fd' for connreq on server socket sfd¹ )
+  ( ¹ fills in client address in structure a#, sets socketflags fl and returns client socket cfd )
+  RSI 2 CELLS [RSP] XCHG  RDX CELL [RSP] XCHG  R10 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV  288 # CALLINUX
+  RDI POP  R10 POP  RDX POP  RSI POP ;
+code: SYS-SIGNALFD4, ( @s #s fl fd|-1 -- fd'|-errno ) ( create/update signal fd with specified flags for signals @s#s¹ )
+  ( ¹ creates fd' if fd=-1, else updates fd and returns fd'=fd )
+  RSI 2 CELLS [RSP] XCHG  RDX CELL [RSP] XCHG  R10 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV  289 # CALLINUX
+  RDI POP  R10 POP  RDX POP  RSI POP ;
+code: SYS-EVENTFD2, ( fl cnt -- efd|-errno )          ( create event fd efd with flags fl and initial count cnt )
+  RSI 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV  290 # CALLINUX  RDI POP  RSI POP ;
+code: SYS-EPOLL_CREATE1, ( fl -- fd|-errno )          ( create epoll instance fd with flags fl )
+  RDI PUSH  RAX RDI MOV  291 # CALLINUX  RDI POP ;
+code: SYS-DUP3, ( fl fd1 fd2 -- fd2|-errno )          ( same as SYS-DUP2, with possibility to set flags fl, e.g. O_CLOEXEC )
+  RDX CELL [RSP] XCHG  RDI 0 [RSP] XCHG  RSI PUSH  RAX RSI MOV  292 # CALLINUX  RSI POP  RDI POP  RDX POP ;
+code: SYS-PIPE2, ( @fd[] fl -- 0|-errno )             ( create pipe @fd[] fitted with flags fl¹ )
+  ( ¹ reports reading end fd in @fd[0], writing end fd in @fd[1] )
+  RSI 0[RSP] XCHG  RDI PUSH  RAX RDI MOV  293 # CALLINUX  RDI POP  RSI POP ;
+code: SYS-INOTIFY_INIT1, ( fl -- ifd|-errno )         ( init new inotify instance ifd fitted with flags fl )
+  RDI PUSH  RAX RDI MOV  294 # CALLINUX  RDI POP ;
+
+vocabulary;
