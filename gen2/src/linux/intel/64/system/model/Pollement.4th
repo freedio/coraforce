@@ -18,9 +18,8 @@ structure: Pollement
 
   === Methods ===
 
-static:
-  : new ( IO PollEventSet -- )  ^ alloc               ( create a Pollement from a file descriptor and a poll event set )
-    >bitmap my Interests!  Handle@ my FileDescr! ;
+construct: ( IO PollEventSet -- )                     ( create a Pollement from a file descriptor and a poll event set )
+  >bitmap my Interests!  Handle@ my FileDescr! ;
 
 
 structure;

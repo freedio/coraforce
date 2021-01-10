@@ -17,10 +17,16 @@ class: File
 
   === Methods ===
 
-  : open ( OpenMode AccessMode -- OpenFile t | err f )  ( opens the file with specified open and acces mode, returns open file )
-    swap >unix swap >unit  my Name -rot SYS-OPEN, RESULT1, dup if  swap OpenFile new swap  then ;
-  : stat ( -- FileStatus t | err f )                  ( Status of the file )
-    FileStatus new dup my Name SYS-STAT, RESULT0, dup unlessever  rot drop  then ;
+public:
+  : open ( OpenMode AccessMode -- OpenFile t | LinuxError f )  ( open file with specified open+acces mode, return open file )
+    swap >unix swap >unit  my Name -rot SYS-OPEN, SystemResult1 dup if  swap OpenFile new swap  then ;
+  : Status ( -- FileStatus t | LinuxError f )         ( Status of the file )
+    FileStatus new dup my Name SYS-STAT, SystemResult0 dup unlessever  rot drop  then ;
+  : exists ( -- t | LinuxError f )                    ( Check if file exists )
+    my Name 0 SYS-ACCESS, SystemResult0 ;
+  : Access ( FileAccessRights -- t | LinuxError f )   ( Check if access of type FileAccessRights on file is granted )
+    my Name swap SYS-ACCESS, SystemResult0 ;
 
+construct: ( n$ -- File )  ZString ?new my Name! ;    ( initialize File with name n$ )
 
 class;

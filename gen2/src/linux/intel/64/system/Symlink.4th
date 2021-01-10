@@ -5,6 +5,7 @@
 class: Symlink  extends linux/intel/64/system/File
   package linux/intel/64/system
   requires force/intel/64/core/RichForce
+  uses linux/intel/64/system/System
   uses linux/intel/64/system/SystemMacro
 
 
@@ -15,8 +16,8 @@ class: Symlink  extends linux/intel/64/system/File
 
   === Methods ===
 
-  : stat ( -- FileStatus t | err f )                  ( Status of the symbolic link )
-    FileStatus new dup my Name SYS-LSTAT, RESULT0, dup unlessever  rot drop  then ;
+  : Status ( -- FileStatus t | LinuxError f )         ( Status of the symbolic link )
+    FileStatus new dup my Name SYS-LSTAT, SystemError0 dup unlessever  rot drop  then ;
 
 
 class;

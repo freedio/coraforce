@@ -86,17 +86,16 @@ code: SYS-MPROTECT ( a # pr -- 0|-errno )             ( protect # bytes from a w
   RDI CELL [RSP] XCHG  0 [RSP] RSI XCHG  RAX RDX MOV  10 # CALLINUX  RSI POP  RDI POP ;
 code: SYS-MUNMAP, ( a # -- 0|-errno )                 ( unmap # bytes from a )
   RDI CELL [RSP] XCHG  RSI PUSH  RX RSI MOV  11 # CALLINUX  RSI POP  RDI POP ;
-code: SYS-BRK, ( a -- 0|-errno )                      ( set program break to a )
+code: SYS-BRK, ( a -- a' )                            ( set program break to a, return new or current program break )
   RDI PUSH  RAX RDI MOV  12 # CALLINUX  RDI POP ;
 code: SYS-SIGACTION, ( a1 a0 u # -- 0|-errno )        ( set action descr for signal u to a1 and report old one in a0¹ )
   ( ¹ doesn't set if a1 is 0; doesn't report if a0 is 0; # is the size of the SA_MASK field in structure a0|a1 )
   RSI 2 CELLS [RSP] XCHG  RDX CELL [RSP] XCHG  RDI 0 [RSP] XCHG  R10 PUSH  RAX R10 MOV  13 # CALLINUX
   R10 POP  RDI POP  RDX POP  RSI POP ;
-code: SYS-SIGPROCMASK, ( a1 a0 u -- 0|-errno )        ( set masked signal set for action u to a1 and report old one in a0¹ )
-  ( ¹ doesn't set if a1 is 0; doesn't report if a0 is 0 )
-  RSI 2 CELLS [RSP] XCHG  RDX CELL [RSP] XCHG  RDI 0 [RSP] XCHG  R10 PUSH  RAX R10 MOV  14 # CALLINUX
-  R10 POP  RDI POP  RDX POP  RSI POP ;
-code: SYS-IOCTL, ( @args cmd fd -- x|-errno )         ( perform IO command cmd with args @args on file fd, returning value x )
+code: SYS-SIGPROCMASK, ( a1 a0 how -- 0|-errno )      ( set masked signal set for action u to a1 and report old one in a0¹ )
+  ( ¹ doesn't set if a1 is 0; doesn't report if a0 is 0; how specified if the mask is set, added or removed )
+  RSI CELL [RSP] XCHG  RDX POP  RDI PUSH  RAX RDI MOV  R10 PUSH  CELL # R10 MOV  14 # CALLINUX  R10 POP  RDI POP  RSI POP ;
+code: SYS-IOCTL, ( @args cmd fd -- x|0|-errno )       ( perform IO command cmd with args @args on file fd, return value x or 0 )
   RDX 2 CELLS [RSP] XCHG  RSI CELL [RSP] XCHG  RDI PUSH  RAX RDI MOV  16 # CALLINUX  RDI POP  RSI POP  RDX POP ;
 code: SYS-PREAD, ( a # u fd -- #'|-errno )            ( read # bytes from abs pos u of fd into buffer at a, report #bytes read )
   RSI 2 CELLS [RSP] XCHG  RDX CELL [RSP] XCHG  R10 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV  17 # CALLINUX
@@ -104,9 +103,9 @@ code: SYS-PREAD, ( a # u fd -- #'|-errno )            ( read # bytes from abs po
 code: SYS-PWRITE ( a # u fd -- #'|-errno )            ( write # bytes from a to abs pos u of fd, report #bytes read #' )
   RSI 2 CELLS [RSP] XCHG  RDX CELL [RSP] XCHG  R10 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV  18 # CALLINUX
   RDI POP  R10 POP  RDX POP  RSI POP ;
-code: SYS-READV, ( @v # fd -- #'|-errno )             ( read data from fd into vector @v of size #, report #' bytes read )
+code: SYS-READV, ( @v #v fd -- #|-errno )             ( read data from fd into vector @v#v, report # total bytes read )
   RSI CELL [RSP] XCHG  RDX POP  RDI PUSH  RAX RDI MOV  19 # CALLINUX  RDI POP  RSI POP ;
-code: SYS-WRITEV, ( @v # fd -- #'|-errno )            ( write vecotr @v with # elements to file fd, report #' bytes written )
+code: SYS-WRITEV, ( @v #v fd -- #|-errno )            ( write vector @v#v to file fd, report # total bytes written )
   RSI CELL [RSP] XCHG  RDX POP  RDI PUSH  RAX RDI MOV  20 # CALLINUX  RDI POP  RSI POP ;
 code: SYS-ACCESS, ( fn⁰ md -- 0|-errno )              ( check caller access permissions md on file fn⁰, return 0 if granted )
   RDI 0 [RSP] XCHG  RSI PUSH  RAX RSI MOV  21 # CALLINUX  RSI POP  RDI POP ;

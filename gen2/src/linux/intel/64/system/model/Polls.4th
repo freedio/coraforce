@@ -17,7 +17,6 @@ class: Polls
   === Methods ===
 
   : >a# ( -- @p[] #p )                                ( convert the polls into an array of poll entries @p[] and its length #p )
-    Pollement my Polls Length array >x
-    my Polls ’ >pollement map
+    Pollement my Polls Length array >x  my Polls iterate begin  next? while  next x@ add  repeat  x> count ;
 
 class;
