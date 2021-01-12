@@ -20,7 +20,7 @@ class: Pipe
 
 public:
 
-construct: (  -- Pipe t | LinuxError f )  PipeModel new dup >x  SYS-PIPE,
-  dup if  x@ PipeModelReceiver IO new my Receiver!  x@ PipeModelSender IO new my Sender!  swap  then  xdrop ;
+construct: new (  -- Pipe )  PipeModel new dup >x  SYS-PIPE,
+  OK if  x@ PipeModelReceiver IO new my Receiver!  x@ PipeModelSender IO new my Sender!  then  xdrop ;  fallible
 
 class;

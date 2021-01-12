@@ -5,6 +5,7 @@
 interface: List of Element
   package force/intel/64/core
 
-  :: >array# ( -- @Element[] # )                      ( converts this list into an array of its elements [not an Array!] )
+  def >array# ( -- @Element[] # )                     ( convert this list into an array of its elements [not an Array!] )
+  def +! ( Element -- )                               ( add Element to list )
 
 interface;

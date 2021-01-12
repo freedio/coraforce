@@ -18,9 +18,9 @@ class: Signal
 
   === Methods ===
 
-  : Action@ ( -- SignalHandler t | LinuxError f )     ( return the handler for this signal )
-    0  SigHandler new dup >x  my Number cell SYS-SIGACTION, SystemResult0  dup if  x@ swap  then  xdrop ;
-  : Action! ( SignalHandler -- t | LinuxError f )     ( set the handler for this signal )
-    SignalHandler>sighandler 0 my Number cell SYS-SIGACTION, SystemResult0 ;
+  : Action@ ( -- SignalHandler )                      ( return the handler for this signal )
+    0  SigHandler new dup >x  my Number cell SYS-SIGACTION, SystemResult0  OK if  x@  then  xdrop ;  fallible
+  : Action! ( SignalHandler -- )                      ( set the handler for this signal )
+    SignalHandler>sighandler 0 my Number cell SYS-SIGACTION, SystemResult0 ;  fallible
 
 class;

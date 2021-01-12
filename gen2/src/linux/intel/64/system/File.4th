@@ -18,15 +18,19 @@ class: File
   === Methods ===
 
 public:
-  : open ( OpenMode AccessMode -- OpenFile t | LinuxError f )  ( open file with specified open+acces mode, return open file )
-    swap >unix swap >unit  my Name -rot SYS-OPEN, SystemResult1 dup if  swap OpenFile new swap  then ;
-  : Status ( -- FileStatus t | LinuxError f )         ( Status of the file )
-    FileStatus new dup my Name SYS-STAT, SystemResult0 dup unlessever  rot drop  then ;
-  : exists ( -- t | LinuxError f )                    ( Check if file exists )
-    my Name 0 SYS-ACCESS, SystemResult0 ;
-  : Access ( FileAccessRights -- t | LinuxError f )   ( Check if access of type FileAccessRights on file is granted )
-    my Name swap SYS-ACCESS, SystemResult0 ;
+  : open ( OpenMode AccessMode -- OpenFile )          ( open file with specified open+acces mode, return open file )
+    swap >unix swap >unit  my Name -rot SYS-OPEN, SystemResult1  OK if  OpenFile new  then ;  fallible
+  : Status@ ( -- FileStatus )                         ( Status of the file )
+    FileStatus new dup my Name SYS-STAT, SystemResult0 reallyKO ifever  drop  then ;  fallible
+  : exists ( -- ? )                                   ( check if file exists )
+    my Name 0 SYS-ACCESS, ?Result0 ;
+  : !exists ( -- )                                    ( make sure the file exists )
+    my Name 0 SYS-ACCESS, SystemResult0 ;  fallible
+  : Access ( FileAccessRights -- ? )                  ( check if access of type FileAccessRights is granted on file )
+    my Name swap SYS-ACCESS, ?Result0 ;               ( note that there is no detail about an error, if there was one )
+  : !access ( FileAccessRights -- )                   ( make sure access of type FileAccessRights is granted on file )
+    my Name swap SYS-ACCESS, Result0 ;  fallible
 
-construct: ( n$ -- File )  ZString ?new my Name! ;    ( initialize File with name n$ )
+construct: new ( n$ -- File )  ZString ?new my Name! ; ( initialize File with name n$ )
 
 class;

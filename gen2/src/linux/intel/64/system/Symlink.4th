@@ -16,8 +16,8 @@ class: Symlink  extends linux/intel/64/system/File
 
   === Methods ===
 
-  : Status ( -- FileStatus t | LinuxError f )         ( Status of the symbolic link )
-    FileStatus new dup my Name SYS-LSTAT, SystemError0 dup unlessever  rot drop  then ;
+  : Status@ ( -- FileStatus )                         ( Status of the symbolic link )
+    FileStatus new dup my Name SYS-LSTAT, SystemError0 KO ifever  drop  then ;  fallible
 
 
 class;

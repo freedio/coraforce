@@ -116,7 +116,7 @@ code: SYS-SELECT, ( @in @out @ex @to fd# -- u|-errn ) ( monitor fds in @in+@out+
   RSI 3 CELLS [RSP] XCHG  RDX 2 CELLS [RSP] XCHG  R10 CELL [RSP] XCHG  R08 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV  23 # CALLINUX
   RDI POP  R09 POP  R10 POP  RDX POP  RSI POP ;
 code: SYS-YIELD, ( -- )  SAVE,  24 # CALLINUX  RESTORE, ;    ( Causes current thread to yield in favor of other processes )
-code: SYS-MREMAP ( a0 a1 #0 #1 fl -- a1'|-errno )     ( expand or shrink memory a0#0 to [a1]#1, return final address a1' )
+code: SYS-MREMAP, ( a0 a1 #0 #1 fl -- a1'|-errno )    ( expand or shrink memory a0#0 to [a1]#1, return final address a1' )
   RDI 3 CELLS [RSP] XCHG  R08 2 CELLS [RSP] XCHG  RSI CELL [RSP] XCHG  RDX POP  R10 PUSH  RAX R10 MOV  25 # CALLINUX
   R10 POP  RSI POP  R08 POP  RDI POP ;
 code: SYS-MSYNC ( a # fl -- 0|-errno )                ( sync mmapped area a# with underlying file according to flags fl )

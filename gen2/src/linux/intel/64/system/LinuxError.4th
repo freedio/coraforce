@@ -16,9 +16,6 @@ class: LinuxError
 
   === Methods ===
 
-static:
-  : new ( errno -- LinuxError )                       ( creates a LinuxError with the specified linux errno )
-    my Code! ;
-
+construct: new ( errno -- LinuxError )  my Code! ;    ( creates a LinuxError with the specified linux errno )
 
 class;

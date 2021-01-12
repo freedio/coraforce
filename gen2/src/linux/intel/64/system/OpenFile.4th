@@ -21,25 +21,25 @@ private:
     MemMapMode >bits swap MemMapType >value + ;
 
 public:
-  : stat ( -- FileStatus t | LinuxError f )           ( Status of the file )
-    FileStatus new dup my Handle SYS-FSTAT, SystemResult1 dup unlessever  rot drop  then ;
-  : --> ( u -- u' t | LinuxError f )                  ( advance cursor by u and report new position u' )
-    SeekMode FromCurrent my Handle SYS-SEEK, SystemResult1 ;
-  : |--> ( u -- u' t | LinuxError f )                 ( set cursor to u and report new position u' )
-    SeekMode FromStart my Handle SYS-SEEK, SystemResult1 ;
-  : -|-> ( u -- u' t | LinuxError f )                 ( set cursor u beyond EOF and report new position u' )
-    SeekMode FromEnd my Handle SYS-SEEK, SystemResult1 ;
-  : ->D ( u -- u' t | LinuxError f )                  ( advance cursor to next data after abs pos u and report new position u' )
-    SeekMode ToData my Handle SYS-SEEK, SystemResult1 ;
-  : ->H ( u -- u' t | LinuxError f )                  ( advance cursor to next hole after abs pos u and report new position u' )
-    SeekMode ToHole my Handle SYS-SEEK, SystemResult1 ;
-  : map ( # u t m p -- MemoryArea t | LinuxError f )  ( Maps # bytes from offset u into memory area MemoryArea¹ )
+  : Status@ ( -- FileStatus )                         ( Status of the file )
+    FileStatus new dup my Handle SYS-FSTAT, SystemResult1  KO ifever  drop  then ;  fallible
+  : --> ( u -- u' )                                   ( advance cursor by u and report new position u' )
+    SeekMode FromCurrent my Handle SYS-SEEK, SystemResult1 ;  fallible
+  : |--> ( u -- u' )                                  ( set cursor to u and report new position u' )
+    SeekMode FromStart my Handle SYS-SEEK, SystemResult1 ;  fallible
+  : -|-> ( u -- u' )                                  ( set cursor u beyond EOF and report new position u' )
+    SeekMode FromEnd my Handle SYS-SEEK, SystemResult1 ;  fallible
+  : ->D ( u -- u' )                                   ( advance cursor to next data after abs pos u and report new position u' )
+    SeekMode ToData my Handle SYS-SEEK, SystemResult1 ;  fallible
+  : ->H ( u -- u' )                                   ( advance cursor to next hole after abs pos u and report new position u' )
+    SeekMode ToHole my Handle SYS-SEEK, SystemResult1 ;  fallible
+  : map ( # u t m p -- MemoryArea )                   ( Maps # bytes from offset u into memory area MemoryArea¹ )
     ( ¹ MemMapType t defines the type, MemMapMode the mode, and MemProtection p the memory protection )
     MemProtection >bits -rot type+mode>bits rot ( # pr fl u )  0 5 -roll ( 0 # pr fl u )  3 pick >x  SYS-MMAP, SystemResult1
-    dup if  swap x@ -1 MappedMemoryArea new swap  then  xdrop ;
-  : readAbsFrom ( a # u -- #' t | LinuxError f )      ( read # bytes from abs pos u to buffer a, report actually read → #' )
-    my Handle SYS-PREAD, SystemResult1 ;
-  : writeAbsTo ( a # u -- #' t | LinuxError f )       ( write # bytes to abs pos u from buffer a, report actually written → #' )
-    my Handle SYS-PWRITE, SystemResult1 ;
+    OK if  x@ -1 MappedMemoryArea new  then  xdrop ;
+  : readAbsFrom ( a # u -- #' )                       ( read # bytes from abs pos u to buffer a, report actually read → #' )
+    my Handle SYS-PREAD, SystemResult1 ;  fallible
+  : writeAbsTo ( a # u -- #' )                        ( write # bytes to abs pos u from buffer a, report actually written → #' )
+    my Handle SYS-PWRITE, SystemResult1 ;  fallible
 
 class;
