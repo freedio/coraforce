@@ -25,9 +25,9 @@ enumset: OpenMode
   symbol NoFollow                                       ( prevents following symbol links: _NOFOLLOW )
   symbol NonBlocking                                    ( open file in non-blocking mode, if possible: O_NONBLOCK|O_NDELAY )
   symbol PathOnly                                       ( file is only path, not really opened: O_PATH )
-  symbol FullSync                                       ( like DataSync, but includes also metadata )
+  symbol FullSync                                       ( like DataSync, but includes also metadata: O_SYNC )
   symbol TempFile                                       ( interpret file as directory and create tempfile in it: O_TMPFILE )
-  symbol Truncate                                       ( truncate file to 0 if it is writable )
+  symbol Truncate                                       ( truncate file to 0 if it is writable: O_TRUNC )
 
 
 

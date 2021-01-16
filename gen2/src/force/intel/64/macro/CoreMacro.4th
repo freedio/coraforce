@@ -54,6 +54,7 @@ code: GETSP, ( -- @sp )  SAVE,  RSP RAX MOV ;
 code: SETSP, ( @sp -- )  RAX RSP MOV ;
 
 code: DUP, ( x -- x x )  RAX PUSH ;
+code: TRIP, ( x -- x x x )  RAX PUSH  RAX PUSH ;
 code: DROP, ( x -- )  RAX POP ;
 code: ZAP, ( x -- 0 )  RAX RAX XOR ;
 code: SWAP, ( x2 x1 -- x1 x2 )  RAX 0 [RSP] XCHG ;

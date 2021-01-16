@@ -154,7 +154,7 @@ code: SYS-SOCKET ( fam tp prot -- fd|-errno )         ( create socket fd of fami
   RDI CELL [RSP] XCHG  RSI 0 [RSP]  RX RDX MOV  41 # CALLINUX  RSI POP  RDI POP ;
 code: SYS-CONNECT ( a # fd -- 0|-errno )              ( connect socket fd with memory block a# )
   RSI CELL [RSP] XCHG  RDX POP  RDI PUSH  RAX RDX MOV  42 # CALLINUX  RDI POP  RSI POP ;
-code: SYS-ACCEPT, ( a # fd1 -- fd2|-errno )           ( connect client socket fd2 cor conn req on server socket fd1¹ )
+code: SYS-ACCEPT, ( a # fd1 -- fd2|-errno )           ( connect client socket fd2 for connection request on server socket fd1¹ )
   ( ¹ fills in client address in structure a# )
   RSI CELL [RSP] XCHG  RDX POP  RDI PUSH  RAX RDI MOV  43 # CALLINUX  RDI POP  RSI POP ;
 code: SYS-SENDTO, ( a # @s #s fl fd -- u|-errno )     ( send a# to socket fd with socket addr @s#s according to flags fl¹ )

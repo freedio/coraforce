@@ -94,6 +94,7 @@ variable ZSS                                  ( Z-stack size in cells )
 : depth ( -- u )  sp0 sp@ MINUS, ABS, cellu/ ;  inline    ( Number of cells occupied on parameter stack )
 
 : dup ( x -- x x )  DUP, ;  inline                    ( duplicate top of stack )
+: trip ( x -- x x x )  TRIP, ;  inline                ( triplicate top of stack )
 : drop ( x -- )  DROP, ;  inline                      ( drop top of stack )
 : zap ( x -- 0 )  ZAP, ;  inline                      ( replace top of stack with 0; cheaper than "drop 0" or "0 and" )
 : swap ( x2 x1 -- x1 x2 )  SWAP, ;  inline            ( swap top and second of stack )
