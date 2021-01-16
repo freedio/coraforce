@@ -19,6 +19,9 @@ public:
 
   === Methods ===
 
+private:
+  : initSocketName ( fd -- )  my Protocol@ socketName  my LocalAddress! ;
+  : initPeerName ( fd -- )  my Protocol@ peerName  my RemoteAddress! ;
 public:
   : send ( a # SocketIOMode -- #' )                   ( like write, but controlled by an I/O-mode )
     0 dup rot SocketIOMode >bits my Handle@ SYS-SENDTO, SystemResult1 ;  fallible
@@ -30,5 +33,6 @@ public:
     rot dup allocate dup rot ( iom sa a a # ) 4 roll dup Size ( iom a a # sa #sa ) 6 roll SocketIOMode >bits
     my Handle@ SYS-RECVFROM, SystemResult1  KO if  free  then ;  fallible
   construct: new ( SocketAddress Socket -- )  ^ copy  my RemoteAddress! ;  cascaded
+  construct: fromServerSocket ( fd ServerSocket -- )  ^ copyraw dup my Handle!  dup initSocketName  initPeerName ;  fallible
 
 class;

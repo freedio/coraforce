@@ -19,7 +19,8 @@ class: ServerSocket extends BoundSocket
 
 public:
   : accept ( SocketAddress -- ConnectedSocket )       ( accept a connection; returns a connected socket )
-    trip SocketAddress Size  my Handle@ SYS-ACCEPT, SystemResult0  OK if  my ConnectedSocket new  else  drop  then ;  fallible
+    trip SocketAddress Size  my Handle@ SYS-ACCEPT, SystemResult0
+    OK if  my ConnectedSocket fromServerSocket  else  drop  then ;  fallible
 construct: new ( BoundSocket u -- )  my Backlog!  ^ copy ;  cascaded
 
 class;

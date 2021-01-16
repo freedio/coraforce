@@ -60,6 +60,56 @@ enum: Protocol
 
   === Methods ===
 
+public:
+  : Address@ ( [Protocol] -- SocketAddress )  case   ( LocalAddress of socket with Handle fd )
+      unspecified of:  "Can't get socket address of unspecified protocol!"| ERROR handle  of;
+      Unix of:  UnixSocketAddress alloc  of;
+      Internet4 of:  Internet4Address alloc  of;
+      AX25 of:  AX25Address alloc  of;
+      IPX of:  IPXSocketAddress alloc  of;
+      AppleTalk of:  AppleTalkSocketAddress alloc  of;
+      NetRom of:  NetRomSocketAddress alloc  of;
+      Bridge of:  BridgeSocketAddress alloc  of;
+      ATMPVC of:  ATMPVCSocketAddress alloc  of;
+      X25 of:  X25SocketAddress alloc  of;
+      Internet6 of:  Internet6SocketAddress alloc  of;
+      Rose of:  RoseSocketAddress alloc  of;
+      DECnet of:  DECnetSocketAddress alloc  of;
+      NETBEUI of:  NETBEUISocketAddress alloc  of;
+      Security of:  SecuritySocketAddress alloc  of;
+      Key of:  KeySocketAddress alloc  of;
+      Netlink of:  NetlinkSocketAddress alloc  of;
+      Packet of:  PacketSocketAddress alloc  of;
+      Ash of:  AshSocketAddress alloc  of;
+      Econet of:  EconetSocketAddress alloc  of;
+      ATMSVC of:  ATMSVCSocketAddress alloc  of;
+      RDS of:  RDSSocketAddress alloc  of;
+      SNA of:  SNASocketAddress alloc  of;
+      IRDA of:  IRDASocketAddress alloc  of;
+      PPPoX of:  PPPoXSocketAddress alloc  of;
+      Wanpipe of:  WanpipeSocketAddress alloc  of;
+      LLC of:  LLCSocketAddress alloc  of;
+      InfiniBand of:  InfiniBandSocketAddress alloc  of;
+      MPLS of:  MPLSSocketAddress alloc  of;
+      CAN of:  CANSocketAddress alloc  of;
+      TIPC of:  TIPCSocketAddress alloc  of;
+      Bluetooth of:  BluetoothSocketAddress alloc  of;
+      IUCV of:  IUCVSocketAddress alloc  of;
+      RxRCP of:  RxRCPSocketAddress alloc  of;
+      ISDN of:  ISDNSocketAddress alloc  of;
+      Phonet of:  PhonetSocketAddress alloc  of;
+      IEEE802154 of:  IEEE802154SocketAddress alloc  of;
+      CAIF of:  CAIFSocketAddress alloc  of;
+      Algorithm of:  AlgorithmSocketAddress alloc  of;
+      NFC of:  NFCSocketAddress alloc  of;
+      VSocket of:  VSocketSocketAddress alloc  of;
+      KCM of:  KCMSocketAddress alloc  of;
+      QIPCRouter of:  QIPCRouterSocketAddress alloc  of;
+      SMC of:  SMCSocketAddress alloc  of;
+      XDP of:  XDFSocketAddress alloc  of;
+      "Invalid protocol number: %d!"| ERROR handle  case;
+    dup Size rot SYS-GETSOCKNAME, SystemResult0  KO if  drop  then ;
+
 
 
 enum;

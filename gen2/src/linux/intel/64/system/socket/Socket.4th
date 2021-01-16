@@ -24,6 +24,8 @@ public:
 protected:
   construct: copy ( Socket -- )  !Socket              ( initialize from the specified socket )
     dup AddressFamily@ my AddressFamily!  dup Protocol@ my Protocol!  dup Type@ my Type!  dup Mode@ my Mode!  Handle@ my Handle! ;
+  construct: copyraw ( Socket -- )  !Socket              ( initialize from the specified socket )
+    dup AddressFamily@ my AddressFamily!  dup Protocol@ my Protocol!  dup Type@ my Type!  dup Mode@ my Mode! ;
 
 public:
   : bind ( SocketAddress -- BoundSocket )             ( bind the socket to the specified address; returns a bound socket )
