@@ -260,6 +260,7 @@ code: BSET, ( x # -- x' )  RAX QWORD PTR 0 [RSP] BTS  RESTORE, ;
 code: BCLR, ( x # -- x' )  RAX QWORD PTR 0 [RSP] BTR  RESTORE, ;
 code: BCHG, ( x # -- x' )  RAX QWORD PTR 0 [RSP] BTC  RESTORE, ;
 code: BTST, ( x # -- ? )  RAX QWORD PTR 0 [RSP] BT  RDX POP  RAX RAX SBB ;
+code: BTSTX, ( x # -- x ? )  RAX QWORD PTR 0 [RSP] BT  RAX RAX SBB ;
 code: BTSET, ( x # -- x' ? )  RAX QWORD PTR 0 [RSP] BTS  RAX RAX SBB ;
 code: BTCLR, ( x # -- x' ? )  RAX QWORD PTR 0 [RSP] BTR  RAX RAX SBB ;
 code: BTCHG, ( x # -- x' ? )  RAX QWORD PTR 0 [RSP] BTC  RAX RAX SBB ;

@@ -139,11 +139,11 @@ code: SYS-DUP2, ( fd1 fd2 -- 0|-errno )               ( duplicate file descripto
 code: SYS-PAUSE, ( -- )  SAVE,  34 # CALLINUX  RESTORE, ;  ( wait for a signal )
 code: SYS-NANOSLEEP, ( @t1 @t2 -- 0|-errno )          ( suspend caller for @t1, report remaining time in @t2 if interrupted )
   RDI 0 [RSP] XCHG  RSI PUSH  RAX RSI MOV  35 # CALLINUX  RSI POP  RDI POP ;
-code: SYS-GETTIMER, ( @tv tp -- 0|-errno )            ( Timer value of type tp → @tv )
+code: SYS-GETITIMER, ( @tv tp -- 0|-errno )           ( Timer value of type tp → @tv )
   RSI 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV  36 # CALLINUX  RDI POP  RSI POP ;
 code: SYS-ALARM, ( u1 -- u2|-errno )                  ( set alarm to u1 secs / cancel alarm if u1=0, return previous alarm u2 )
   RDI PUSH  RAX RDI MOV  37 # CALLINUX  RDI POP ;
-code: SYS-SETTIMER, ( @tv1 @tv2 tp -- 0|-errno )      ( Arms or disarms timer of type tp using @tv1, report previous in @tv2 )
+code: SYS-SETITIMER, ( @tv1 @tv2 tp -- 0|-errno )     ( Arms or disarms timer of type tp using @tv1, report previous in @tv2 )
   RSI CELL [RSP] XCHG  RDX POP  RDI PUSH  RAX RDI MOV  38 # CALLINUX  PDI POP  RSI POP ;
 code: SYS-GETPID ( -- pid )                           ( Caller's process ID, cannot fail )
   SAVE,  39 # CALLINUX ;

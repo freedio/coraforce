@@ -14,7 +14,7 @@ enumset: OpenMode
   symbol ForWrite                                       ( File [to be] opened for writing: O_WRONLY )
   symbol Append                                         ( append mode: O_APPEND )
   symbol Asynch                                         ( asynchronous [signal based] access: O_ASYNC )
-  symbol Close-On-Execute                               ( close file on execute: O_CLOEXEC )
+  symbol CloseOnExecute                                 ( close file on execute: O_CLOEXEC )
   symbol Create                                         ( create file if it doesn't exist: O_CREAT )
   symbol Direct                                         ( prevent system caching: O_DIRECT )
   symbol Directory                                      ( file must be a directory: O_DIRECTORY )

@@ -378,6 +378,7 @@ alias −−o!  alias −−v!  alias −−2!                    ( aliases with
 : bit− ( x # -- x' )  BCLR, ;  inline  alias bit-     ( clear bit # in x )
 : bit× ( x # -- x' )  BCHG, ;  inline  alias bit*     ( flip bit # in x )
 : bit? ( x # -- ? )  BTST, ;  inline                  ( test if bit # in x is set )
+: ?bit? ( x # -- x ? )  BTSTX, ;  inline              ( test if bit # in x is set )
 : bit?+ ( x # -- x' ? )  BTSET, ;  inline             ( non-atomically test and set bit # in x )
 : bit?− ( x # -- x' ? )  BTCLR, ;  inline  alias bit?-    ( non-atomically test and clear bit # in x )
 : bit?× ( x # -- x' ? )  BTCHG, ;  inline  alias bit?*    ( non-atomically test and flip bit # in x )
@@ -389,8 +390,7 @@ alias −−o!  alias −−v!  alias −−2!                    ( aliases with
 --- Memory Bit Operations ---
 
 ( Memory bit operations can have quite a big bit index, allowing for potentially huge bit arrays.  The bit index is divided
-  through 8 and the result added to the address, then moduloed with 8 to get the bit index in the addressed byte.
-)
+  through 8 and the result added to the address, then moduloed with 8 to get the bit index in the addressed byte. )
 
 : bit+! ( a # -- )  BSETAT, ;  inline                 ( set bit # at address a )
 : bit−! ( a # -- )  BCLRAT, ;  inline  alias bit-!    ( clear bit # at address a )

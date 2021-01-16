@@ -39,6 +39,12 @@ vocabulary: System  package force/intel/64/linux
 : SigMask−! ( SignalSet -- )                          ( remove SignalSet from signal mask of the current process )
   SignalSet >bits  0  my Number 1 ( SIG_UNBLOCK ) SYS-SIGPROCMASK, SystemResult0 ;  fallible
 : yield ( -- )  SYS-YIELD, ;                          ( ask current thread to yield in favor of other processes )
-
+: pause ( -- )  SYS-PAUSE, ;                          ( wait for a signal )
+: alarm ( u -- )                                      ( set alarm to u seconds )
+  SYS-ALARM, SystemResult1 drop ;  fallible
+: setAlarm ( u -- )                                   ( set alarm to u seconds )
+  SYS-ALARM, SystemResult1 drop ;  fallible
+: cancelAlarm ( -- u )                                ( cancel alarm previously set, report number of seconds until SIGALRM )
+  0 SYS-ALARM, SystemResult1 ;  fallible
 
 vocabulary;
