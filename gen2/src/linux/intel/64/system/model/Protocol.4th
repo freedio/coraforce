@@ -61,8 +61,8 @@ enum: Protocol
   === Methods ===
 
 public:
-  : Address@ ( [Protocol] -- SocketAddress )  case   ( LocalAddress of socket with Handle fd )
-      unspecified of:  "Can't get socket address of unspecified protocol!"| ERROR handle  of;
+  : Address@ ( Protocol -- SocketAddress )  case      ( SocketAddress of this type )
+      unspecified of:  "Can't get socket address of unspecified protocol!" ERROR handle  of;
       Unix of:  UnixSocketAddress alloc  of;
       Internet4 of:  Internet4Address alloc  of;
       AX25 of:  AX25Address alloc  of;
@@ -107,9 +107,10 @@ public:
       QIPCRouter of:  QIPCRouterSocketAddress alloc  of;
       SMC of:  SMCSocketAddress alloc  of;
       XDP of:  XDFSocketAddress alloc  of;
-      "Invalid protocol number: %d!"| ERROR handle  case;
-    dup Size rot SYS-GETSOCKNAME, SystemResult0  KO if  drop  then ;
-
-
+      "Invalid protocol number: %d!"| ERROR handle  case; ;
+  : SocketName ( fd Protocol -- SocketAddress )       ( Local address of fd of this type )
+    Address@ trip >x Size rot SYS-GETSOCKNAME, SystemResult0  OK if  x@  then  xdrop ;
+  : PeerName ( fd Protocol -- SocketAddress )         ( Remote address of fd of this type )
+    Address@ trip >x Size rot SYS-GETPEERNAME, SystemResult0  OK if  x@  then  xdrop ;
 
 enum;
