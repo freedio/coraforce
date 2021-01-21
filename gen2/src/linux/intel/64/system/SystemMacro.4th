@@ -185,14 +185,14 @@ code: SYS-GETPEERNAME, ( a # fd -- 0|-errno )         ( return socket descriptor
 code: SYS-SOCKETPAIR, ( dom tp prot @s -- 0|-errno )  ( create unnamed socket of type tp in domain dom using protocol prot¹ *)
   ( ¹ prot is optional, socket fds are reported in @s[0] and @s[1] )
   RDI 2 CELLS [RSP] XCHG  RSI CELL [RSP] XCHG  RDX POP  R10 PUSH  RAX R10 MOV  53 # CALLINUX  R10 POP  RSI POP  RDI POP ;
-code: SYS-SETSOCKOPT, ( a # nm lv fd -- x|0|-errno )  ( Set socket fd option named nm on level lv from a#¹ *)
+code: SYS-SETSOCKOPT, ( a # lv nm fd -- x|0|-errno )  ( Set socket fd option named nm on level lv from a#¹ )
   ( ¹ return netfilter specific handler value x or 0 if none )
-  R10 3 CELLS [RSP] XCHG  R08 2 CELLS [RSP] XCHG  RDX CELL [RSP} XCHG  RSI 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV  54 # CALLINUX
-  RDI POP  RSI POP  RDX POP  R08 POP  R10 POP ;
-code:  SYS-GETSOCKOPT, ( a # nm lv fd -- x|0|-errno ) ( Set socket fd option named nm on level lv from a#¹ *)
+  R10 3 CELLS [RSP] XCHG  R08 2 CELLS [RSP] XCHG  RSI CELL [RSP] XCHG  RDX POP  RDI PUSH  RAX RDI MOV  54 # CALLINUX
+  RDI POP  RSI POP  R08 POP  R10 POP ;
+code:  SYS-GETSOCKOPT, ( a # lv nm fd -- x|0|-errno ) ( Set socket fd option named nm on level lv from a#¹ )
   ( ¹ return netfilter specific handler value x or 0 if none )
-  R10 3 CELLS [RSP] XCHG  R08 2 CELLS [RSP] XCHG  RDX CELL [RSP} XCHG  RSI 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV  55 # CALLINUX
-  RDI POP  RSI POP  RDX POP  R08 POP  R10 POP ;
+  R10 3 CELLS [RSP] XCHG  R08 2 CELLS [RSP] XCHG  RSI CELL [RSP] XCHG  RDX POP  RDI PUSH  RAX RDI MOV  55 # CALLINUX
+  RDI POP  RSI POP  R08 POP  R10 POP ;
 code: SYS-CLONE, ( a @pt @ct fl -- tid|-errno )       ( create process clone sharing parent context according to flags fl¹ )
   ( ¹ child stack is set at a, its thread id reported in @pt for parent, @ct for child unless NIL, reports child tid )
   RSI 2 CELLS [RSP] XCHG  RDX CELL [RSP] XCHG  R10 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV  56 # CALLINUX
@@ -212,9 +212,9 @@ code: SYS-SEMGET, ( key sems# fl -- id|-errno )       ( Semaphore set id associa
 code: SYS-SEMOP, ( @semops #semops id -- 0|-errno )   ( atomically perform #semops semaphore ops in @semops on semaphore id )
   RSI CELL [RSP] XCHG  RDX POP  RDI PUSH  RAX RDI MOV  65 # CALLINUX  RDI POP  RSI POP ;
 code: SYS-SEMCTL3, ( id #sem cmd -- r|0|-errno )      ( perform 3-arg semaphore op cmd on semaphore #sem of set id¹ )
-  RDI CELL [RSP] XCHG  RSI 0 [RSP] XCHG  RX RDX MOV  66 # CALLINUX  RSI POP  RDI POP ;
+  RDI CELL [RSP] XCHG  RSI 0 [RSP] XCHG  RAX RDX MOV  66 # CALLINUX  RSI POP  RDI POP ;
 code: SYS-SEMCTL4, ( x id #sem cmd -- r|0|-errno )    ( perform 4-arg semaphore op cmd with arg x on semaphore #sem of set id¹ )
-  R10 2 CELLS [RSP] XCHG  RDI CELL [RSP] XCHG  RSI 0 [RSP] XCHG  RX RDX MOV  66 # CALLINUX  RSI POP  RDI POP  R10 POP ;
+  R10 2 CELLS [RSP] XCHG  RDI CELL [RSP] XCHG  RSI 0 [RSP] XCHG  RAX RDX MOV  66 # CALLINUX  RSI POP  RDI POP  R10 POP ;
 code: SYS-SHMDT, ( a -- 0|-errno )                    ( detach share memory area a from caller )
   RDI PUSH  RAX RDI MOV  67 # CALLINUX  RDI POP ;
 code: SYS-MSGGET, ( k fl -- id|-errno )               ( Msg queue identifier id for key k according to flags fl )

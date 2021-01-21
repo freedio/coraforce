@@ -24,28 +24,22 @@ public:
 protected:
   construct: copy ( Socket -- )  !Socket              ( initialize from the specified socket )
     dup AddressFamily@ my AddressFamily!  dup Protocol@ my Protocol!  dup Type@ my Type!  dup Mode@ my Mode!  Handle@ my Handle! ;
-  construct: copyraw ( Socket -- )  !Socket              ( initialize from the specified socket )
+  construct: copyraw ( Socket -- )  !Socket           ( initialize from the specified socket )
     dup AddressFamily@ my AddressFamily!  dup Protocol@ my Protocol!  dup Type@ my Type!  dup Mode@ my Mode! ;
+  : BooleanOption! ( ? lvl SocketOption -- x )        ( set boolean SocketOption on lvl to ?; may return x, mostly 0 )
+    rot cell allot tuck ! dup >x 4 2swap >bits my Handle@ SYS-SETSOCKOPT, SystemResult1  x> free ;  fallible
+  : IntOption! ( n lvl SocketOption -- x )            ( set int SocketOption on lvl to n; may return x, mostly 0 )
+    rot cell allot tuck ! dup >x 4 2swap >bits my Handle@ SYS-SETSOCKOPT, SystemResult1  x> free ;  fallible
+  : StructOption! ( a # lvl SocketOption -- x )       ( set structure SocketOption on lvl to a#; may return x, mostly 0 )
+    >bits my Handle@ SYS-SETSOCKOPT, SystemResult1 ;  fallible
+  : BooleanOption@ ( lvl SocketOption -- ? )          ( get boolean SocketOption ? on lvl )
+    >bits cell allot dup >x 4 2swap my Handle@ SYS-GETSOCKOPT, SystemResult0  x> dup i@ swap free ;  fallible
+  : IntOption@ ( lvl SocketOption -- n )              ( get int SocketOption n on lvl )
+    >bits cell allot dup >x 4 2swap my Handle@ SYS-GETSOCKOPT, SystemResult0  x> dup i@ swap free ;  fallible
+  : StructOption@ ( a # lvl SocketOption -- x )       ( get structure SocketOption on lvl in preallocated buffer a# )
+    2over 2swap my Handle@ SYS-GETSOCKOPT, SystemResult1 ;
 
 public:
-  : bind ( SocketAddress -- BoundSocket )             ( bind the socket to the specified address; returns a bound socket )
-    trip Size my Handle@ SYS-BIND, SystemResult0  OK if  my BoundSocket new  else  drop  then ;  fallible unheritable
-
-
-  : connect ( SocketAddress -- )                      ( connect the socket )
-    dup SocketAddress size  my Handle@ SYS-CONNECT SystemResult0  OK if  SocketStatus Connected Status +!  then ;  fallible
-  : accept ( SocketAddress -- Socket )                ( accept a connection )
-    dup SocketAddress size  my Handle@ SYS-ACCEPT SystemResult1  OK if  my newPeer  then ;  fallible
-  : send ( a # SocketIOMode -- #' )                   ( like write, but controlled by an I/O-mode )
-    0 0 rot my Handle@ SYS-SENDTO, SystemResult1 ;  fallible
-  : sendTo ( a # SocketIOMode Socket -- #' )          ( send data block a# to specified socket; reports #' bytes actually sent )
-    dup SocketAddress size rot my Handle@ SYS-SENDTO, SystemResult1 ;  fallible
-  : receive ( # SocketIOMode -- ★a #' )               ( like read, but controlled by an I/O-mode )
-    >x dup allocate dup rot 0 dup x> my Handle@ SYS-RECVFROM, SystemResult1  KO if  free  then ;  fallible
-  : receiveFrom ( # SocketIOMode Socket -- ★a #' )    ( receive # bytes from the specified socket; reports #' bytes written  )
-    rot dup allocate dup rot ( iom soc a a # ) 4 roll dup SocketAddressD3f3nd3r8s
-     size ;  fallible
-
 static:
   : new ( AddressFamily Protocol SocketType SocketMode -- )  FreeSocket new SEP ( somebody else's problem, handle exception somewhere else ) ;
 
