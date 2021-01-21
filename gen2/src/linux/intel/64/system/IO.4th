@@ -18,13 +18,17 @@ class: IO
   === Methods ===
 
 public:
-  : read ( # -- ★a #' )                               ( read # bytes from fd into new buffer ★a, report #' actually read )
+  : read ( # -- ★a #' )                               ( read # bytes from fd into new buffer ★a; reports #' actually read )
     dup allocate dup rot my Handle@ SYS-READ, SystemResult1  KO if  free  then ;
-  : readFrom ( a # -- #' )                            ( read # bytes from fd into buffer a, report actually read in #' )
+  : readFrom ( a # -- #' )                            ( read # bytes from fd into buffer a; reports actually read in #' )
     my Handle@ SYS-READ, SystemResult1 ;  fallible
-  : writeTo ( a # -- #' )                             ( write # bytes from buffer a to fd, report actually written in #' )
+  : writeTo ( a # -- #' )                             ( write # bytes from buffer a to fd; reports actually written in #' )
     my Handle@ SYS-WRITE, SystemResult1 ;  fallible  alias write
   : close ( -- )  my Handle SYS-CLOSE, SystemResult0 ;  fallible    ( close the handle )
+  : sendTo ( IO # -- #' )                             ( send # bytes from this IO to the specified IO; reports actually xferred #' )
+    my Handle@ rot Handle@ 0 rot SYS-SENDFILE, SystemResult1 ;  fallible
+  : receiveFrom ( IO # -- #' )                        ( send # bytes from the specified IO to this IO; reports actually xferred #' )
+    swap Handle@ my Handle@ 0 rot SYS-SENDFILE, SystemResult1 ;  fallible
   : control ( Any cmd -- x|0 )                        ( perform I/O-control operation cmd with in/out argument Any¹ )
     my Handler@ SYS-IOCTL, SystemError1 ;  fallible     ( ¹ may return result result x, but often Any is modified to return result )
   : readVectorFrom ( @v #v -- # )                     ( read vector @v#v, report actual bytes read in # )

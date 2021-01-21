@@ -165,10 +165,10 @@ code: SYS-RECVFROM, ( a # @s #s fl fd -- u|-errno )   ( read a#  from socket fd 
   ( ¹ @s#s used only for connection-less sockets, otherwise must be NIL and 0, returns #bytes read u )
   RSI 4 CELLS [RSP] XCHG  RDX 3 CELLS [RSP] XCHG  R08 2 CELLS [RSP] XCHG  R09 CELL [RSP] XCHG  R10 0 [RSP] XCHG  RDI PUSH
   RAX RDI MOV  45 # CALLINUX  RDI POP  R10 POP  R09 POP  R08 POP  RDX POP  RSI POP ;
-code: SYS-SENDMSG, ( @msg fl fd -- u|-errno )         ( send message @msg to socket fd according to flags fl¹ )
+code: SYS-SENDMSG, ( @msg fl fd -- u|-errno )         ( send message @msg to socket fd according to flags fl¹ *)
   ( ¹ return #bytes sent u )
   RSI CELL [RSP] XCHG  RDX POP  RDI PUSH  RAX RDI MOV  46 # CALLINUX  RDI POP  RSI POP ;
-code: SYS-RECVMSG, ( @msg fl fd -- u|-errno )         ( read message @msg from socket fd according to flags fl¹ )
+code: SYS-RECVMSG, ( @msg fl fd -- u|-errno )         ( read message @msg from socket fd according to flags fl¹ *)
   ( ¹ return #bytes read u )
   RSI CELL [RSP] XCHG  RDX POP  RDI PUSH  RAX RDI MOV  47 # CALLINUX  RDI POP  RSI POP ;
 code: SYS-SHUTDOWN, ( tp fd -- 0|-errno )             ( shutdown part of full-duplex connection on socket fd according to fd¹ )
@@ -176,21 +176,20 @@ code: SYS-SHUTDOWN, ( tp fd -- 0|-errno )             ( shutdown part of full-du
   RSI 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV  48 # CALLINUX  RDI POP  RSI POP ;
 code: SYS-BIND, ( a # fd -- 0|-errno )                ( bind socket fd to socket descriptor a# )
   RSI CELL [RSP] XCHG  RDX POP  RDI PUSH  RAX RDI MOV  49 # CALLINUX  RDI POP  RSI POP ;
-code: SYS-LISTEN, ( fd u -- 0|-errno )                ( mark socket fd as passive, listening for incoming requests¹ )
-  ( ¹ u = maximum backlog )
+code: SYS-LISTEN, ( fd u -- 0|-errno )                ( mark socket fd passive, listening for incoming requests; u = max backlog )
   RDI 0 [RSP] XCHG  RSI PUSH  RAX RSI MOV  50 # CALLINUX  RSI POP  RDI POP ;
 code: SYS-GETSOCKNAME, ( a # fd -- 0|-errno )         ( return socket fd descriptor in a# )
   RSI CELL [RSP] XCHG  RDX POP  RDI PUSH  RAX RDI MOV  51 # CALLINUX  RDI POP  RSI POP ;
 code: SYS-GETPEERNAME, ( a # fd -- 0|-errno )         ( return socket descriptor for peer of socket fd in a# )
   RSI CELL [RSP] XCHG  RDX POP  RDI PUSH  RAX RDI MOV  52 # CALLINUX  RDI POP  RSI POP ;
-code: SYS-SOCKETPAIR, ( dom tp prot @s -- 0|-errno )  ( create unnamed socket of type tp in domain dom using protocol prot¹ )
+code: SYS-SOCKETPAIR, ( dom tp prot @s -- 0|-errno )  ( create unnamed socket of type tp in domain dom using protocol prot¹ *)
   ( ¹ prot is optional, socket fds are reported in @s[0] and @s[1] )
   RDI 2 CELLS [RSP] XCHG  RSI CELL [RSP] XCHG  RDX POP  R10 PUSH  RAX R10 MOV  53 # CALLINUX  R10 POP  RSI POP  RDI POP ;
-code: SYS-SETSOCKOPT, ( a # nm lv fd -- x|0|-errno )  ( Set socket fd option named nm on level lv from a#¹ )
+code: SYS-SETSOCKOPT, ( a # nm lv fd -- x|0|-errno )  ( Set socket fd option named nm on level lv from a#¹ *)
   ( ¹ return netfilter specific handler value x or 0 if none )
   R10 3 CELLS [RSP] XCHG  R08 2 CELLS [RSP] XCHG  RDX CELL [RSP} XCHG  RSI 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV  54 # CALLINUX
   RDI POP  RSI POP  RDX POP  R08 POP  R10 POP ;
-code:  SYS-GETSOCKOPT, ( a # nm lv fd -- x|0|-errno ) ( Set socket fd option named nm on level lv from a#¹ )
+code:  SYS-GETSOCKOPT, ( a # nm lv fd -- x|0|-errno ) ( Set socket fd option named nm on level lv from a#¹ *)
   ( ¹ return netfilter specific handler value x or 0 if none )
   R10 3 CELLS [RSP] XCHG  R08 2 CELLS [RSP] XCHG  RDX CELL [RSP} XCHG  RSI 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV  55 # CALLINUX
   RDI POP  RSI POP  RDX POP  R08 POP  R10 POP ;
@@ -201,10 +200,10 @@ code: SYS-CLONE, ( a @pt @ct fl -- tid|-errno )       ( create process clone sha
 code: SYS-FORK, ( -- pid|-errno )  SAVE,  57 # CALLINUX ;    ( fork process, report childs pid )
 code: SYS-VFORK, ( -- pid|-errno )  SAVE,  58 # CALLINUX ;   ( fork process halting parent until child calls execve or exit )
 code: SYS-EXECVE, ( fn⁰ @args @env -- -errno )        ( execute program fn⁰, passing cmdline args @args and environment @env¹ )
-  ( ¹ does not return if OK, only returns with errors )
+  ( ¹ does not return if OK, only returns with errors; @args and @env are both null-terminated vectors )
   RDI CELL [RSP] XCHG  RSI 0 [RSP] XCHG  RX RDX MOV  59 # CALLINUX  RSI POP  RDI POP ;
-code: SYS-KILL, ( pid sig -- 0|-errno )               ( send signal sig to process pid )
-  RDI 0 [RSP] XCHG  RSI PUSH  RAX RSI MOV  62 # CALLINUX  RSI POP  RDI POP ;
+code: SYS-KILL, ( sig pid -- 0|-errno )               ( send signal sig to process pid )
+  RSI 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV  62 # CALLINUX  RDI POP  RSI POP ;
 code: SYS-UNAME, ( a -- 0|-errno )                    ( return system information in structure at a )
   RDI PUSH  RAX RDI MOV  63 # CALLINUX  RDI POP ;
 code: SYS-SEMGET, ( key sems# fl -- id|-errno )       ( Semaphore set id associated with key according to flags fl¹ )

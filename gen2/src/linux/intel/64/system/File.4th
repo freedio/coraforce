@@ -29,11 +29,9 @@ public:
   : Access ( FileAccessRights -- ? )                  ( check if access of type FileAccessRights is granted on file )
     my Name@ swap SYS-ACCESS, ?Result0 ;              ( note that there is no detail about an error, if there was one )
   : !access ( FileAccessRights -- )                   ( make sure access of type FileAccessRights is granted on file )
-    my Name@ swap SYS-ACCESS, Result0 ;  fallible
-  : sendTo ( IO # -- #' )                             ( send # bytes from this IO to the specified IO, reports actually xferred #' )
-    my Handle@ rot Handle@ 0 rot SYS-SENDFILE, SystemResult1 ;  fallible
-  : sendFrom ( IO # -- #' )                           ( send # bytes from the specified IO to this IO, reports actually xferred #' )
-    swap Handle@ my Handle@ 0 rot SYS-SENDFILE, SystemResult1 ;  fallible
+    my Name@ swap SYS-ACCESS, SystemResult0 ;  fallible
+  : execute ( @args @env -- )                         ( exec the file as a program, passing @args and @env; does not return if OK )
+    my Name@ -rot SYS-EXECVE, SystemResult0
 
 construct: new ( n$ -- File )  ZString ?new my Name! ; ( initialize File with name n$ )
 

@@ -46,5 +46,7 @@ vocabulary: System  package force/intel/64/linux
   SYS-ALARM, SystemResult1 drop ;  fallible
 : cancelAlarm ( -- u )                                ( cancel alarm previously set, report number of seconds until SIGALRM )
   0 SYS-ALARM, SystemResult1 ;  fallible
+: Name ( -- KernelInfo )                              ( return system kernel information )
+  KernelInfo new dup SYS-UNAME, SystemResult0  KO if  drop  then ;  fallible
 
 vocabulary;
