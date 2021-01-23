@@ -27,9 +27,10 @@ private:
 public:
   : protect ( MemProtection -- )                      ( protect memory area with MemProtection )
     MemProtection >bits my Address@ my Length@ rot SYS-MPROTECT, SystemResult0 ;  fallible
-  : ResidentPages ( -- BitSet )                       ( Bit set of pages resident in core )
+  : ResidentPages@ ( -- BitSet -- )                   ( Bit set of pages resident in core )
     mkbytearray over my Address@ my Length@ rot SYS-MINCORE, SystemResult0  OK if  >bits  dup  then  2drop ;  fallible
-
+  : Advice! ( MemoryAdvice -- )                       ( advise kernel to use this memory area as specified in MemoryAdvice )
+    my Address@ my Length@ rot SYS-MADVISE, SystemResult0 ;  fallible
 
 construct: new ( a # -- MemoryArea )                  ( initialize MemoryArea with address a and length # )
     my Length!  dup PAGE# and if  "Address %a not aligned to page boundary!" format ERROR raise then  my Address! ;  fallible

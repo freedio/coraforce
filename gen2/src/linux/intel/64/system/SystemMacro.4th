@@ -119,7 +119,7 @@ code: SYS-YIELD, ( -- )  SAVE,  24 # CALLINUX  RESTORE, ;    ( Causes current th
 code: SYS-MREMAP, ( a0 a1 #0 #1 fl -- a1'|-errno )    ( expand or shrink memory a0#0 to [a1]#1, return final address a1' )
   RDI 3 CELLS [RSP] XCHG  R08 2 CELLS [RSP] XCHG  RSI CELL [RSP] XCHG  RDX POP  R10 PUSH  RAX R10 MOV  25 # CALLINUX
   R10 POP  RSI POP  R08 POP  RDI POP ;
-code: SYS-MSYNC ( a # fl -- 0|-errno )                ( sync mmapped area a# with underlying file according to flags fl )
+code: SYS-MSYNC, ( a # fl -- 0|-errno )                ( sync mmapped area a# with underlying file according to flags fl )
   RDI CELL [RSP] XCHG  RSI 0 [RSP] XCHG  RAX RDX MOV  26 # CALLINUX  RSI POP  RDI POP ;
 code: SYS-MINCORE, ( a # @v -- 0|-errno )             ( check if memory between a and a+#is resident in memory, report to @vec )
   RDI CELL [RSP] XCHG  RSI 0 [RSP] XCHG  RAX RDX MOV  27 # CALLINUX  RSI POP  RDI POP ;

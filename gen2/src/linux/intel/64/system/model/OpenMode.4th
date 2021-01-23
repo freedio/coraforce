@@ -1,6 +1,6 @@
 ( Copyright © 2020 by Coradec GmbH.  All rights reserved )
 
-****** The Linux OpenMode model for FORCE-linux 4.19.0-5-amd64 ******
+****** The Linux Open Mode model for FORCE-linux 4.19.0-5-amd64 ******
 
 enumset: OpenMode
   package linux/intel/64/system/model
