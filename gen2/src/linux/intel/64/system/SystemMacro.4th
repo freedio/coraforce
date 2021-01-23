@@ -119,7 +119,7 @@ code: SYS-YIELD, ( -- )  SAVE,  24 # CALLINUX  RESTORE, ;    ( Causes current th
 code: SYS-MREMAP, ( a0 a1 #0 #1 fl -- a1'|-errno )    ( expand or shrink memory a0#0 to [a1]#1, return final address a1' )
   RDI 3 CELLS [RSP] XCHG  R08 2 CELLS [RSP] XCHG  RSI CELL [RSP] XCHG  RDX POP  R10 PUSH  RAX R10 MOV  25 # CALLINUX
   R10 POP  RSI POP  R08 POP  RDI POP ;
-code: SYS-MSYNC, ( a # fl -- 0|-errno )                ( sync mmapped area a# with underlying file according to flags fl )
+code: SYS-MSYNC, ( a # fl -- 0|-errno )               ( sync mmapped area a# with underlying file according to flags fl )
   RDI CELL [RSP] XCHG  RSI 0 [RSP] XCHG  RAX RDX MOV  26 # CALLINUX  RSI POP  RDI POP ;
 code: SYS-MINCORE, ( a # @v -- 0|-errno )             ( check if memory between a and a+#is resident in memory, report to @vec )
   RDI CELL [RSP] XCHG  RSI 0 [RSP] XCHG  RAX RDX MOV  27 # CALLINUX  RSI POP  RDI POP ;
@@ -128,7 +128,7 @@ code: SYS-MADVISE, ( a # fl -- 0|-errno )             ( give advice fl for usage
 code: SYS-SHMGET, ( key # fl -- id|-errno )           ( Identifier id of shared memory segment with key ...¹ )
   ( under conditions of flags fl, a new shared memory area of size # is created )
   RDI CELL [RSP] XCHG  RSI 0 [RSP] XCHG  RAX RDX MOV  29 # CALLINUX  RSI POP  RDI POP ;
-code: SYS-SHMAT, ( a1 id fl -- a1|-errno )         ( attach shm seg id to caller at a1 according to fl, return addr of att seg )
+code: SYS-SHMAT, ( a1 id fl -- a1|-errno )            ( attach shm seg id to caller at a1 according to fl, return addr of att seg )
   RSI CELL [RSP] XCHG  RDI 0 [RSP] XCHG  RAX RDX MOV  30 # CALLINUX  RDI POP  RSI POP ;
 code: SYS-SHMCTL, ( @buf id cmd -- x|-errno )         ( perform shm ctl op cmd to segment with id by ctl struct @buf, result x )
   RDX CELL [RSP] XCHG  RDI 0 [RSP] XCHG  RSI PUSH  RAX RSI MOV  31 # CALLINUX  RSI POP  RDI POP  RDX POP ;

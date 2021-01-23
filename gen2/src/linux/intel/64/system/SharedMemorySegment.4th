@@ -23,8 +23,14 @@ class: SharedMemorySegment
 private:
   : _init ( key # Protection fl -- )  swap >bits + SharedMemoryMode new my Mode!  my Length!  my Key!
     my Key@ my Length@ my Mode@ SYS-SHMGET, SystemResult1  OK if  my ID!  then ;  fallible
+protected:
+  construct: copy ( SharedMemorySegment -- )
 public:
-  : 
+  : attach ( SharedMemoryAttachMode -- AttachedMemorySegment -- ) ( attach the segment to any free address with the specified mode )
+    SharedMemoryAttachMode >bits 0 my ID@ rot SYS-SHMAT,  OK if  me AttachedMemorySegment new  then ;  fallible
+  : attachAt ( a SharedMemoryAttachMode -- AttachedMemorySegment -- ) ( attach the segment to address a¹ with the specified mode )
+    ( ¹ either a MUST be page-aligned, or RoundDown must be set in SharedMemoryAttachMode )
+    SharedMemoryAttachMode >bits my ID@ swap SYS-SHMAT,  OK if  me AttachedMemorySegment new  then ;  fallible
   construct: new ( # Protection -- )                  ( create brand-new exclusive shm seg of size # with specified Protection )
     0 -rot  SharedMemoryModeCreate SharedMemoryModeExclusive +  me _init SEP ;  fallible
   construct: find ( key # Protection -- )             ( find existing shm seg with given key, size and protection, or create one )

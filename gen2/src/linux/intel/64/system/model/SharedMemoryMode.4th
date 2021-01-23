@@ -12,7 +12,7 @@ enumset: SharedMemoryMode extends Protection
 
   symbol Create               ( create a new segment: IPC_CREAT )
   symbol Exclusive            ( fail if key already exists: IPC_EXCL )
-  symbol NoWait               ( fail if the service has to wait )
+  symbol NoWait               ( fail if the service has to wait: IPC_NOWAIT )
 
 
 
