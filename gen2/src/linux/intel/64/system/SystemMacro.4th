@@ -132,7 +132,7 @@ code: SYS-SHMAT, ( a1 id fl -- a1|-errno )            ( attach shm seg id to cal
   RSI CELL [RSP] XCHG  RDI 0 [RSP] XCHG  RAX RDX MOV  30 # CALLINUX  RDI POP  RSI POP ;
 code: SYS-SHMCTL, ( @buf id cmd -- x|-errno )         ( perform shm ctl op cmd to segment with id by ctl struct @buf, result x )
   RDX CELL [RSP] XCHG  RDI 0 [RSP] XCHG  RSI PUSH  RAX RSI MOV  31 # CALLINUX  RSI POP  RDI POP  RDX POP ;
-code: SYS-DUPFD ( fd -- fd'|-errno )                  ( duplicate file descriptor fd, report duplicate fd' )
+code: SYS-DUPFD, ( fd -- fd'|-errno )                  ( duplicate file descriptor fd, report duplicate fd' )
   RDI PUSH  RAX RDI MOV  32 # CALLINUX  RDI POP ;
 code: SYS-DUP2, ( fd1 fd2 -- 0|-errno )               ( duplicate file descriptor fd1 into fd2 )
   RDI 0 [RSP] XCHG  RSI PUSH  RAX RSI MOV  33 # CALLINUX  RSI POP  RDI POP ;

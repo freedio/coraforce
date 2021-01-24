@@ -39,6 +39,6 @@ public:
 
 construct: new ( a # ? -- MemoryArea )                ( initialize new MappedMemoryArea with address a, length # and mapped ? )
     I’m Mapped@!  ^ _init ; cascaded ( ← includes call to super constructor )
-destroy: ( -- )  unmap ;  fallible                    ( destroy the mapped memory area )
+destruct: ( -- )  unmap ;  fallible                   ( destroy the mapped memory area )
 
 class;

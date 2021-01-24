@@ -20,6 +20,6 @@ class: BitSet
 
 construct: new ( u -- )                                   ( initialize this BitSet for u contiguous bits, all bits clear )
   dup my Size!  7 + 3 u>> dup my Length! allocate  my Address!  my Address@ my Length@ 0 cfill ;
-destroy:  my Address@ free ;
+destruct:  my Address@ free ;
 
 class;
