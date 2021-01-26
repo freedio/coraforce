@@ -10,15 +10,15 @@ class: BitSet
 
   === Fields ===
 
-  cell val Address                                    ( Address of the buffer )
-  cell val Length                                     ( Buffer length, in bytes )
-  cell val Size                                       ( Buffer size, in bits )
+  cell val Address           ( Address of the buffer )
+  cell val Length            ( Buffer length, in bytes )
+  cell val #Bits             ( Buffer size, in bits )
 
 
 
   === Methods ===
 
-construct: new ( u -- )                                   ( initialize this BitSet for u contiguous bits, all bits clear )
+construct: new ( u -- )                               ( initialize this BitSet for u contiguous bits, all bits clear )
   dup my Size!  7 + 3 u>> dup my Length! allocate  my Address!  my Address@ my Length@ 0 cfill ;
 destruct:  my Address@ free ;
 

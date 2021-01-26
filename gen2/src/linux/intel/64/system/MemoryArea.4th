@@ -23,7 +23,7 @@ static:
 
 private:
   : mkbytearray ( -- a # )  my Length@ PAGE# u→| PAGE# u/ dup allocate ;
-  : >bits ( a # -- BitSet a' )  dup BitSet new -rot 0 udo  c@++ if  swap BitSet+! swap  then  loop ;
+  : >bits ( a # -- BitSet a' )  dup newBitSet -rot 0 udo  c@++ if  swap BitSet+! swap  then  loop ;
 public:
   : protect ( MemProtection -- )                      ( protect memory area with MemProtection )
     MemProtection >bits my Address@ my Length@ rot SYS-MPROTECT, SystemResult0 ;  fallible

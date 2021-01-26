@@ -41,6 +41,6 @@ protected:
 
 public:
 static:
-  : new ( AddressFamily Protocol SocketType SocketMode -- )  FreeSocket new SEP ( somebody else's problem, handle exception somewhere else ) ;
+  : new ( AddressFamily Protocol SocketType SocketMode -- )  newFreeSocket SEP ( somebody else's problem, handle exception somewhere else ) ;
 
 class;

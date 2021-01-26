@@ -18,7 +18,7 @@ class: Poll
 
   === Methods ===
 
-  : >pollement ( -- Pollement )  my Observable my Interests Pollement new ;
+  : >pollement ( -- Pollement )  my Observable my Interests newPollement ;
 
 
 

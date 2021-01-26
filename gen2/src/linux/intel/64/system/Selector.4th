@@ -25,7 +25,7 @@ class: Selector
 
 private:
   : >bits ( IO_List -- BitSet )                       ( transform IO List into a bit set )
-    1024 BitSet new >x  List iterate begin  next? while  next bit x@ setBitSet  repeat  x> ;
+    1024 newBitSet >x  List iterate begin  next? while  next bit x@ setBitSet  repeat  x> ;
   : bits+! ( IO_List BitSet -- )                       ( adds IOs designated by BitSet to IO List )
     BitSet iterate begin  next? while  next IO get over List+!  repeat  2drop ;
   : maxSelector ( IO_List -- u )                      ( number of highest selector in IO List )

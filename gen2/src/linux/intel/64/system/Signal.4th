@@ -19,7 +19,7 @@ class: Signal
   === Methods ===
 
   : Action@ ( -- SignalHandler )                      ( return the handler for this signal )
-    0  SigHandler new dup >x  my Number cell SYS-SIGACTION, SystemResult0  OK if  x@  then  xdrop ;  fallible
+    0  newSigHandler dup >x  my Number cell SYS-SIGACTION, SystemResult0  OK if  x@  then  xdrop ;  fallible
   : Action! ( SignalHandler -- )                      ( set the handler for this signal )
     SignalHandler>sighandler 0 my Number cell SYS-SIGACTION, SystemResult0 ;  fallible
 

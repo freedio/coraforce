@@ -580,13 +580,19 @@ cell+ constant sWORD#
 --- Word Flags ---
 
 %0000000000000011 constant %EXECTYPE                  ( Execution type: 0 = inline, 1 = direct, 2 = indirect, 3 = token )
-%0000000000000100 constant %WITH-PFA                  ( Word has a parameter field address )
-%0000000000001000 constant %RELOCS                    ( Code field contains relocations )
-%0000000000010000 constant %MAIN                      ( Module entry point )
-%0000000000100000 constant %PRIVATE                   ( Private )
-%0000000001000000 constant %PACKAGE                   ( Package private )
-%0000000010000000 constant %PROTECTED                 ( Protected )
-%0000000100000000 constant %PUBLIC                    ( Public )
+%0000000000001100 constant %VISIBILITY                ( Visibility: 0 = private, 1 = protected, 2 = package, 3 = public )
+%0000000000000000 constant %PRIVATE                   ( Visibility: private )
+%0000000000000100 constant %PROTECTED                 ( Visibility: protected )
+%0000000000001000 constant %PACKAGE                   ( Visibility: package private )
+%0000000000001100 constant %PUBLIC                    ( Visibility: public )
+%0000000000110000 constant %CODETYPE                  ( Code type: 0 = method, 1 = data, 2 = constructor, 3 = destructor )
+%0000000000000000 constant %METHOD                    ( Code type: method )
+%0000000000010000 constant %DATA                      ( Code type: data producer )
+%0000000000100000 constant %CONSTRUCTOR               ( Code type: constructor )
+%0000000000110000 constant %DESTRUCTOR                ( Code type: destructor )
+%0000000001000000 constant %WITH-PFA                  ( Word has a parameter field address )
+%0000000010000000 constant %RELOCS                    ( Code field contains relocations )
+%0000000100000000 constant %MAIN                      ( Module entry point )
 %0000001000000000 constant %STATIC                    ( Static )
 %0000010000000000 constant %INDIRECT                  ( There is an absolute jump address instead of the code field )
 %0000100000000000 constant %CONDITION                 ( Word is a condition usable in conditional clauses )
@@ -689,7 +695,7 @@ variable LAST_COMP                                    ( Last word compiled into 
     STRUCTURED-VOC of  §TEXT  endof
     unknown-vocabulary-model  endcase
   →tseg#↑  cell talign,  t&,  tseg#↓  %WITH-PFA currentWord@ dor! ;
-: PFA, ( -- )  §DATA &seg→|  #PFA, ;                   ( add a parameter field address with the current DATA offset )
+: PFA, ( -- )  §DATA &seg→|  #PFA, ;                  ( add a parameter field address with the current DATA offset )
 
 ( create alias: )
 : createIndirectAlias ( a$ @word -- )                 ( create alias for indirect word )
@@ -739,7 +745,7 @@ variable LAST_COMP                                    ( Last word compiled into 
     unknown-vocabulary-model  endcase ;
 : findWord ( $ -- @voc @word t | $ f )                ( find word $ in search order, returning its voc and word address )
   SearchOrder -heap cell/ 0 do
-    \ cr ." Looking up word in " dup cell- @ "vocabulary".
+    cr ." Looking up word in " dup cell- @ "vocabulary".
     cell− dup @ 2 pick over  findLocalWord if  2swap 2drop true unloop exit  then  2drop  loop
   drop false ;
 
@@ -835,7 +841,7 @@ variable @COMP-WORDS                                  ( Compiler wordlist / voca
   >ccf dup 2 - w@ ENTER# #+> EXIT# − TRIM @ #+> ;
 : _r, ( ΔC @rel -- )  tuck @ swap  &+  t, RELOC.TARGET + @ t, ;    ( append relocation @rel, source-shifted by ΔC )
 : inline-reloc, ( @word a -- )  §RELS →tseg#↑         ( Duplicate relocations of @word, biased to base a )
-  over >ccf ENTER# + − ( ΔC )  swap code-range over + §CODE segaddr@ tuck − -rot − swap ( ccfa ccfe )  §RELS segment RelocEntry# / 0 ?do
+  over >ccf ENTER# + −  swap code-range over + §CODE segaddr@ tuck − -rot − swap  §RELS segment RelocEntry# / 0 ?do
     dup RELOC.SOURCE + @ >>offset 2over within if  3 pick over _r,  then  RelocEntry# + loop  4 #drop
   tseg#↓ ;
 ( TODO ?inline-join is machine-specific, so should be moved into machine-code vocabulary )
@@ -854,8 +860,8 @@ variable @COMP-WORDS                                  ( Compiler wordlist / voca
   0 of  drop c" lit0"  endof
   1 of  dup 0< if  c" lit1"  else  c" ulit1"  then  endof
   2 of  dup 0< if  c" lit2"  else  c" ulit2"  then  endof
-  3 of  dup 0< if  c" lit4"  else  c" ulit4"  then  endof
-  4 of  dup 0< if  c" lit8"  else  c" ulit8"  then  endof
+  4 of  dup 0< if  c" lit4"  else  c" ulit4"  then  endof
+  8 of  dup 0< if  c" lit8"  else  c" ulit8"  then  endof
   cr ." Invalid literal size: " . terminate  endcase  then
   compExec ;
 : float-indirect, ( -- F: r -- )  indirect-threading-not-supported ;
@@ -1295,6 +1301,34 @@ variable @codeAddr                                    ( Start address of current
     unknown-vocabulary-model  endcase
   tseg#↓ ;
 
+--- Code for Classes ---
+
+create METHODNAME  256 allot
+variable OFFS
+variable constDepth
+also Forcembler
+: lvl>0  depth dup constDepth ! ADP+ ;
+: lvl>1  depth 1- dup constDepth ! ADP+ ;
+: lvl>2  depth 2- dup constDepth ! ADP+ ;
+: lvl>   constDepth @ ADP- ;
+: lvl++  -1 dup constDepth +! ADP+ ;
+previous
+
+: createDynamicVal ( # &tp|0 val$ -- )                ( creates value val$ of size # and type &tp )
+  %PRIVATE nextFlags or! dup >x  createWord  dup #PFA,  ( create basic val )  cr ." > base val"
+  §CODE →tseg#↑  lvl>0  enterMethod  tvoc@ c" Size" para@ dup >x @ dup OFFS ! « #PLUS, »  over abs x> +!  exitMethod  -1 wordComplete !  tseg#↓  lvl>
+  METHODNAME x> $>$ '@' c+>$  createWord  #PFA,         ( create getter )  cr ." > getter"
+  §CODE →tseg#↑  lvl>0  enterMethod  OFFS @ swap lvl++ « ##FETCH, »  exitMethod  -1 wordComplete !  tseg#↓  lvl> ;
+: createDynamicVar ( # tp|0 var$ -- )                 ( creates variable var$ of size # and type tp )
+  %PRIVATE nextFlags or! dup >x  createWord  dup #PFA,  ( create basic var )  cr ." > base var"
+  §CODE →tseg#↑  lvl>0  enterMethod  tvoc@ c" Size" para@ dup >x @ dup OFFS ! « #PLUS, »  over abs x> +!  exitMethod  -1 wordComplete !  tseg#↓  lvl>
+  METHODNAME x@ $>$ '@' c+>$  createWord  dup #PFA,     ( create getter )  cr ." > getter"
+  §CODE →tseg#↑  lvl>0  enterMethod  OFFS @ 2 pick « ##FETCH, »  exitMethod  -1 wordComplete !  tseg#↓  lvl>
+  METHODNAME x> $>$ '!' c+>$  createWord  #PFA,         ( create setter )  cr ." > setter"
+  §CODE →tseg#↑  lvl>0  enterMethod  OFFS @ swap lvl++ « ##STORE, »  exitMethod  -1 wordComplete !  tseg#↓  lvl> ;
+: createStaticVal ***TODO*** ;
+: createStaticVar ***TODO*** ;
+
 --- Main ---
 
 : compile ( $ -- )  cr ." Compiling " dup qtype$
@@ -1358,8 +1392,32 @@ variable VOC-WORDS
 vocabulary VocabularyWords
 also VocabularyWords definitions  context @ VOC-WORDS !
 
-: vocabulary; ( -- )                                  ( end vocabulary definition )
+: vocabulary; ( -- )                                  ( end vocabulary definition: ship vocabulary )
   VOC-WORDS @ unvoc  shipVocabulary  target↓ ;
+
+previous definitions
+
+
+
+=== Class Words ===
+
+variable CLASS-WORDS
+
+vocabulary ClassWords
+also ClassWords definitions  context @ CLASS-WORDS !
+
+: class; ( -- )                                       ( end class definition: ship class )
+  CLASS-WORDS @ unvoc  shipVocabulary  target↓ ;
+: val ( &type >name -- )                              ( create an unmodifiable field member )
+  dup 2 cells ≤ if  ( it's a size )  &null  else  ( it's a type )  cell swap  then  readName
+  nextFlags @ %STATIC and if  createStaticVal  else  createDynamicVal  then ;
+: var ( &type >name -- )                              ( create a modifiable field member )
+  dup 2 cells ≤ if  ( it's a size )  &null  else  ( it's a type )  cell swap  then  readName
+  nextFlags @ %STATIC and if  createStaticVar  else  createDynamicVar  then ;
+: construct: ( >name -- )                             ( create a constructor )
+  readName  %CONSTRUCTOR nextFlags or!  cr ." constructor " dup type$  createWord  doCompile  enterMethod ;
+: destruct: ( -- )                                    ( create a destructor )
+  %DESTRUCTOR nextFlags or!  cr ." destructor "  c" destroy"  createWord  doCompile  enterMethod ;
 
 previous definitions
 
@@ -1416,13 +1474,6 @@ previous definitions
 vocabulary Interpreter
 also Interpreter definitions  context @ @INTERPRETER !
 
-variable constDepth
-also Forcembler
-: lvl>0  depth dup constDepth ! ADP+ ;
-: lvl>1  depth 1- dup constDepth ! ADP+ ;
-: lvl>   constDepth @ ADP- ;
-previous
-
 : vocabulary ( >name -- )                             ( create a vocabulary with name from input stream )
   readName  cr ." vocabulary " dup qtype$  createVocabulary ;
 : package ( >name -- )                                ( adds a package specification to the vocabulary )
@@ -1448,7 +1499,7 @@ previous
 : import ( >path -- )  readName  loadModule ;         ( import the file with the specified path )
 : uses ( >path -- )  readName  loadModule ;           ( uses the module with the specified path for compilation only )
 : requires ( >name -- )  readName                     ( import the specified file and make it a dependency of the current voc )
-  c" depend " $+>IN loadModule ;
+  c" depend " $+>IN loadModule  lastVoc @ addSearchVoc ;
 : s" ( >string" -- a # )  '"' readString count ;      ( read a dquote-delimited string from the input stream )
 : quit ( -- )  closeAll  quit ;                       ( quit the REPL )
 : ****** ( >... ****** )  c" ******" comment-bracket ;    ( skip a 6*-comment )
@@ -1459,6 +1510,8 @@ previous
   word.  else  cr ." Word «" type$ ." » not found!"  then ;
 : vocabulary: ( >name -- )                            ( create vocabulary and set up for definitions )
   vocabulary  lastVoc @ addSearchVoc  definitions  als0 VocabularyWords ;
+: class: ( >name -- )                                 ( create class and set up for its body )
+  vocabulary  lastVoc @ addSearchVoc  definitions  als0 ClassWords  §PARA →tseg#↑  c" Size" t$, 0 t, tseg#↓ ;
 : code: ( >name -- )                                  ( create machine code word )
   readName  cr ." code: " dup type$  createWord  enterMethod  -1 FORC !  §CODE →tseg#↑ ;
 : alias ( >name -- )                                  ( create an alias for the last word with the given name )

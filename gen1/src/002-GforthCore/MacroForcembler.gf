@@ -81,17 +81,43 @@ also Forcembler
 
 === Clauses ===
 
-: #STORE, ( x -- )  dup n.size  case
-  4 of  # RDX MOV  RDX 0 [RAX] MOV  endof
+: #PICK, ( ... # -- x )  0 [RSP] [RAX] *8 RAX MOV ;
+: #DROP, ( # -- )  1- dup 0> if  dup cells # RSP ADD  then  RAX POP ;
+: #FETCH, ( # -- )  case
+  1 of  BYTE PTR 0 [RAX] RAX MOVZX  endof
+  2 of  WORD PTR 0 [RAX] RAX MOVZX  endof
+  4 of  0 [RAX] EAX MOV  endof
+  8 of  0 [RAX] RAX MOV  endof
+  -1 of  BYTE PTR 0 [RAX] RAX MOVSX  endof
+  -2 of  WORD PTR 0 [RAX] RAX MOVSX  endof
+  -4 of  0 [RAX] EAX MOV  CDQE  endof
+  -8 of  0 [RAX] RAX MOV  endof
+  cr ." Invalid operand size (expected 2ⁿ|n in ±1,±2,±4,±8): " . abort  endcase ;
+: ##FETCH, ( offs # -- )  case
+  1 of  BYTE PTR [RAX] RAX MOVZX  endof
+  2 of  WORD PTR [RAX] RAX MOVZX  endof
+  4 of  [RAX] EAX MOV  endof
+  8 of  [RAX] RAX MOV  endof
+  -1 of  BYTE PTR [RAX] RAX MOVSX  endof
+  -2 of  WORD PTR [RAX] RAX MOVSX  endof
+  -4 of  [RAX] EAX MOV  CDQE  endof
+  -8 of  [RAX] RAX MOV  endof
+  cr ." Invalid operand size (expected 2ⁿ|n in ±1,±2,±4,±8): " . abort  endcase ;
+: #STORE, ( # -- )  dup n.size  case
+  8 of  # RDX MOV  RDX 0 [RAX] MOV  endof
   swap  1 ADP+ # QWORD PTR 0 [RAX] MOV  1 ADP-  RESTORE, endcase ;
-
+: ##STORE, ( offs # -- )  abs case
+  1 of  1 ADP+  RDX POP  1 ADP-  DL swap [RAX] MOV  RESTORE,  endof
+  2 of  1 ADP+  RDX POP  1 ADP-  DX swap [RAX] MOV  RESTORE,  endof
+  4 of  1 ADP+  RDX POP  1 ADP-  EDX swap [RAX] MOV  RESTORE,  endof
+  8 of   [RAX] POP  RESTORE,  endof
+  cr ." Invalid operand size (expected 2ⁿ|n in ±1,±2,±4,±8): " . abort  endcase ;
 : #PLUS, ( x -- )  case
   0 of  endof
   # RAX ADD  0 endcase ;
 : #MINUS, ( x -- )  case
   0 of  exit  endof
   # RAX SUB  0 endcase ;
-
 : #UTIMES, ( n -- )  case
   0 of  ZAP,  endof
   1 of  exit  endof
@@ -112,7 +138,6 @@ also Forcembler
   32768 of  15 # RAX SHL  endof
   65536 of  16 # RAX SHL  endof
   # RDX MOV  RDX MUL  0 endcase ;
-
 : #TIMES, ( n -- )  case
   0 of  ZAP,  endof
   1 of  exit  endof
@@ -133,7 +158,6 @@ also Forcembler
   32768 of  15 # RAX SHL  endof
   65536 of  16 # RAX SHL  endof
   # RDX MOV  RDX IMUL  0 endcase ;
-
 : #ROUNDUP, ( n -- )  case
   0 of  exit  endof
   1 of  exit  endof
@@ -154,7 +178,6 @@ also Forcembler
   32768 of  32767 # RAX ADD  -32768 # RAX AND  endof
   65536 of  65535 # RAX ADD  -65536 # RAX AND  endof
   # RCX MOV  RCX DEC  RCX RAX ADD  CDQE  RCX INC  RCX IDIV  RCX IMUL  0 endcase ;
-
 : #ADV, ( u -- )  case
   0 of  exit  endof
   dup # QWORD PTR 0 [RSP] ADD  # RAX SUB  0 endcase ;

@@ -19,10 +19,10 @@ class: IntervalTimer
 
 public:
   : lap ( -- TimeInterval )                           ( Current timer value )
-    TimeInterval newEmpty dup my Type@ SYS-GETITIMER, SystemResult0  KO if  drop  then ;  fallible
+    newEmptyTimeInterval dup my Type@ SYS-GETITIMER, SystemResult0  KO if  drop  then ;  fallible
   : start ( TimeInterval -- )                         ( start the timer with the specified interval )
     0 my Type@ SYS-SETITIMER, SystemResult0 ;  fallible
   : restart ( TimeInterval:t1 -- TimeInterval:t2 )    ( restart timer with t1, reports lap of previous interval )
-    TimeInterval newEmpty tuck my Type@ SYS-SETITIMER, SystemResult0  KO if  drop  then ;  fallible
+    newEmptyTimeInterval tuck my Type@ SYS-SETITIMER, SystemResult0  KO if  drop  then ;  fallible
 
 class;

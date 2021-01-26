@@ -31,7 +31,7 @@ vocabulary: System  package force/intel/64/linux
 : poll ( Polls n|-1 -- # )  swap Polls >a#            ( wait for up to n ms for events in a list of polls¹ )
   swap SYS-POLL, Result1 ;  fallible                  ( ¹ n=0: return instantly; n<0: wait forever )
 : SigMask@ ( -- SignalSet )                           ( return current signal mask of the current process )
-  0  SignalSet new dup >x SignalSet >bits  0 SYS-SIGPROCMASK, SystemResult0  x> reallyKO if  free  then ;  fallible
+  0  newSignalSet dup >x SignalSet >bits  0 SYS-SIGPROCMASK, SystemResult0  x> reallyKO if  free  then ;  fallible
 : SigMask! ( SignalSet -- )                           ( set SignalSet as the signal mask of the current process )
   SignalSet >bits  0  my Number 2 ( SIG_SETMASK ) SYS-SIGPROCMASK, SystemResult0 ;  fallible
 : SigMask+! ( SignalSet -- )                          ( add SignalSet to signal mask of the current process )
@@ -42,11 +42,13 @@ vocabulary: System  package force/intel/64/linux
 : pause ( -- )  SYS-PAUSE, ;                          ( wait for a signal )
 : alarm ( u -- )                                      ( set alarm to u seconds )
   SYS-ALARM, SystemResult1 drop ;  fallible
+: nanosleep ( NanoTime -- )                           ( puts caller to sleep for the specified time; signal may awake it earlier )
+
 : setAlarm ( u -- )                                   ( set alarm to u seconds )
   SYS-ALARM, SystemResult1 drop ;  fallible
 : cancelAlarm ( -- u )                                ( cancel alarm previously set, report number of seconds until SIGALRM )
   0 SYS-ALARM, SystemResult1 ;  fallible
 : Name ( -- KernelInfo )                              ( return system kernel information )
-  KernelInfo new dup SYS-UNAME, SystemResult0  KO if  drop  then ;  fallible
+  newKernelInfo dup SYS-UNAME, SystemResult0  KO if  drop  then ;  fallible
 
 vocabulary;

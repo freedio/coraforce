@@ -3465,7 +3465,7 @@ private variable RSP0
 	test;
 
 ( Stores # least significant bytes of x at address a. )
-: #! ( x a # -- )  #STORE, ;
+: #! ( x a # -- )  STORE#, ;
 
 	test: #!: checks if byte is stored at address a when #=1.
 	given sp0!  -1

@@ -113,7 +113,7 @@
 : n.size ( n -- # )  dup if
   dup -128 128 within if  drop 1  else
   dup -32768 32768 within if  drop 2  else
-  dup -2147483648 2147483648 within if  drop 3  else  drop 4  then then then then ;
+  dup -2147483648 2147483648 within if  drop 4  else  drop 8  then then then then ;
 : u.size ( u -- # )  dup if
   dup 0 256 within if  drop 1  else
   dup 0 65536 within if  drop 2  else

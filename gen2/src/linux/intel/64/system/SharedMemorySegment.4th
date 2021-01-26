@@ -21,16 +21,16 @@ class: SharedMemorySegment
   === Methods ===
 
 private:
-  : _init ( key # Protection fl -- )  swap >bits + SharedMemoryMode new my Mode!  my Length!  my Key!
+  : _init ( key # Protection fl -- )  swap >bits + newSharedMemoryMode my Mode!  my Length!  my Key!
     my Key@ my Length@ my Mode@ SYS-SHMGET, SystemResult1  OK if  my ID!  then ;  fallible
 protected:
   construct: copy ( SharedMemorySegment -- )
 public:
   : attach ( SharedMemoryAttachMode -- AttachedMemorySegment -- ) ( attach the segment to any free address with the specified mode )
-    SharedMemoryAttachMode >bits 0 my ID@ rot SYS-SHMAT, SystemResult1  OK if  me AttachedMemorySegment new  then ;  fallible
+    SharedMemoryAttachMode >bits 0 my ID@ rot SYS-SHMAT, SystemResult1  OK if  me newAttachedMemorySegment  then ;  fallible
   : attachAt ( a SharedMemoryAttachMode -- AttachedMemorySegment -- ) ( attach the segment to address a¹ with the specified mode )
     ( ¹ either a MUST be page-aligned, or RoundDown must be set in SharedMemoryAttachMode )
-    SharedMemoryAttachMode >bits my ID@ swap SYS-SHMAT, SystemResult1  OK if  me AttachedMemorySegment new  then ;  fallible
+    SharedMemoryAttachMode >bits my ID@ swap SYS-SHMAT, SystemResult1  OK if  me newAttachedMemorySegment  then ;  fallible
   : Status@ ( -- ★SharedMemoryDescriptor -- )         ( Status of the segment as a SharedMemoryDescriptor )
     SharedMemoryDescriptor alloc my ID@ SharedMemoryCommand:Stat SYS-SHMCTL, SystemResult0  KO if  destroy  then ;  fallible
   : Status! ( SharedMemoryDescriptor -- )             ( Update status of the segment from the specified SharedMemoryDescriptor )

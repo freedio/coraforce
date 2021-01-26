@@ -20,10 +20,10 @@ class: Process
 public:
   construct: new ( pid -- )  my ID! ;
   : fork ( -- Process|0 )                             ( create a new process; returns the child Process, or 0 to the child )
-    my ID@ SYS-FORK, SystemResult1  OK if  dup if  Process new  then  then ;  fallible
+    my ID@ SYS-FORK, SystemResult1  OK if  dup if  newProcess  then  then ;  fallible
   : vfork ( -- Process|0 )                            ( create a new process in the parent's address space and pause the parent¹ )
     ( ¹ use only when you know exactly what you do )
-    my ID@ SYS-VFORK, SystemResult1  OK if  dup if  Process new  then  then ;  fallible
+    my ID@ SYS-VFORK, SystemResult1  OK if  dup if  newProcess  then  then ;  fallible
   : kill ( Signal -- )                                ( send Signal to the process )
     Signal >bits my ID@ SYS-KILL, SystemResult0 ;  fallible
   construct: current ( -- )  SYS-GETPID, my ID! ;     ( initialize with current process ID )

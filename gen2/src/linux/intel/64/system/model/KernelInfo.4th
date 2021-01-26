@@ -22,7 +22,7 @@ class: KernelInfo
   === Methods ===
 
 public:
-  construct: new ( -- )  ZString65 new my SysName!  ZString65 new my NodeName!  ZString65 new my Release!
-    ZString65 new my Version!  ZString65 new my Machine!  ZString65 new my DomainName! ;
+  construct: new ( -- )  newZString65 my SysName!  newZString65 my NodeName!  newZString65 my Release!
+    newZString65 my Version!  newZString65 my Machine!  newZString65 my DomainName! ;
 
 class;

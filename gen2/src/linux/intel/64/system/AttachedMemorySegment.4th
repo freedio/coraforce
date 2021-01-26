@@ -18,6 +18,7 @@ class: AttachedMemorySegment  extends SharedMemorySegment
   === Methods ===
 
 public:
+: detach ( -- )  my Address@ SYS-SHMDT, SystemResult0 ;  fallible  ( detaches the segment )
   construct: new ( a SharedMemorySegment -- )  ^ copy  my Address! ;  cascaded
 
 class;

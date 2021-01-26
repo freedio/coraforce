@@ -36,7 +36,7 @@ public:
   : writeVectorTo ( @v #v -- # )                      ( write vector @v#v, report actual bytes written in # )
     my Handle@ SYS-READV, SystemResult1 ;  fallible
   : duplicate ( -- IO )                               ( duplicate the IO )
-    my Handle@ SYS-DUP, SystemResult1  OK if  newIO  then ;
+    my Handle@ SYS-DUPFD, SystemResult1  OK if  newIO  then ;  fallible
   : dupInto ( IO -- )                                 ( duplicate the IO into the specified IO )
     my Handle@ swap Handle@ SYS-DUP2,  SystemResult0 ;
   construct: new ( u4 -- )  my Handle! ;

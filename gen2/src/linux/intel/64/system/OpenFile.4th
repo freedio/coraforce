@@ -36,7 +36,7 @@ public:
   : map ( # u t m p -- MemoryArea )                   ( Maps # bytes from offset u into memory area MemoryArea¹ )
     ( ¹ MemMapType t defines the type, MemMapMode the mode, and MemProtection p the memory protection )
     MemProtection >bits -rot type+mode>bits rot ( # pr fl u )  0 5 -roll ( 0 # pr fl u )  3 pick >x  SYS-MMAP, SystemResult1
-    OK if  x@ -1 MappedMemoryArea new  then  xdrop ;
+    OK if  x@ -1 newMappedMemoryArea  then  xdrop ;
   : readAbsFrom ( a # u -- #' )                       ( read # bytes from abs pos u to buffer a, report actually read → #' )
     my Handle SYS-PREAD, SystemResult1 ;  fallible
   : writeAbsTo ( a # u -- #' )                        ( write # bytes to abs pos u from buffer a, report actually written → #' )

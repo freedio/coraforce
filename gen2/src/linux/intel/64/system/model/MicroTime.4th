@@ -17,7 +17,7 @@ structure: MicroTime
 
   === Methods ===
 
-construct: new ( n -- )  my Seconds!  0 my Micros! ;  ( initialize MicroTime with just seconds )
-construct: new+ ( n1 n2 -- )  my Micros!  my Seconds! ;  ( initialize MicroTime with seconds and μs )
+construct: new ( n -- )  my Seconds!  0 my Micros! ;  ( initialize MicroTime with just n seconds )
+construct: new+ ( n1 n2 -- )  my Micros!  my Seconds! ;  ( initialize MicroTime with n1 seconds and n2 μs )
 
 structure;
