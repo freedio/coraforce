@@ -153,7 +153,7 @@ alias b! ( b a -- )                                   ( store signed byte b at a
 alias s! ( s a -- )                                   ( store signed word s at address a )
 : d! ( d a -- )  DSTORE, ;  inline                    ( store unsigned double-word d at address a )
 alias i! ( i a -- )                                   ( store signed double-word at address a )
-: q! ( q a -- )  QSTORE, ;  inline                    ( store unsigned quad-word q at address a )
+: q! ( q a -- )  QSTORE, ;  inline                    ( store unsigned quad-word q at address a )     alias !
 alias l! ( l a -- )                                   ( store signed quad-word q at address  a )
 : o! ( o a -- )  OSTORE, ;  inline                    ( store unsigned oct-word o at address a )
 alias h! ( h a -- )                                   ( store signed oct-word at address a )
@@ -424,11 +424,11 @@ alias −−o!  alias −−v!  alias −−2!                    ( aliases with
 
 ( The result of block scans is the index *after* the occurrence, or 0 if no occurrence was found. )
 
-: cfind ( a # c -- u )  CFIND, ;                      ( lookup first occurrence of byte c in block at a with length # )
-: wfind ( a # w -- u )  WFIND, ;                      ( lookup first occurrence of word w in block at a with length # )
-: dfind ( a # d -- u )  DFIND, ;                      ( lookup first occurrence of double word d in block at a with length # )
-: qfind ( a # q -- u )  QFIND, ;                      ( lookup first occurrence of quad word q in block at a with length # )
-: ofind ( a # o -- u )  OFIND, ;                      ( lookup first occurrence of oct word o in block at a with length # )
+: cfind> ( a # c -- u )  CFIND, ;                     ( lookup first occurrence of byte c in block at a with length # )
+: wfind> ( a # w -- u )  WFIND, ;                     ( lookup first occurrence of word w in block at a with length # )
+: dfind> ( a # d -- u )  DFIND, ;                     ( lookup first occurrence of double word d in block at a with length # )
+: qfind> ( a # q -- u )  QFIND, ;                     ( lookup first occurrence of quad word q in block at a with length # )
+: ofind> ( a # o -- u )  OFIND, ;                     ( lookup first occurrence of oct word o in block at a with length # )
 
 --- Block Move ---
 

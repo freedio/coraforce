@@ -137,7 +137,7 @@ newHeap Vocabularies
 defer printVocabularyName
 : addVTE ( @voc -- )  Vocabularies h, ;               ( append vocabulary @voc to the vocabulary table )
 : VTE[] ( u -- @vte )                                 ( Address @vte of uth vocabulary table entry )
-  Vocabularies !hactive over cells  over hused@ u> if  cr ." VTE index out of range: " swap . ." ≥ " hused@ cell/ . terminate  then
+  Vocabularies !hactive over cells  over hused@ u> if  cr ." VTE index out of range: " swap . ." ≥ " hused@ cell/ . abort  then
   haddr@ swap cells + ;
 : vocabularies. ( -- )  cr ." List of vocabularies:"  ( Lists the vocabulary table )
   Vocabularies heap cell/ 0 ?do  dup @ cr ." • " printVocabularyName  cell+  loop  drop ;
@@ -288,7 +288,7 @@ variable VOCAMODEL
 : "vocabulary". ( @voc -- )  vocabulary$ qtype$ ;     ( prints the vopcabulary name in double quotes )
 :noname vocabulary. ; is printVocabularyName
 : findVocabulary ( $ -- @voc | $ 0 )                  ( Vocabulary @voc with name $, or 0 if not found )
-  Vocabularies heap cell/ 0 ?do  dup @ vocabulary$ 2 pick $$= if  nip @ unloop exit  then  cell+ loop  drop 0 ;
+  Vocabularies heap cell/ 0 ?do  dup @ vocabulary$ 2 pick $$= if  nip @ unloop exit  then  cell+ loop  zap ;
 : vocabulary# ( @voc -- voc# )                        ( Index voc# of vocabulary @voc )
   Vocabularies heap cell/ 0 ?do  2dup @ = if  2drop i unloop exit  then  cell+ loop  drop
   cr ." Vocabulary «" vocabulary. ." » not found!" terminate ;
@@ -382,6 +382,8 @@ defer reloc,
 : &segoffs ( u seg# -- & )  tvoc@ rev >& ;            ( create locator for offset u in segment seg# of target vocabulary )
 : &tseg ( -- & )  tvoc@ tseg#@ 0 >& ;                 ( create locator to start of current target segment )
 : &tseg→| ( -- & )  tseg#@ &seg→| ;                   ( create locator to end of current target segment )
+: &. ( & -- )  dup >>@voc vocabulary. '.' emit  dup >>segment segment. '#' emit >>offset addr. ;  ( print locator & )
+: &&! ( &s &t -- )  &>a swap &>a ! ;                  ( relocate s to t, full-cell source )
 : t&, ( & -- )  &tseg→| over &>a t,  reloc, ;         ( punch & into current target segment and create relocation entry )
 : s&, ( & seg# -- )  →tseg#↑  t&,  tseg#↓ ;           ( punch & into target segment seg# and create relocation entry )
 : t& ( a seg# -- & )  tuck  segaddr@ - swap &seg+ ;   ( create locator for address a in target segment seg# )
@@ -414,6 +416,9 @@ variable relocs
 : codereloc, ( &t &s -- )  %CODE-LOCATION >extra reloc, ;
 : relocs. ( -- )  §RELS >seg heap RelocEntry# u/ 0 udo    ( Prints the relocation table )
   cr dup RELOC.SOURCE + @ relocSource.  space ." -> "  dup RELOC.TARGET + @ relocTarget.  RelocEntry# +  loop  drop ;
+: reloc ( @rel -- )  dup RELOC.SOURCE + @  swap RELOC.TARGET + @ &&! ;
+: relocate ( @voc -- )  dup §RELS vocseg 0 udo        ( relocate vocabulary @voc )
+  dup reloc  RelocEntry# tuck +  swap +loop  2drop ;
 
 
 
@@ -515,8 +520,10 @@ variable file
           dup lastVoc @ i >segment hset over 16 ->| file @ read-file throw swap 16 ->| - ifever
             ."  failed (EOF)!" terminate  then  then
         cell+ loop  drop  then  then
-  file @ close-file throw  lastVoc @ addSearchVoc ;
-: ?loadSource ( $1 $2 -- ? )  cr .sh                        ( try loading module $1 from root $2 and report if successful )
+  ." : loaded"
+  lastVoc @ relocate  ." , relocated"
+  file @ close-file throw  lastVoc @ addSearchVoc  ." , added to searchlist." ;
+: ?loadSource ( $1 $2 -- ? )  cr                            ( try loading module $1 from root $2 and report if successful )
   ModulePath over 1+ c@ '~' = if  s" HOME" getenv a#>$  swap count +> a#+>$  else  swap $>$  then
   '/' ?c+>$  s" src/" a#+>$  swap $+>$  s" .4th" a#+>$  cr ." Reading source file "  dup qtype$
   dup count r/o open-file ifever  ."  failed (to open)."  zap exit  then  close-file throw  sourceModule true ;
@@ -524,12 +531,15 @@ variable file
 --- Module Methods ---
 
 create MODULE-NAME  256 allot
-: loadModule ( $ -- )  MODULE-NAME swap $>$ drop      ( load the module with name $ )
+create MODULE-PATH  256 allot
+: loadModule ( $ -- )  MODULE-PATH swap $>$           ( load the module with name $ )
+  cr ." Searching for vocabulary " dup qtype$ count '/' cxafterlast dup MODULE-NAME c!++ swap cmove  space '(' emit MODULE-NAME type$ ')' emit
+  MODULE-NAME findVocabulary ?dup if  cr ." Vocabulary " vocabulary. ."  already loaded."  exit  then
   lastVoc @ targetVoc @
-  MODULE-NAME c" ~/.force" ?loadModule unless
-  MODULE-NAME c" ~/.force" ?loadSource unless
-  MODULE-NAME c" /usr/force" ?loadModule unless
-  MODULE-NAME c" /usr/force" ?loadSource unless
+  MODULE-PATH c" ~/.force" ?loadModule unless
+  MODULE-PATH c" ~/.force" ?loadSource unless
+  MODULE-PATH c" /usr/force" ?loadModule unless
+  MODULE-PATH c" /usr/force" ?loadSource unless
   ( try URLs of extended package tree )
   cr ." Module " qtype$ ."  not found in package tree!" abort
   then  then  then  then
@@ -585,11 +595,11 @@ cell+ constant sWORD#
 %0000000000000100 constant %PROTECTED                 ( Visibility: protected )
 %0000000000001000 constant %PACKAGE                   ( Visibility: package private )
 %0000000000001100 constant %PUBLIC                    ( Visibility: public )
-%0000000000110000 constant %CODETYPE                  ( Code type: 0 = method, 1 = data, 2 = constructor, 3 = destructor )
+%0000000000110000 constant %CODETYPE                  ( Code type: 0 = method, 1 = destructor, 2 = constructor, 3 = cascaded cstr. )
 %0000000000000000 constant %METHOD                    ( Code type: method )
-%0000000000010000 constant %DATA                      ( Code type: data producer )
+%0000000000010000 constant %DESTRUCTOR                ( Code type: destructor )
 %0000000000100000 constant %CONSTRUCTOR               ( Code type: constructor )
-%0000000000110000 constant %DESTRUCTOR                ( Code type: destructor )
+%0000000000110000 constant %CASCADED                  ( Code type: cascaded constructor )
 %0000000001000000 constant %WITH-PFA                  ( Word has a parameter field address )
 %0000000010000000 constant %RELOCS                    ( Code field contains relocations )
 %0000000100000000 constant %MAIN                      ( Module entry point )
@@ -704,7 +714,7 @@ variable LAST_COMP                                    ( Last word compiled into 
   swap  createCompactWord                               ( create word )
   dup &cpfa #PFA,                                       ( copy PFA, if present )
   dup >ccf §CODE t&  §CODE →tseg#↑  cell talign,  t&,   ( copy CFA )
-  cell talign,  4 + r> r− !uword tw,     ( punch word length )
+  cell talign,  4 + r> r− !uword tw,                    ( punch word length )
   tseg#↓ ;
 : createCompactAlias ( a$ -- )                        ( create alias for last word )
   currentWord@ flags %INDIRECT and if  createIndirectAlias  exit  then    ( handle indirect target separately )
@@ -712,8 +722,8 @@ variable LAST_COMP                                    ( Last word compiled into 
   §CODE seg→| >r                                        ( save current length of code segment )
   swap  createCompactWord                               ( create word )
   dup &cpfa #PFA,                                       ( copy PFA, if present )
-  §CODE →tseg#↑  dup &ccfa  cell talign,  t&,    ( insert indirection to original CFA )
-  cell talign,  4 + r> r− !uword tw,    ( punch word length )
+  §CODE →tseg#↑  dup &ccfa  cell talign,  t&,           ( insert indirection to original CFA )
+  cell talign,  8 + r> r− !uword tw,                    ( punch word length )
   tseg#↓ ;
 : createStructuredAlias ( a$ -- )                     ( create alias for last word )
   currentWord@ flags nextFlags !                        ( copy flags )
@@ -784,7 +794,7 @@ variable LAST_COMP                                    ( Last word compiled into 
   dup %LINK and if  ."  • link"  then
   drop ;
 : printCompactAlias ( @word -- )                      ( print information about compact alias )
-  cr ." Compact alias"
+  cr ." Compact alias @" dup hex.
   flags dup printFlags                            ( print flags )
   swap 2+ cr ." Name: "  dup qtype$               ( print name )
   count + swap %WITH-PFA and if                   ( print PFA )
@@ -793,7 +803,7 @@ variable LAST_COMP                                    ( Last word compiled into 
   cell+ 2 ->| cr ." Word Length: " w@ . ;         ( print word length )
 : printCompactWord ( @word -- )                       ( print information about compact word )
   flags %INDIRECT and if  printCompactAlias exit  then
-  cr ." Compact word"
+  cr ." Compact word @" dup hex.
   flags dup printFlags                            ( print flags )
   swap 2+ cr ." Name: "  dup qtype$               ( print name )
   count + swap %WITH-PFA and if                   ( print PFA )
@@ -801,7 +811,7 @@ variable LAST_COMP                                    ( Last word compiled into 
   2 ->| cr ." Code: " dup 2+ over w@ bare-hexline ( print code )
   dup 2+ swap w@ + 2 ->| cr ." Word Length: " w@ . ;    ( print word length )
 : printStructuredWord ( @ word -- )                   ( print information about structured word )
-  cr ." Structured word"
+  cr ." Structured word @" dup hex.
   flags dup printFlags                            ( print flags )
   over sNFA + dup @  cr ." Name: " qtype$         ( print name )
   %WITH-PFA and if                                ( print PFA )
@@ -848,10 +858,10 @@ variable @COMP-WORDS                                  ( Compiler wordlist / voca
 : ?inline-join ( @word -- @word )  LASTCONTRIB @ ?dup if  flags nip %LINK and if
   flags %JOIN and if  there 1- c@ $58 ( RAX POP ) = if  dup >ccf ENTER# + c@ $50 ( RAX PUSH ) = if
     1 dup TRIM !  §CODE >seg hused−!  then  then  then  then  then ;
-: ?>joiner ( @word -- @word )  #INLINED @ unless  flags %JOIN and if  %JOIN @lastWord @ flags+!  then  then ;
-: ?>linker ( @word -- @word )  #INLINED @ unless  flags %LINK and if  %LINK @lastWord @ flags+!  then  then ;
+: ?>joiner ( @word -- @word )  #INLINED @ unless  flags %JOIN and if  %JOIN currentWord@ flags+!  then  then ;
+: ?>linker ( @word -- @word )  #INLINED @ unless  flags %LINK and if  %LINK currentWord@ flags+!  then  then ;
 : inline-call, ( @voc @word -- )  &CFA &CALL, ;
-: inline-copy, ( @voc @word -- )  ?>linker  ?>joiner  ?inline-join  there >x  nip dup code-range ta#,  x> inline-reloc,  TRIM 0! ;
+: inline-copy, ( @voc @word -- )  ?>linker  ?>joiner  ?inline-join  there >x  nip dup cr .s code-range ta#,  x> inline-reloc,  TRIM 0! ;
 
 : int-indirect, ( n -- )  indirect-threading-not-supported ;
 : int-direct, ( n -- )  c" lit" findWord if  §CODE →tseg#↑  word, t,  tseg#↓  else  word-not-found  then ;
@@ -1031,7 +1041,7 @@ variable @T$                        ( String literal )
     'b' of   2 Tradix !  endof
     swap 1+ swap  endcase  1-  else  drop  then ;
 create DIGITS  ," 0123456789ABCDEFabcdef"
-: >digit ( c -- u|-1 )  DIGITS count cfind dup 16 > if  6 -  then  1- ;
+: >digit ( c -- u|-1 )  DIGITS count rot cfind dup 16 > if  6 -  then  1- ;
 : eatDigits ( a # -- a' #' )  Tfail on  IntValue 0!  IntValue# 0!
   begin  2dup  while
     c@ >digit dup 0 Tradix @ within unless  drop exit  then
@@ -1131,7 +1141,7 @@ create CTRLSP  CONTROLSTACK ,
 : pushHere ( -- ra )  tseg→| >CTRL ;
 : resolveForward ( ctrl:ba -- )  tseg→| CTRL> tuck − swap 4- d! ;
 : finishDef ( -- )
-  LAST_COMP @ ?dup if  flags %LINK and if  %LINK @lastWord @ flags+!  then  drop  then
+  LAST_COMP @ ?dup if  flags %LINK and if  %LINK currentWord@ flags+!  then  drop  then
   CTRLDEPTH if  unbalanced-definition  then ;
 : smashCondition ( -- cc )                            ( remove condition buildup from the code segment, to replace with ?JMP )
   §CODE >seg >hend 8 - c@ $F and $4000000 ( ← Forcembler Condition Code ) or
@@ -1442,6 +1452,7 @@ also compiler definitions  context @ @COMP-WORDS !
 : ulit8 ( q -- )  « ULIT8, »  LAST_COMP0! ;
 : litf ( &r -- ) « LITF, »  LAST_COMP0! ;
 : lit$ ( &$ -- )  « LIT$, »  LAST_COMP0! ;
+: my ( -- a )  « THIS, » ;  alias me  alias I'm  alias this   ( push the current instance )
 : begin ( -- ctrl:ba )  pushHere ;
 : then ( ctrl:ba -- )  resolveForward ;
 : ( ( >...rpar -- )  c" )" comment-bracket ;          \ skips a parenthesis-comment

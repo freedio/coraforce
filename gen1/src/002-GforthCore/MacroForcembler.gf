@@ -79,6 +79,12 @@ also Forcembler
 
 
 
+=== Object Orientation ===
+
+: THIS, ( -- a )  SAVE,  RBX RAX MOV ;
+
+
+
 === Clauses ===
 
 : #PICK, ( ... # -- x )  0 [RSP] [RAX] *8 RAX MOV ;
@@ -193,7 +199,7 @@ also Forcembler
   0 of  RAX RAX TEST  0< _setCond  endof
   # RAX CMP  < _setCond  0 endcase ;
 
-: ?UNTIL, ( a cc -- )  swap # swap .sh [ also ForcemblerTools ] op#1+! [ previous ] ?JMPX ;
+: ?UNTIL, ( a cc -- )  swap # swap [ also ForcemblerTools ] op#1+! [ previous ] ?JMPX ;
 : ?IF, ( cc -- )  there # swap [ also ForcemblerTools ] op#1+! [ previous ] ?JMPF ;
 
 previous

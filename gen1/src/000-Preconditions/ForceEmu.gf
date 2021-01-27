@@ -319,6 +319,9 @@ variable utf8-char
     4 of  $0F and utf8-char !  uc+ uc+  utf8-char @ endof        ( 3 byte UTF8 )
     3 of  $07 and utf8-char !  uc+ uc+ uc+  utf8-char @ endof    ( 4 byte UTF8 )
     drop -1  endcase ;
-: cfind ( c a # -- #+1|0 )  0 ?do  dup c@  2 pick = if  2drop i 1+ unloop exit  then  1+  loop  2drop 0 ;
+: cfind ( a # c -- #+1|0 )  -rot 0 ?do  dup c@  2 pick = if  2drop i 1+ unloop exit  then  1+  loop  2drop 0 ;
+: cfindlast ( a # c -- #+1|0 )
+  -rot dup >x + x@ 0 ?do  1-  dup c@  2 pick = if  2drop x> i - unloop exit  then  loop  x> drop 2drop 0 ;
+: cxafterlast ( a # c -- a' #' )  >r 2dup r> cfindlast tuck - -rot + swap ;
 : inline ( -- ) ;
 : !uword ( x -- x )  dup 0 65536 within unless  cr ." Not an unsigned word: " . abort  then ;

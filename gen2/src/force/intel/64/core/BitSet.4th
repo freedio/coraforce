@@ -18,8 +18,10 @@ class: BitSet
 
   === Methods ===
 
+see !
+
 construct: new ( u -- )                               ( initialize this BitSet for u contiguous bits, all bits clear )
-  dup my Size!  7 + 3 u>> dup my Length! allocate  my Address!  my Address@ my Length@ 0 cfill ;
+  dup my #Bits !  7 + 3 u>> dup my Length ! allocate  my Address !  my Address@ my Length@ 0 cfill ;
 destruct:  my Address@ free ;
 
 class;
