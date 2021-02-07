@@ -25,7 +25,8 @@
   R15:  Address of Z-Stack Descriptor
 )
 
-vocabulary: CoreMacro ( AMD64 )  package force/intel/64/macro
+package force/intel/64/macro
+vocabulary: CoreMacro ( AMD64 )
 
 === Helpers ===
 
@@ -62,14 +63,15 @@ code: SMASH, ( x2 x1 -- x2 x2 )  0 [RSP] RAX MOV ;
 code: OVER, ( x2 x1 -- x2 x1 x2 )  SAVE,  CELL [RSP] RAX MOV ;
 code: TUCK, ( x2 x1 -- x1 x2 x1 )  RAX 0 [RSP] XCHG  RAX PUSH  CELL [RSP] RAX MOV ;
 code: NIP, ( x2 x1 -- x1 )  CELL # RSP ADD ;
+code: NIP2, ( x1 x2 x3 -- x3 )  2 CELLS # RSP ADD ;
 code: ROT, ( x3 x2 x1 -- x2 x1 x3 )  RAX 0 [RSP] XCHG  RAX CELL [RSP] XCHG ;
 code: ROTR, ( x3 x2 x1 -- x1 x3 x2 )  RAX CELL [RSP] XCHG  RAX 0 [RSP] XCHG ;
 code: SLIDE, ( x3 x2 x1 -- x2 x3 x1 )  0 [RSP] RDX MOV  CELL [RSP] RDX XCHG  RDX 0 [RSP] MOV ;
 code: REV, ( x3 x2 x1 -- x1 x2 x3 )  CELL [RSP] RAX XCHG ;
 code: 2DUP, ( x1 y1 -- x1 y1 x1 y1 )  RAX PUSH  CELL PTR CELL [RSP] PUSH ;
 code: 2DROP, ( x1 y1 -- )  CELL # RSP ADD  RESTORE, ;
-code: 2NIP, ( x1 x2 x3 -- x3 )  2 CELLS # RSP ADD ;
 code: 2SWAP, ( x2 y2 x1 y1 -- x1 y1 x2 y2 )  RDX POP  RDX CELL [RSP] XCHG  RAX 0 [RSP] XCHG  RDX PUSH ;
+code: 2NIP, ( x2 y2 x1 y1 -- x1 y1 )  RDX POP  2 CELLS # RSP ADD  RDX PUSH ;
 code: 2OVER, ( x2 y2 x1 y1 -- x2 y2 x1 y1 x2 y2 )  SAVE,  CELL PTR 3 CELLS [RSP] PUSH  3 CELLS [RSP] RAX MOV ;
 code: PICK, ( ... u -- ... uth )  0 [RSP] [RAX] *CELL RAX MOV ;
 code: ROLL, ( x1 x2 ... xu u -- x2 .. xu x1 )  RAX RCX MOV  RAX POP  RBX RBX XOR
@@ -222,6 +224,12 @@ code: MAX2, ( n1 n2 -- n1|n2 )  RDX POP  RAX RDX CMP  > IF  RDX RAX MOV  THEN ;
 code: UMAX2, ( u1 u2 -- u1|u2 )  RDX POP  RAX RDX CMP  U> IF  RDX RAX MOV  THEN ;
 code: ISWITHIN, ( n1 n2 n3 -- n2≤n1<n3 )
   RDX POP  RCX POP  RAX RSI MOV  RAX RAX XOR  RCX RDX CMP  ≤ IFLIKELY  RCX RSI CMP  > IFLIKELY  RAX DEC  THEN  THEN ;
+code: USIZE, ( u -- # )  RDX RDX XOR  RAX RDX XCHG  RDX RDX TEST  0= UNLESS
+  RAX INC  $100 # RAX CMP  U< UNLESS  1 # RAX SHL  $10000 # RAX CMP  U< UNLESS  1 # RAX SHL  $100000000 # RAX CMP  U< UNLESS
+  1 # RAX SHL  THEN  THEN  THEN  THEN ;
+code: NSIZE, ( n -- # )  RDX RDX XOR  RAX RDX XCHG  RDX RDX TEST  0< IF  RAX NEG  THEN  0= UNLESS
+  RAX INC  $80 # RAX CMP  U< UNLESS  1 # RAX SHL  $8000 # RAX CMP  U< UNLESS  1 # RAX SHL  $80000000 # RAX CMP  U< UNLESS
+  1 # RAX SHL  THEN  THEN  THEN  THEN ;
 
 --- Memory Arithmetics ---
 

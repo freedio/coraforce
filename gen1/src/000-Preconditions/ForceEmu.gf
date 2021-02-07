@@ -10,6 +10,7 @@
 : smash ( x1 x2 -- x1 x1 )  drop dup ;
 : rev ( x1 x2 x3 -- x3 x2 x1 )  swap rot ;
 : slide ( x1 x2 x3 -- x2 x1 x3 ) rot swap ;
+: nip2 ( x1 x2 x3 -- x3 )  -rot 2drop ;
 : zap ( x -- 0 )  drop 0 ;
 : − ( n1 n2 -- n1−n2 ) - ;
 : ≤ ( n1 n2 -- ? ) <= ;
@@ -110,14 +111,14 @@
 : dor! ( d a -- )  dup d@ rot or swap d! ;
 : b>n ( b -- n )  dup 128 256 within if  -1 $ff xor +  then ;
 : bits ( # -- %n )  -1  cell 8* rot -  u>> ;
-: n.size ( n -- # )  dup if
+: nsize ( n -- # )  dup if
   dup -128 128 within if  drop 1  else
   dup -32768 32768 within if  drop 2  else
   dup -2147483648 2147483648 within if  drop 4  else  drop 8  then then then then ;
-: u.size ( u -- # )  dup if
+: usize ( u -- # )  dup if
   dup 0 256 within if  drop 1  else
   dup 0 65536 within if  drop 2  else
-  dup 0 4294967296 within if  drop 3  else  drop 4  then then then then ;
+  dup 0 4294967296 within if  drop 4  else  drop 8  then then then then ;
 : +> ( a # -- a+1 #-1 )  1- swap 1+ swap ;
 : #+> ( a # u -- a+u #-u )  tuck - -rot + swap ;
 : nextchar ( a # -- a+1 #-1 c )  1- swap dup 1+ -rot c@ ;
@@ -289,6 +290,7 @@ create YSP  YSTACK ,
 : assertCodeSpace ( u -- ) drop ;
 
 : cfill ( a # c -- )  fill ;
+: $/ ( $1 -- $1 )  0 over c! ;                        ( clear $1 )
 : a#+>$ ( $1 a # -- $1 )  dup >r 2 pick count + swap cmove r> over c+! ;    ( append a# to $1 )
 : $+>$ ( $1 $2 -- $1 )  count a#+>$ ;                 ( append $2 to $1 )
 : a#>$ ( $1 a # -- $1 )  2 pick c0!  a#+>$ ;          ( copy a# to $1 )
@@ -325,3 +327,5 @@ variable utf8-char
 : cxafterlast ( a # c -- a' #' )  >r 2dup r> cfindlast tuck - -rot + swap ;
 : inline ( -- ) ;
 : !uword ( x -- x )  dup 0 65536 within unless  cr ." Not an unsigned word: " . abort  then ;
+: !u4 ( x -- x )  dup 32 u>> if  cr ." Expected unsigned 32-bit value, but got " . abort  then ;
+: !n4 ( x -- x )  dup abs 32 u>> if  cr ." Expected signed 32-bit value, but got " . abort  then ;

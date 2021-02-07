@@ -78,6 +78,7 @@ also Forcembler
 : SWAP, ( x1 x2 -- x2 x1 )  RAX 0 [RSP] XCHG ;
 : OVER, ( x1 x2 -- x1 x2 x1 )  RAX PUSH  CELL [RSP] RAX MOV ;
 : NIP, ( x1 x2 -- x2 )  CELL # RSP ADD ;
+: NIP2, ( x1 x2 x3 -- x3 )  2 CELLS # RSP ADD ;
 : SMASH, ( x1 x2 -- x1 x1 )  0 [RSP] RAX MOV ;
 : TUCK, ( x1 x2 -- x2 x1 x2 )  RAX RDX MOV  RDX 0 [RSP] XCHG  RDX PUSH ;
 : ROT, ( x1 x2 x3 -- x2 x3 x1 )  0 [RSP] RAX XCHG  CELL [RSP] RAX XCHG ;
@@ -96,7 +97,7 @@ also Forcembler
   CELL [RSP] RAX XCHG  0 [RSP] RBX MOV  2 CELLS [RSP] RBX XCHG  RBX 0 [RSP] MOV ;
 : 2OVER, ( x1 x2 x3 x4 -- x1 x2 x3 x4 x1 x2 )
   RAX PUSH  QWORD PTR 3 CELLS [RSP] PUSH  3 CELLS [RSP] RAX MOV ;
-: 2NIP, ( x1 x2 x3 x4 -- x3 x4 )  RDX POP  2 CELLS # RSP ADD  RDX PUSH ;
+: 2NIP, ( x1 x2 x3 -- x3 x4 )  RDX POP  2 CELLS # RSP ADD  RDX PUSH ;
 
 : GETSP, ( -- u )  RAX PUSH  RSP RAX MOV  CELL # RAX ADD ;
 : SETSP, ( u -- )  RAX RDX MOV  RAX POP  RDX RSP MOV ;
@@ -1500,7 +1501,6 @@ also Forcembler
 ------
 : my ( -- a )  RAX PUSH  -CELL [RBX] RAX MOV ; alias me alias this
 
-: word# ( -- word# )  RAX PUSH  4 cells # RAX MOV ;
 : cell ( -- cell )  RAX PUSH  8 # RAX MOV ;
 : cell+ ( u -- u+cell )  8 # RAX ADD ;
 : cell- ( u -- u+cell )  8 # RAX SUB ;

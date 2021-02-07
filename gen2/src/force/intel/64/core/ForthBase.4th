@@ -1,9 +1,11 @@
 ( Copyright © 2020 by Coradec GmbH.  All rights reserved )
 
-****** The rich (FORTH) vocabulary for FORCE-linux 4.19.0-5-amd64 ******
+****** The FORTH base vocabulary of FORCE-linux 4.19.0-5-amd64 ******
 
-vocabulary: RichForce  package force/intel/64/core
-  uses force/intel/64/macro/CoreMacro
+package force/intel/64/core
+import force/intel/64/macro/CoreMacro
+
+vocabulary: ForthBase
 
 --- On stack comments:  we use
     ? ("truebool")  for true boolean (0 or -1)
@@ -21,27 +23,33 @@ vocabulary: RichForce  package force/intel/64/core
     l ("long")      for   signed quad-word (8 bytes)
     o ("oword")     for unsigned oct-word (16 bytes)
     h ("huge")      for   signed oct-word (16 bytes)
-    x ("cell")      for cell-size value (64 bit system: 8 bytes)
+    x ("cell")      for cell-size value (64 bit system: 8 bytes, 32 bit systems: 4 bytes)
     2x ("cellpair") for cell pair or double-cell (higher cell under lower cell)
-    a ("address")   for any address
+    a ("address")   for any address, cell size by nature
     $ ("string")    for counted strings (the count being a witch)
-    r ("real")      for floating point number (10 bytes)
+    r ("real")      for floating point number (10 bytes on x87, otherwise usually 8 bytes)
 ---
+
+--- On I64 registers: we use
+    SS:RSP    for PSP (parameter stack pointer)
+    SS:RBP    for RSP (return stack pointer)
+    RAX       for TOS (top of stack)
+    DS:RBX    for COA (current object address)
+    DS:RSI    for PAA (parameter area address)
+    DS:RDI    for ESP (exception stack pointer)
 
 
 
 === Constants ===
 
-: cell ( -- cell#:C )  CELL, ;  inline                ( Cell size )
-: %cell ( -- %cell:C )  cell 8 u* ;  inline             ( Cell Shift )
-: cell+ ( x -- x+cell# )  CELLPLUS, ;  inline         ( add cell size to x )
-: cells ( n -- n*cell# )  CELLTIMES, ;  inline        ( multiply n with cell size )
-: cellu/ ( u -- u/cell# )  CELLUBY, ;  inline         ( divide u through cell size )
+: cell ( -- cell#:C )  CELL, ;                        ( Cell size )
+: %cell ( -- %cell:C )  cell 8 u* ;                   ( Cell Shift )
+: cell+ ( x -- x+cell# )  CELLPLUS, ;                 ( add cell size to x )
+: cells ( n -- n*cell# )  CELLTIMES, ;                ( multiply n with cell size )
+: cellu/ ( u -- u/cell# )  CELLUBY, ;                 ( divide u through cell size )
 0 constant false                                      ( the value considered 'false' )
 -1 constant true                                      ( the value considered 'real true' )
-see false
-see true
-: bl ( -- ␣ )  BLANK, ;  inline  alias ␣              ( the space or blank character )
+: bl ( -- ␣ )  BLANK, ;  alias ␣                      ( the space or blank character )
 
 --- Initialization Vector Structure ---
 
@@ -70,71 +78,72 @@ The term "stack" without further specification refers to the parameter stack.
 
 --- Static Stack State ---
 
-variable PSP0                                 ( Initial parameter stack pointer )
-variable PSS                                  ( Parameter stack size in cells )
-variable RSP0                                 ( Initial return stack pointer )
-variable RSS                                  ( Return stack size in cells )
-variable OSP0                                 ( Initial object stack pointer )
-variable OSS                                  ( Object stack size in cells )
-variable XSP0                                 ( Initial extra stack pointer )
-variable XSS                                  ( Extra stack size in cells )
-variable YSP0                                 ( Initial Y-stack pointer )
-variable YSS                                  ( Y-stack size in cells )
-variable ZSP0                                 ( Initial X-stack pointer )
-variable ZSS                                  ( Z-stack size in cells )
+variable PSP0      ( Initial parameter stack pointer )
+variable PSS       ( Parameter stack size in cells )
+variable RSP0      ( Initial return stack pointer )
+variable RSS       ( Return stack size in cells )
+variable OSP0      ( Initial object stack pointer )
+variable OSS       ( Object stack size in cells )
+variable XSP0      ( Initial extra stack pointer )
+variable XSS       ( Extra stack size in cells )
+variable YSP0      ( Initial Y-stack pointer )
+variable YSS       ( Y-stack size in cells )
+variable ZSP0      ( Initial X-stack pointer )
+variable ZSS       ( Z-stack size in cells )
 
 --- Stack Operations ---
 
-: sp0 ( -- sp )  PSP0 QFETCH, ;  inline               ( Initial parameter stack pointer )
-: sp@ ( -- sp )  GETSP, ;  inline                     ( Current parameter stack pointer )
-: sp! ( sp -- )  SETSP, ;  inline                     ( set parameter stack pointer )
-: sp0! ( -- )  sp0 sp! ;  inline                      ( reset parameter stack to initial )
-: sp# ( -- u )  PSS QFETCH, ;  inline                 ( Total parameter stack size in cells )
-: sp## ( -- u )  PSS QFETCH, cells ;  inline          ( Total parameter stack size in bytes )
-: depth ( -- u )  sp0 sp@ MINUS, ABS, cellu/ ;  inline    ( Number of cells occupied on parameter stack )
+: sp0 ( -- sp )  PSP0 QFETCH, ;                       ( Initial parameter stack pointer )
+: sp@ ( -- sp )  GETSP, ;                             ( Current parameter stack pointer )
+: sp! ( sp -- )  SETSP, ;                             ( set parameter stack pointer )
+: sp0! ( -- )  sp0 sp! ;                              ( reset parameter stack to initial )
+: sp# ( -- u )  PSS QFETCH, ;                         ( Total parameter stack size in cells )
+: sp## ( -- u )  PSS QFETCH, cells ;                  ( Total parameter stack size in bytes )
+: depth ( -- u )  sp0 sp@ MINUS, cellu/ ;             ( Number of cells occupied on parameter stack )
 
-: dup ( x -- x x )  DUP, ;  inline                    ( duplicate top of stack )
-: trip ( x -- x x x )  TRIP, ;  inline                ( triplicate top of stack )
-: drop ( x -- )  DROP, ;  inline                      ( drop top of stack )
-: zap ( x -- 0 )  ZAP, ;  inline                      ( replace top of stack with 0; cheaper than "drop 0" or "0 and" )
-: swap ( x2 x1 -- x1 x2 )  SWAP, ;  inline            ( swap top and second of stack )
-: over ( x2 x1 -- x2 x1 x2 )  OVER, ;  inline         ( copy second over top of stack )
-: tuck ( x2 x1 -- x1 x2 x1 )  TUCK, ;  inline         ( tuck top of stack under second )
-: nip ( x2 x1 -- x1 )  NIP, ;  inline                 ( drop second of stack )
-: smash ( x2 x1 -- x2 x2 )  SMASH, ;  inline          ( replace top of stack with second )
-: rot ( x3 x2 x1 -- x2 x1 x3 )  ROT, ;  inline        ( rotate top stack triple )
-: -rot ( x3 x2 x1 -- x1 x3 x2 )  ROTR, ;  inline      ( reverse rotate top stack triple )
-: slide ( x3 x2 x1 -- x2 x3 x1 )  SLIDE, ;  inline    ( exchange 2nd and 3rd of stack )
-: rev ( x3 x2 x1 -- x1 x2 x3 )  REV, ;  inline        ( revert stack triple = exchange top and 3rd of stack )
+: dup ( x -- x x )  DUP, ;                            ( duplicate top of stack )
+: trip ( x -- x x x )  TRIP, ;                        ( triplicate top of stack )
+: drop ( x -- )  DROP, ;                              ( drop top of stack )
+: zap ( x -- 0 )  ZAP, ;                              ( replace top of stack with 0; cheaper than "drop 0" or "0 and" )
+: swap ( x2 x1 -- x1 x2 )  SWAP, ;                    ( swap top and second of stack )
+: over ( x2 x1 -- x2 x1 x2 )  OVER, ;                 ( copy second over top of stack )
+: tuck ( x2 x1 -- x1 x2 x1 )  TUCK, ;                 ( tuck top of stack under second )
+: nip ( x2 x1 -- x1 )  NIP, ;                         ( drop second of stack )
+: nip2 ( x3 x2 x1 -- x1 )  NIP2, ;                    ( drop second and third of stack )
+: smash ( x2 x1 -- x2 x2 )  SMASH, ;                  ( replace top of stack with second )
+: rot ( x3 x2 x1 -- x2 x1 x3 )  ROT, ;                ( rotate top stack triple )
+: -rot ( x3 x2 x1 -- x1 x3 x2 )  ROTR, ;              ( reverse rotate top stack triple )
+: slide ( x3 x2 x1 -- x2 x3 x1 )  SLIDE, ;            ( exchange 2nd and 3rd of stack )
+: rev ( x3 x2 x1 -- x1 x2 x3 )  REV, ;                ( revert stack triple = exchange top and 3rd of stack )
 
-: 2dup ( y x -- y x y x )  2DUP, ;  inline            ( duplicate top of stack pair )
-: 2drop ( y x -- )  2DROP, ;  inline                  ( drop top of stack pair )
-: 2nip ( x1 x2 x3 -- x3 )  2NIP, ;  inline            ( drop 2 cells above top )
-: 2swap ( y2 x2 y1 x1 -- y1 x1 y2 x2 )  2SWAP, ;  inline    ( swap top and second of stack pair )
-: 2over ( y2 x2 y1 x1 -- y2 x2 y1 x1 y2 x2 )  2OVER, ;  inline    ( copy second over top of stack pair )
-: pick ( ... u -- ... xu )  PICK, ;  inline           ( pick the uth stack element below u )
-: roll ( xn xm ... xu u -- xm ... xu xn )  ROLL, ;  inline  ( rotate stack u-tuple down )
-: -roll ( xn xm ... xu u -- xu xn xm ... )  ROLLR, ;  inline    ( rotate stack u-tuple up )
-: ?dup ( x -- x x | 0 )  ?DUP, ;  inline              ( duplicate top of stack unless it's 0 )
+: 2dup ( y x -- y x y x )  2DUP, ;                    ( duplicate top of stack pair )
+: 2drop ( y x -- )  2DROP, ;                          ( drop top of stack pair )
+: 2nip ( y2 x2 y1 x1 -- y1 x1 )  2NIP, ;              ( drop 2 cells above top )
+: 2swap ( y2 x2 y1 x1 -- y1 x1 y2 x2 )  2SWAP, ;      ( swap top and second of stack pair )
+: 2over ( y2 x2 y1 x1 -- y2 x2 y1 x1 y2 x2 )  2OVER, ; ( copy second over top of stack pair )
+: pick ( ... u -- ... xu )  PICK, ;                   ( pick the uth stack element below u )
+: roll ( xn xm ... xu u -- xm ... xu xn )  ROLL, ;    ( rotate stack u-tuple down )
+: -roll ( xn xm ... xu u -- xu xn xm ... )  ROLLR, ;  ( rotate stack u-tuple up )
+: ?dup ( x -- x x | 0 )  ?DUP, ;                      ( duplicate top of stack unless it's 0 )
 
 --- Return Stack Operations ---
 
-: rp0 ( -- rp )  RSP0 QFETCH, ;  inline               ( Initial return stack pointer )
-: rp@ ( -- rp )  GETRP, ;  inline                     ( Current return stack pointer )
-: rp! ( rp -- )  SETRP, ;  inline                     ( set return stack pointer )
-: rp!@ ( rp -- rp )  SETRP,  GETRP, ;  inline
-: rdepth ( -- n )  rp0 rp@ RMINUS, ABS, cellu/ ;  inline    ( Number of cells occupied on return stack )
-: r> ( -- x |R: x -- )  FROMR, ;  inline              ( move top of return stack to parameter stack )
-: >r ( x -- |R: -- x )  TOR, ;  inline                ( move top of parameter stack to return stack )
-: r@ ( -- x |R: x -- x )  RFETCH, ;  inline           ( copy top of return stack to parameter stack )
-: r! ( x -- x |R: -- x )  RCOPY, ;  inline            ( copy top of parameter stack on return stack )
-: rdrop ( -- |R: x -- )  RDROP, ;  inline             ( drop top of return stack )
-: rdup ( -- |R: x -- x x )  RDUP, ;  inline           ( duplicate top of return stack )
-: i ( -- index |R: limit index -- limit index )  LOOPINDEX, ;  inline    ( Index of innermost loop )
-: limit ( -- limit |R: limit index -- limit index )  LOOPLIMIT, ;  inline    ( Limit of innermost loop )
-: j ( -- index1 |R: limit1 index1 limit2 index2 -- limit1 index1 limit2 index2 )  LOOPINDEX2, ;  inline    ( Index of outer loop )
-: ljmit ( -- limit1 |R: limit1 index1 limit2 index2 -- limit1 index1 limit2 index2 )  LOOPLIMIT2, ;  inline    ( Limit of outer loop )
-: unloop ( -- )  2RDROP, ;  inline                    ( prepare for EXIT from within one DO...LOOP structure )
+: rp0 ( -- rp )  RSP0 QFETCH, ;                       ( Initial return stack pointer )
+: rp@ ( -- rp )  GETRP, ;                             ( Current return stack pointer )
+: rp! ( rp -- )  SETRP, ;                             ( set return stack pointer )
+: rp!@ ( rp -- rp )  SETRP,  GETRP, ;        
+: rdepth ( -- n )  rp0 rp@ RMINUS, ABS, cellu/ ;      ( Number of cells occupied on return stack )
+: r> ( -- x |R: x -- )  FROMR, ;                      ( move top of return stack to parameter stack )
+: >r ( x -- |R: -- x )  TOR, ;                        ( move top of parameter stack to return stack )
+: r@ ( -- x |R: x -- x )  RFETCH, ;                   ( copy top of return stack to parameter stack )
+: r! ( x -- x |R: -- x )  RCOPY, ;                    ( copy top of parameter stack on return stack )
+: rdrop ( -- |R: x -- )  RDROP, ;                     ( drop top of return stack )
+: rdup ( -- |R: x -- x x )  RDUP, ;                   ( duplicate top of return stack )
+: i ( -- index |R: limit index -- limit index )  LOOPINDEX, ;         ( Index of innermost loop )
+: limit ( -- limit |R: limit index -- limit index )  LOOPLIMIT, ;     ( Limit of innermost loop )
+: j ( -- index1 |R: limit1 index1 limit2 index2 -- limit1 index1 limit2 index2 )  LOOPINDEX2, ;       ( Index of outer loop )
+: ljmit ( -- limit1 |R: limit1 index1 limit2 index2 -- limit1 index1 limit2 index2 )  LOOPLIMIT2, ;   ( Limit of outer loop )
+: unloop ( -- )  2RDROP, ;                            ( prepare for EXIT from within one DO...LOOP structure )
 
 
 
@@ -147,124 +156,124 @@ variable ZSS                                  ( Z-stack size in cells )
 
 --- Store ---
 
-: c! ( c a -- )  CSTORE, ;  inline                    ( store unsigned byte c at address a )
+: c! ( c a -- )  CSTORE, ;                            ( store unsigned byte c at address a )
 alias b! ( b a -- )                                   ( store signed byte b at address a )
-: w! ( w a -- )  WSTORE, ;  inline                    ( store unsigned word w at address a )
+: w! ( w a -- )  WSTORE, ;                            ( store unsigned word w at address a )
 alias s! ( s a -- )                                   ( store signed word s at address a )
-: d! ( d a -- )  DSTORE, ;  inline                    ( store unsigned double-word d at address a )
+: d! ( d a -- )  DSTORE, ;                            ( store unsigned double-word d at address a )
 alias i! ( i a -- )                                   ( store signed double-word at address a )
-: q! ( q a -- )  QSTORE, ;  inline                    ( store unsigned quad-word q at address a )     alias !
+: q! ( q a -- )  QSTORE, ;                            ( store unsigned quad-word q at address a )     alias !
 alias l! ( l a -- )                                   ( store signed quad-word q at address  a )
-: o! ( o a -- )  OSTORE, ;  inline                    ( store unsigned oct-word o at address a )
+: o! ( o a -- )  OSTORE, ;                            ( store unsigned oct-word o at address a )
 alias h! ( h a -- )                                   ( store signed oct-word at address a )
 
-: on ( a -- )  -1! ;  inline                          ( set cell at address a to true )
-: off ( a -- )  0! ;  inline                          ( set cell at address a to false )
+: on ( a -- )  -1! ;                                  ( set cell at address a to true )
+: off ( a -- )  0! ;                                  ( set cell at address a to false )
 
 --- Store with post-increment under ---
 
-: !c++ ( a c -- a+1 )  STORECINC, ;  inline           ( store unsigned byte c at address a and increment the address )
+: !c++ ( a c -- a+1 )  STORECINC, ;                   ( store unsigned byte c at address a and increment the address )
 alias !b++ ( a b -- a+1 )                             ( store signed byte b at address a and increment the address )
-: !w++ ( a w -- a+2 )  STOREWINC, ;  inline           ( store unsigned word w at address a and increment the address )
+: !w++ ( a w -- a+2 )  STOREWINC, ;                   ( store unsigned word w at address a and increment the address )
 alias !s++ ( a s -- a+2 )                             ( store signed word s at address a and increment the address )
-: !d++ ( a d -- a+4 )  STOREDINC, ;  inline           ( store unsigned double-word d at address a and increment the address )
+: !d++ ( a d -- a+4 )  STOREDINC, ;                   ( store unsigned double-word d at address a and increment the address )
 alias !i++ ( a i -- a+4 )                             ( store signed double-word i at address a and increment the address )
-: !q++ ( a q -- a+8 )  STOREQINC, ;  inline           ( store unsigned quad-word q at address a and increment the address )
+: !q++ ( a q -- a+8 )  STOREQINC, ;                   ( store unsigned quad-word q at address a and increment the address )
 alias !l++ ( a l -- a+8 )                             ( store signed quad-word l at address a and increment the address )
-: !o++ ( a o -- a+16 )  STOREOINC, ;  inline          ( store unsigned oct-word o at address a and increment the address )
+: !o++ ( a o -- a+16 )  STOREOINC, ;                  ( store unsigned oct-word o at address a and increment the address )
 alias h!++ ( a h -- a+16 )                            ( store signed oct-word h at address a and increment the address )
 
-: #! ( n a # -- )  #NSTORE, ;  inline                 ( store # least significant bytes of signed n at address a )
-: u#! ( u a # -- )  #USTORE, ;  inline                ( store # least significant bytes of unsigned u at address a )
+: #! ( n a # -- )  #NSTORE, ;                         ( store # least significant bytes of signed n at address a )
+: u#! ( u a # -- )  #USTORE, ;                        ( store # least significant bytes of unsigned u at address a )
 
 
 --- Store with post-increment over ---
 
-: c!++ ( c a -- a+1 )  CSTOREINC, ;  inline           ( store unsigned byte c at address a and increment the address )
+: c!++ ( c a -- a+1 )  CSTOREINC, ;                   ( store unsigned byte c at address a and increment the address )
 alias b!++ ( b a -- a+1 )                             ( store signed byte b at address a and increment the address )
-: w!++ ( w a -- a+2 )  WSTOREINC, ;  inline           ( store unsigned word w at address a and increment the address )
+: w!++ ( w a -- a+2 )  WSTOREINC, ;                   ( store unsigned word w at address a and increment the address )
 alias s!++ ( s a -- a+2 )                             ( store signed word s at address a and increment the address )
-: d!++ ( d a -- a+4 )  DSTOREINC, ;  inline           ( store unsigned double-word d at address a and increment the address )
+: d!++ ( d a -- a+4 )  DSTOREINC, ;                   ( store unsigned double-word d at address a and increment the address )
 alias i!++ ( i a -- a+4 )                             ( store signed double-word i at address a and increment the address )
-: q!++ ( q a -- a+8 )  QSTOREINC, ;  inline           ( store unsigned quad-word q at address a and increment the address )
+: q!++ ( q a -- a+8 )  QSTOREINC, ;                   ( store unsigned quad-word q at address a and increment the address )
 alias l!++ ( l a -- a+8 )                             ( store signed quad-word l at address a and increment the address )
-: o!++ ( o a -- a+16 )  OSTOREINC, ;  inline          ( store unsigned oct-word o at address a and increment the address )
+: o!++ ( o a -- a+16 )  OSTOREINC, ;                  ( store unsigned oct-word o at address a and increment the address )
 alias h!++ ( h a -- a+16 )                            ( store signed oct-word h at address a and increment the address )
 
 --- Store with pre-decrement under ---
 
-: --!c ( a c -- a−1 )  DECSTOREC, ;  inline           ( decrement the address and store unsigned byte c at address a−1 )
+: --!c ( a c -- a−1 )  DECSTOREC, ;                   ( decrement the address and store unsigned byte c at address a−1 )
 alias --!b ( a b -- a−1 )                             ( decrement the address and store signed byte b at address a−1 )
 alias −−!c  alias −−!b                                ( aliases with real minus signs )
-: --!w ( a w -- a−2 )  DECSTOREW, ;  inline           ( decrement the address and store unsigned word w at address a−2 )
+: --!w ( a w -- a−2 )  DECSTOREW, ;                   ( decrement the address and store unsigned word w at address a−2 )
 alias --!s ( a s -- a−2 )                             ( decrement the address and store signed word s at address a−2 )
 alias −−!w  alias −−!s                                ( aliases with real minus signs )
-: --!d ( a d -- a−4 )  DECSTORED, ;  inline           ( decrement the address and store unsigned double-word d at address a−4 )
+: --!d ( a d -- a−4 )  DECSTORED, ;                   ( decrement the address and store unsigned double-word d at address a−4 )
 alias --!i ( a i -- a−4 )                             ( decrement the address and store signed double-word i at address a−4 )
 alias −−!d  alias −−!i                                ( aliases with real minus signs )
-: --!q ( a q -- a−8 )  DECSTOREQ, ;  inline           ( decrement the address and store unsigned quad-word q at address a−8 )
+: --!q ( a q -- a−8 )  DECSTOREQ, ;                   ( decrement the address and store unsigned quad-word q at address a−8 )
 alias --!l ( a l -- a−8 )                             ( decrement the address and store signed quad-word l at address a−8 )
 alias −−!q  alias −−!l  alias −−!                     ( aliases with real minus signs )
-: --!o ( a o -- a−16 )  DECSTOREO, ;  inline          ( decrement the address and store unsigned oct-word o at address a−16 )
+: --!o ( a o -- a−16 )  DECSTOREO, ;                  ( decrement the address and store unsigned oct-word o at address a−16 )
 alias --!h ( a h -- a−16 )                            ( decrement the address and store signed oct-word h at address a−16 )
 alias −−!o  alias −−!v                                ( aliases with real minus signs )
 
 --- Store with pre-decrement over ---
 
-: --c! ( c a -- a−1 )  DECCSTORE, ;  inline           ( decrement the address and store unsigned byte c at address a−1 )
+: --c! ( c a -- a−1 )  DECCSTORE, ;                   ( decrement the address and store unsigned byte c at address a−1 )
 alias --b! ( b a -- a−1 )                             ( decrement the address and store signed byte b at address a−1 )
 alias −−c!  alias −−b!                                ( aliases with real minus signs )
-: --w! ( w a -- a−2 )  DECWSTORE, ;  inline           ( decrement the address and store unsigned word w at address a−2 )
+: --w! ( w a -- a−2 )  DECWSTORE, ;                   ( decrement the address and store unsigned word w at address a−2 )
 alias --s! ( s a -- a−2 )                             ( decrement the address and store signed word s at address a−2 )
 alias −−w!  alias −−s!                                ( aliases with real minus signs )
-: --d! ( d a -- a−4 )  DECDSTORE, ;  inline           ( decrement the address and store unsigned double-word d at address a−4 )
+: --d! ( d a -- a−4 )  DECDSTORE, ;                   ( decrement the address and store unsigned double-word d at address a−4 )
 alias --i! ( i a -- a−4 )                             ( decrement the address and store signed double-word i at address a−4 )
 alias −−d!  alias −−i!                                ( aliases with real minus signs )
-: --q! ( q a -- a−8 )  DECQSTORE, ;  inline           ( decrement the address and store unsigned quad-word q at address a−8 )
+: --q! ( q a -- a−8 )  DECQSTORE, ;                   ( decrement the address and store unsigned quad-word q at address a−8 )
 alias --l! ( l a -- a−8 )                             ( decrement the address and store signed quad-word l at address a−8 )
 alias −−q!  alias −−l!  alias −−!                     ( aliases with real minus signs )
-: --o! ( o a -- a−16 )  DECSTOREO, ;  inline          ( decrement the address and store unsigned oct-word o at address a−16 )
+: --o! ( o a -- a−16 )  DECSTOREO, ;                  ( decrement the address and store unsigned oct-word o at address a−16 )
 alias --h! ( h a -- a−16 )                            ( decrement the address and store signed oct-word h at address a−16 )
 alias −−o!  alias −−v!  alias −−2!                    ( aliases with real minus signs )
 
 --- Fetch ---
 
-: b@ ( a -- b )  BFETCH, ;  inline                    ( fetch signed byte from address )
-: c@ ( a -- c )  CFETCH, ;  inline                    ( fetch unsigned byte from address )
-: s@ ( a -- s )  SFETCH, ;  inline                    ( fetch signed word from address )
-: w@ ( a -- w )  WFETCH, ;  inline                    ( fetch unsigned word from address )
-: i@ ( a -- i )  IFETCH, ;  inline                    ( fetch signed double word from address )
-: d@ ( a -- d )  DFETCH, ;  inline                    ( fetch unsigned double word from address )
-: l@ ( a -- l )  QFETCH, ;  inline                    ( fetch signed quad word from address )
-: q@ ( a -- q )  QFETCH, ;  inline                    ( fetch unsigned quad word from address )
-: h@ ( a -- h )  HFETCH, ;  inline                    ( fetch signed oct word from address )
-: o@ ( a -- o )  OFETCH, ;  inline                    ( fetch unsigned oct word from address )
+: b@ ( a -- b )  BFETCH, ;                            ( fetch signed byte from address )
+: c@ ( a -- c )  CFETCH, ;                            ( fetch unsigned byte from address )
+: s@ ( a -- s )  SFETCH, ;                            ( fetch signed word from address )
+: w@ ( a -- w )  WFETCH, ;                            ( fetch unsigned word from address )
+: i@ ( a -- i )  IFETCH, ;                            ( fetch signed double word from address )
+: d@ ( a -- d )  DFETCH, ;                            ( fetch unsigned double word from address )
+: l@ ( a -- l )  QFETCH, ;                            ( fetch signed quad word from address )
+: q@ ( a -- q )  QFETCH, ;                            ( fetch unsigned quad word from address )
+: h@ ( a -- h )  HFETCH, ;                            ( fetch signed oct word from address )
+: o@ ( a -- o )  OFETCH, ;                            ( fetch unsigned oct word from address )
 
 --- Fetch with post-increment ---
 
-: b@++ ( a -- a+1 b )  BFETCHINC, ;  inline           ( fetch signed byte from address and increment address )
-: c@++ ( a -- a+1 c )  CFETCHINC, ;  inline           ( fetch unsigned byte from address and increment address )
-: s@++ ( a -- a+2 s )  SFETCHINC, ;  inline           ( fetch signed word from address and increment address )
-: w@++ ( a -- a+2 w )  WFETCHINC, ;  inline           ( fetch unsigned word from address and increment address )
-: i@++ ( a -- a+4 i )  IFETCHINC, ;  inline           ( fetch signed double word from address and increment address )
-: d@++ ( a -- a+4 d )  DFETCHINC, ;  inline           ( fetch unsigned double word from address and increment address )
-: l@++ ( a -- a+8 l )  LFETCHINC, ;  inline           ( fetch signed quad word from address and increment address )
-: q@++ ( a -- a+8 q )  QFETCHINC, ;  inline           ( fetch unsigned quad word from address and increment address )
-: h@++ ( a -- a+16 h )  HFETCHINC, ;  inline          ( fetch signed oct word from address and increment address )
-: o@++ ( a -- a+16 o )  OFETCHINC, ;  inline          ( fetch unsigned oct word from address and increment address )
+: b@++ ( a -- a+1 b )  BFETCHINC, ;                   ( fetch signed byte from address and increment address )
+: c@++ ( a -- a+1 c )  CFETCHINC, ;                   ( fetch unsigned byte from address and increment address )
+: s@++ ( a -- a+2 s )  SFETCHINC, ;                   ( fetch signed word from address and increment address )
+: w@++ ( a -- a+2 w )  WFETCHINC, ;                   ( fetch unsigned word from address and increment address )
+: i@++ ( a -- a+4 i )  IFETCHINC, ;                   ( fetch signed double word from address and increment address )
+: d@++ ( a -- a+4 d )  DFETCHINC, ;                   ( fetch unsigned double word from address and increment address )
+: l@++ ( a -- a+8 l )  LFETCHINC, ;                   ( fetch signed quad word from address and increment address )
+: q@++ ( a -- a+8 q )  QFETCHINC, ;                   ( fetch unsigned quad word from address and increment address )
+: h@++ ( a -- a+16 h )  HFETCHINC, ;                  ( fetch signed oct word from address and increment address )
+: o@++ ( a -- a+16 o )  OFETCHINC, ;                  ( fetch unsigned oct word from address and increment address )
 
 --- Fetch with pre-decrement ---
 
-: −−b@ ( a -- a−1 b )  DECBFETCH, ;  inline  alias --b@    ( decrement address and fetch signed byte at address a−1 )
-: −−c@ ( a -- a−1 c )  DECCFETCH, ;  inline  alias --c@    ( decrement address and fetch unsigned byte at address a−1 )
-: −−s@ ( a -- a−2 b )  DECSFETCH, ;  inline  alias --s@    ( decrement address and fetch signed word at address a−2 )
-: −−w@ ( a -- a−2 w )  DECWFETCH, ;  inline  alias --w@    ( decrement address and fetch unsigned word at address a−2 )
-: −−i@ ( a -- a−4 i )  DECIFETCH, ;  inline  alias --i@    ( decrement address and fetch signed double word at address a−4 )
-: −−d@ ( a -- a−4 d )  DECDFETCH, ;  inline  alias --d@    ( decrement address and fetch unsigned double word at address a−4 )
-: −−l@ ( a -- a−8 l )  DECLFETCH, ;  inline  alias --l@    ( decrement address and fetch signed quad word at address a−8 )
-: −−q@ ( a -- a−8 q )  DECQFETCH, ;  inline  alias --q@    ( decrement address and fetch unsigned quad word at address a−8 )
-: −−h@ ( a -- a−16 v )  DECHFETCH, ;  inline  alias --h@   ( decrement address and fetch signed oct word at address a−16 )
-: −−o@ ( a -- a−16 o )  DECOFETCH, ;  inline  alias --o@   ( decrement address and fetch unsigned oct word at address a−16 )
+: −−b@ ( a -- a−1 b )  DECBFETCH, ;  alias --b@       ( decrement address and fetch signed byte at address a−1 )
+: −−c@ ( a -- a−1 c )  DECCFETCH, ;  alias --c@       ( decrement address and fetch unsigned byte at address a−1 )
+: −−s@ ( a -- a−2 b )  DECSFETCH, ;  alias --s@       ( decrement address and fetch signed word at address a−2 )
+: −−w@ ( a -- a−2 w )  DECWFETCH, ;  alias --w@       ( decrement address and fetch unsigned word at address a−2 )
+: −−i@ ( a -- a−4 i )  DECIFETCH, ;  alias --i@       ( decrement address and fetch signed double word at address a−4 )
+: −−d@ ( a -- a−4 d )  DECDFETCH, ;  alias --d@       ( decrement address and fetch unsigned double word at address a−4 )
+: −−l@ ( a -- a−8 l )  DECLFETCH, ;  alias --l@       ( decrement address and fetch signed quad word at address a−8 )
+: −−q@ ( a -- a−8 q )  DECQFETCH, ;  alias --q@       ( decrement address and fetch unsigned quad word at address a−8 )
+: −−h@ ( a -- a−16 v )  DECHFETCH, ;  alias --h@      ( decrement address and fetch signed oct word at address a−16 )
+: −−o@ ( a -- a−16 o )  DECOFETCH, ;  alias --o@      ( decrement address and fetch unsigned oct word at address a−16 )
 
 --- Exchange ---
 
@@ -272,16 +281,16 @@ alias −−o!  alias −−v!  alias −−2!                    ( aliases with
   to the cell size, but is hard to implement for values exceeding the cell size.
 )
 
-: b@! ( b a -- b' )  BXCHG, DROP, ;  inline           ( exchange signed byte b' at address a with b )
-: c@! ( c a -- c' )  CXCHG, DROP, ;  inline           ( exchange unsigned byte c' at address a with c )
-: s@! ( s a -- s' )  SXCHG, DROP, ;  inline           ( exchange signed word s' at address a with s )
-: w@! ( w a -- w' )  WXCHG, DROP, ;  inline           ( exchange unsigned word w' at address a with w )
-: i@! ( i a -- i' )  IXCHG, DROP, ;  inline           ( exchange signed double word i' at address a with i )
-: d@! ( d a -- d' )  DXCHG, DROP, ;  inline           ( exchange unsigned double word d' at address a with d )
-: l@! ( l a -- l' )  LXCHG, DROP, ;  inline           ( exchange signed quad word l' at address a with l )
-: q@! ( q a -- q' )  QXCHG, DROP, ;  inline           ( exchange unsigned quad word q' at address a with q )
-: h@! ( v a -- v' )  HXCHG, DROP, ;  inline           ( exchange signed oct word h' at address a with h )
-: o@! ( o a -- o' )  OXCHG, DROP, ;  inline           ( exchange unsigned oct word o' at address a with o )
+: b@! ( b a -- b' )  BXCHG, DROP, ;                   ( exchange signed byte b' at address a with b )
+: c@! ( c a -- c' )  CXCHG, DROP, ;                   ( exchange unsigned byte c' at address a with c )
+: s@! ( s a -- s' )  SXCHG, DROP, ;                   ( exchange signed word s' at address a with s )
+: w@! ( w a -- w' )  WXCHG, DROP, ;                   ( exchange unsigned word w' at address a with w )
+: i@! ( i a -- i' )  IXCHG, DROP, ;                   ( exchange signed double word i' at address a with i )
+: d@! ( d a -- d' )  DXCHG, DROP, ;                   ( exchange unsigned double word d' at address a with d )
+: l@! ( l a -- l' )  LXCHG, DROP, ;                   ( exchange signed quad word l' at address a with l )
+: q@! ( q a -- q' )  QXCHG, DROP, ;                   ( exchange unsigned quad word q' at address a with q )
+: h@! ( v a -- v' )  HXCHG, DROP, ;                   ( exchange signed oct word h' at address a with h )
+: o@! ( o a -- o' )  OXCHG, DROP, ;                   ( exchange unsigned oct word o' at address a with o )
 
 
 
@@ -289,60 +298,113 @@ alias −−o!  alias −−v!  alias −−2!                    ( aliases with
 
 --- Overflow Traps ---
 
-: !! ( -- )  TRAPOV, ;  inline                        ( Trap Int4 on overflow after signed arithemetic operation )
-: u!! ( -- )  TRAPCY, ;  inline                       ( Trap Int4 on carry after unsigned arithmetic operation )
-: −!! ( -- )  TRAPEZ, ;  inline  alias -!!            ( Trap Int5 on negative after signed arithmetic operation )
+: !! ( -- )  TRAPOV, ;                                ( Trap Int4 on overflow after signed arithemetic operation )
+: u!! ( -- )  TRAPCY, ;                               ( Trap Int4 on carry after unsigned arithmetic operation )
+: −!! ( -- )  TRAPEZ, ;  alias -!!                    ( Trap Int5 on negative after signed arithmetic operation )
 
 --- Stack Arithmetics ---
 
-: + ( x2 x1 -- x2+x1 )  PLUS, ;  inline               ( add x1 to x2 )
-: − ( x2 x1 -- x2−x1 )  MINUS, ;  inline  alias -     ( subtract x1 from x2 )
-: r− ( x2 x1 -- x1−x2 )  RMINUS, ;  inline  alias r-  ( subtract x2 from x1 )
-: × ( n2 n1 -- n2×n1 )  TIMES, ;  inline  alias *     ( multiply n2 with n1 — signed multiplication )
-: u× ( u2 u1 -- u2×u1 )  UTIMES, ;  inline  alias u*  ( multiply u2 with u1 — unsigned multiplication )
-: ÷ ( n2 n1 -- n2÷n1 )  THROUGH, ;  inline  alias /   ( divide n2 through n1 — signed division )
-: u÷ ( u2 u1 -- u2÷u1 )  UTHROUGH, ;  inline  alias u/    ( divide u2 through u1 — unsigned division )
-: r÷ ( n2 n1 -- n1÷n2 )  RTHROUGH, ;  inline alias r/ ( divide n1 through n2 — signed division )
-: ur÷ ( u2 u1 -- u1÷u2 )  URTHROUGH, ;  inline  alias ur/    ( divide u1 through u2 — unsigned division )
-: % ( n2 n1 -- n2%n1 )  MODULO, ;  inline  alias mod  ( Remainder of dividing n2 through n1 — signed division )
-: u% ( u2 u1 -- u2%u1 )  UMODULO, ;  inline  alias umod    ( Remainder of dividing u2 through u1 — unsigned division )
-: r% ( n2 n1 -- n1%n2 )  RMODULO, ;  inline  alias rmod    ( Remainder of dividing n1 through n2 — signed division )
-: ur% ( u2 u1 -- u1%u2 )  URMODULO, ;  inline  alias urmod    ( Remainder of dividing u1 through u2 — unsigned division )
-: %÷ ( n2 n1 -- n2%n1 n2÷n1 )  MODDIV, ;  inline  alias /mod    ( Quotient and remainder of dividing n2 through n1 — signed division )
-: u%÷ ( u2 u1 -- u2%u1 u2÷u1 )  UMODDIV, ;  inline  alias u/mod    ( Quotient and remainder of dividing u2 through u1 — unsigned div )
-: r%÷ ( n2 n1 -- n1%n2 n1÷n2 )  RMODDIV, ;  inline  alias r/mod    ( Quotient and remainder of dividing n1 through n2 — signed div )
-: ur%÷ ( u2 u1 -- u1%u2 u1÷u2 )  URMODDIV, ;  inline  alias ur/mod    ( Quotient and remainder of dividing u1 thru u2 — unsigned div )
-: ×+ ( n3 n2 n1 -- n )  TIMESPLUS, ;  inline  alias *+    ( n = n3+n2×n1 )
-: u×+ ( u3 u2 u1 -- u )  UTIMESPLUS, ;  inline  alias u*+    ( u = u3+u2×u1 )
-: ×÷ ( n3 n2 n1 -- n )  TIMESBY, ;  inline  alias */  ( n = n3×n2÷n1, where n3×n2 is a double-cell intermediate result )
-: u×÷ ( u3 u2 u1 -- u )  UTIMESBY, ;  inline  alias u*/    ( u = u3×u2÷u1, where u3×u2 is a double-cell intermediate result )
-: nxt ( x2 x1 -- x2+1 x1 )  INCS, ;  inline           ( increment second of stack )
-: +> ( a # -- a+1 #-1 )  ADV1, ;  inline              ( advance cursor in buffer with address a and length # by 1 )
-: #+> ( a # u -- a+u #-u )  ADV, ;  inline            ( advance cursor in buffer with address a and length # by u )
+: + ( x2 x1 -- x2+x1 )  PLUS, ;                       ( add x1 to x2 )
+: − ( x2 x1 -- x2−x1 )  MINUS, ;  alias -             ( subtract x1 from x2 )
+: r− ( x2 x1 -- x1−x2 )  RMINUS, ;  alias r-          ( subtract x2 from x1 )
+: × ( n2 n1 -- n2×n1 )  TIMES, ;  alias *             ( multiply n2 with n1 — signed multiplication )
+: u× ( u2 u1 -- u2×u1 )  UTIMES, ;  alias u*          ( multiply u2 with u1 — unsigned multiplication )
+: ÷ ( n2 n1 -- n2÷n1 )  THROUGH, ;  alias /           ( divide n2 through n1 — signed division )
+: u÷ ( u2 u1 -- u2÷u1 )  UTHROUGH, ;  alias u/        ( divide u2 through u1 — unsigned division )
+: r÷ ( n2 n1 -- n1÷n2 )  RTHROUGH, ;  alias r/        ( divide n1 through n2 — signed division )
+: ur÷ ( u2 u1 -- u1÷u2 )  URTHROUGH, ;  alias ur/     ( divide u1 through u2 — unsigned division )
+: % ( n2 n1 -- n2%n1 )  MODULO, ;  alias mod          ( Remainder of dividing n2 through n1 — signed division )
+: u% ( u2 u1 -- u2%u1 )  UMODULO, ;  alias umod       ( Remainder of dividing u2 through u1 — unsigned division )
+: r% ( n2 n1 -- n1%n2 )  RMODULO, ;  alias rmod       ( Remainder of dividing n1 through n2 — signed division )
+: ur% ( u2 u1 -- u1%u2 )  URMODULO, ;  alias urmod    ( Remainder of dividing u1 through u2 — unsigned division )
+: %÷ ( n2 n1 -- n2%n1 n2÷n1 )  MODDIV, ;  alias /mod  ( Quotient and remainder of dividing n2 through n1 — signed division )
+: u%÷ ( u2 u1 -- u2%u1 u2÷u1 )  UMODDIV, ;  alias u/mod    ( Quotient and remainder of dividing u2 through u1 — unsigned div )
+: r%÷ ( n2 n1 -- n1%n2 n1÷n2 )  RMODDIV, ;  alias r/mod    ( Quotient and remainder of dividing n1 through n2 — signed div )
+: ur%÷ ( u2 u1 -- u1%u2 u1÷u2 )  URMODDIV, ;  alias ur/mod    ( Quotient and remainder of dividing u1 thru u2 — unsigned div )
+: ×+ ( n3 n2 n1 -- n )  TIMESPLUS, ;  alias *+        ( n = n3+n2×n1 )
+: u×+ ( u3 u2 u1 -- u )  UTIMESPLUS, ;  alias u*+     ( u = u3+u2×u1 )
+: ×÷ ( n3 n2 n1 -- n )  TIMESBY, ;  alias */          ( n = n3×n2÷n1, where n3×n2 is a double-cell intermediate result )
+: u×÷ ( u3 u2 u1 -- u )  UTIMESBY, ;  alias u*/       ( u = u3×u2÷u1, where u3×u2 is a double-cell intermediate result )
+: nxt ( x2 x1 -- x2+1 x1 )  INCS, ;                   ( increment second of stack )
+: +> ( a # -- a+1 #-1 )  ADV1, ;                      ( advance cursor in buffer with address a and length # by 1 )
+: #+> ( a # u -- a+u #-u )  ADV, ;                    ( advance cursor in buffer with address a and length # by u )
 : →| ( n2|0 n1 -- n3|0 )  tuck 1− + over / * ;  alias >|    ( round n2 up to the next multiple of n1, leaving 0 as it is )
-: u→| ( u2|0 u1 -- u3|0 )  tuck 1− + over u/ u* ;   alias >|    ( round u2 up to the next multiple of u1, leaving 0 as it is )
+: u→| ( u2|0 u1 -- u3|0 )  tuck 1− + over u/ u* ;  alias >|    ( round u2 up to the next multiple of u1, leaving 0 as it is )
 : |← ( n2|0 n1 -- n3|0 )  over r% − ;  alias |<       ( round n2 down to the next smaller multiple of n1, leaving 0 as it is )
 : u|← ( u2|0 u1 -- u3|0 )  over ur% − ;  alias |<     ( round u2 down to the next smaller multiple of u1, leaving 0 as it is )
-: ± ( n -- −n )  NEG, ;  inline  alias negate         ( negates n )
-: abs ( n -- |n| )  ABS, ;  inline                    ( Absolute value of n )
-: min ( n2 n1 -- n1|n2 )  MIN2, ;  inline             ( Lesser of two signed values )
-: umin ( u2 u1 -- u1|u2 )  UMIN2, ;  inline           ( Lesser of two unsigned values )
-: max ( n2 n1 -- n1|n2 )  MAX2, ;  inline             ( Greater of two signed values )
-: umax ( u2 u1 -- u1|u2 )  UMAX2, ;  inline           ( Greater of two unsigned values )
-: within ( x xmin xmax -- ? )  ISWITHIN, ;  inline    ( test if x is greater or equal than xmin and less than xmax )
+: ± ( n -- −n )  NEG, ;  alias negate                 ( negates n )
+: abs ( n -- |n| )  ABS, ;                            ( Absolute value of n )
+: min ( n2 n1 -- n1|n2 )  MIN2, ;                     ( Lesser of two signed values )
+: umin ( u2 u1 -- u1|u2 )  UMIN2, ;                   ( Lesser of two unsigned values )
+: max ( n2 n1 -- n1|n2 )  MAX2, ;                     ( Greater of two signed values )
+: umax ( u2 u1 -- u1|u2 )  UMAX2, ;                   ( Greater of two unsigned values )
+: within ( x xₘᵢₙ xₘₐₓ -- ? )  ISWITHIN, ;            ( test if x is greater or equal than xₘᵢₙ and less than xₘₐₓ )
+: nsize ( n -- #|0 )  NSIZE, ;                        ( Size of |n| in bytes, 0 for 0 )
+: usize ( u -- #|0 )  USIZE, ;                        ( Size of u in bytes, 0 for 0 )
 
 --- Memory Arithmetics ---
 
-: c+! ( c a -- )  CADD, ;  inline  alias b+!          ( add c to byte at address a )
-: w+! ( w a -- )  WADD, ;  inline  alias s+!          ( add w to word at address a )
-: d+! ( d a -- )  DADD, ;  inline  alias i+!          ( add d to double word at address a )
-: q+! ( q a -- )  QADD, ;  inline  alias l+!          ( add q to quad word at address a )
-: o+! ( o a -- )  OADD, ;  inline  alias v+!          ( add o to oct word at address a )
-: c−! ( c a -- )  CSUB, ;  inline  alias c-!  alias b−!  alias b-!    ( subtract c from byte at address a )
-: w−! ( w a -- )  WSUB, ;  inline  alias w-!  alias s−!  alias s-!    ( subtract w from word at address a )
-: d−! ( d a -- )  DSUB, ;  inline  alias d-!  alias i−!  alias i-!    ( subtract d from double word at address a )
-: q−! ( q a -- )  QSUB, ;  inline  alias q-!  alias l−!  alias l-!    ( subtract q from quad word at address a )
-: o−! ( o a -- )  OSUB, ;  inline  alias o-!  alias v−!  alias v-!    ( subtract o from oct word at address a )
+: c+! ( c a -- )  CADD, ;  alias b+!                  ( add c to byte at address a )
+: w+! ( w a -- )  WADD, ;  alias s+!                  ( add w to word at address a )
+: d+! ( d a -- )  DADD, ;  alias i+!                  ( add d to double word at address a )
+: q+! ( q a -- )  QADD, ;  alias l+!                  ( add q to quad word at address a )
+: o+! ( o a -- )  OADD, ;  alias v+!                  ( add o to oct word at address a )
+: c−! ( c a -- )  CSUB, ;  alias c-!  alias b−!  alias b-!    ( subtract c from byte at address a )
+: w−! ( w a -- )  WSUB, ;  alias w-!  alias s−!  alias s-!    ( subtract w from word at address a )
+: d−! ( d a -- )  DSUB, ;  alias d-!  alias i−!  alias i-!    ( subtract d from double word at address a )
+: q−! ( q a -- )  QSUB, ;  alias q-!  alias l−!  alias l-!    ( subtract q from quad word at address a )
+: o−! ( o a -- )  OSUB, ;  alias o-!  alias v−!  alias v-!    ( subtract o from oct word at address a )
+
+
+
+=== Condition Tests ===
+
+: 0= ( x -- x=0 )  ISZERO, ;  condition               ( is x zero? )
+: 0≠ ( x -- x≠0 )  ISNOTZERO, ;  condition  alias 0−  alias 0-  alias 0<>   ( is x different from zero? )
+: 0< ( n -- n<0 )  ISNEGATIVE, ;  condition           ( is n negative, i.e. less than zero? )
+: 0> ( n -- n>0 )  ISPOSITIVE, ;  condition           ( is n positive, i.e. greater than zero? )
+: 0≤ ( n -- n≤0 )  ISNOTPOSITIVE, ;  condition  alias 0<=   ( is n zero or negative? )
+: 0≥ ( n -- n≥0 )  ISNOTNEGATIVE, ;  condition  alias 0>=   ( is n zero or positive? )
+
+: = ( x y -- x=y )  ISEQUAL, ;  condition             ( do x and y have the same value? )
+: ≠ ( x y -- x≠y )  ISINIQUAL, ;  condition  alias <> ( do x and y have a different value? )
+: < ( n1 n2 -- n1<n2 )  ISLESS, ;  condition          ( is n1 less than n2? signed comparison )
+: u< ( u1 u2 -- u1<u2 )  ISBELOW, ;  condition        ( is u1 less than u2? unsigned comparison )
+: > ( n1 n2 -- n1>n2 )  ISGREATER, ;  condition       ( is n1 greater than n2? signed comparison )
+: u> ( u1 u2 -- u1>u2 )  ISABOVE, ;  condition        ( is u1 greater than u2? unsigned comparison )
+: ≤ ( n1 n2 -- n1≤n2 )  ISNOTGREATER, ;  condition  alias <=    ( is n1 less than or equal to n2? signed comparison )
+: u≤ ( u1 u2 -- u1≤u2 )  ISNOTABOVE, ;  condition  alias u<=    ( is u1 less than or equal to u2? unsigned comparison )
+: ≥ ( n1 n2 -- n1≥n2 )  ISNOTLESS, ;  condition  alias >=       ( is n1 greater than or equal to n2? signed comparison )
+: u≥ ( u1 u2 -- u1≥u2 )  ISNOTBELOW, ;  condition  alias u>=    ( is u1 greater than or equal to u2? unsigned comparison )
+
+: ?0= ( x -- x x=0 )  ISZERODUP, ;  condition         ( is x zero? )
+: ?0≠ ( x -- x x≠0 )  ISNOTZERODUP, ;  condition  alias ?0−  alias ?0-  alias ?0<>    ( is x different from zero? )
+: ?0< ( n -- n n<0 )  ISNEGATIVEDUP, ;  condition     ( is n negative, i.e. less than zero? )
+: ?0> ( n -- n n>0 )  ISPOSITIVEDUP, ;  condition     ( is n positive, i.e. greater than zero? )
+: ?0≤ ( n -- n n≤0 )  ISNOTPOSITIVEDUP, ;  condition  alias ?0<=    ( is n zero or negative? )
+: ?0≥ ( n -- n n≥0 )  ISNOTNEGATIVEDUP, ;  condition  alias ?0>=    ( is n zero or positive? )
+
+: ?= ( x y -- x x=y )  ISEQUALDUP, ;  condition       ( do x and y have the same value? )
+: ?≠ ( x y -- x x≠y )  ISINIQUALDUP, ;  condition  alias ?<>    ( do x and y have a different value? )
+: ?< ( n1 n2 -- n1 n1<n2 )  ISLESSDUP, ;  condition   ( is n1 less than n2? signed comparison )
+: ?u< ( u1 u2 -- u1 u1<u2 )  ISBELOWDUP, ;  condition ( is u1 less than u2? unsigned comparison )
+: ?> ( n1 n2 -- n1 n1>n2 )  ISGREATERDUP, ;  condition    ( is n1 greater than n2? signed comparison )
+: ?u> ( u1 u2 -- u1 u1>u2 )  ISABOVEDUP, ;  condition ( is u1 greater than u2? unsigned comparison )
+: ?≤ ( n1 n2 -- n1 n1≤n2 )  ISNOTGREATERDUP, ;  condition  alias ?<=    ( is n1 less than or equal to n2? signed comparison )
+: ?u≤ ( u1 u2 -- u1 u1≤u2 )  ISNOTABOVEDUP, ;  condition  alias ?u<=    ( is u1 less than or equal to u2? unsigned comparison )
+: ?≥ ( n1 n2 -- n1 n1≥n2 )  ISNOTLESSDUP, ;  condition  alias ?>=       ( is n1 greater than or equal to n2? signed comparison )
+: ?u≥ ( u1 u2 -- u1 u1≥u2 )  ISNOTBELOWDUP, ;  condition  alias ?u>=    ( is u1 greater than or equal to u2? unsigned comparison )
+
+: ??= ( x y -- x y x=y )  ISEQUAL2DUP, ;  condition   ( do x and y have the same value? )
+: ??≠ ( x y -- x y x≠y )  ISINIQUAL2DUP, ;  condition  alias ??<>   ( do x and y have a different value? )
+: ??< ( n1 n2 -- n1 n2 n1<n2 )  ISLESS2DUP, ;  condition    ( is n1 less than n2? signed comparison )
+: ??u< ( u1 u2 -- u1 u2 u1<u2 )  ISBELOW2DUP, ;  condition  ( is u1 less than u2? unsigned comparison )
+: ??> ( n1 n2 -- n1 n2 n1>n2 )  ISGREATER2DUP, ;  condition ( is n1 greater than n2? signed comparison )
+: ??u> ( u1 u2 -- u1 u2 u1>u2 )  ISABOVE2DUP, ;  condition  ( is u1 greater than u2? unsigned comparison )
+: ??≤ ( n1 n2 -- n1 n2 n1≤n2 )  ISNOTGREATER2DUP, ;  condition  alias ??<=  ( is n1 less than or equal to n2? signed comparison )
+: ??u≤ ( u1 u2 -- u1 u2 u1≤u2 )  ISNOTABOVE2DUP, ;  condition  alias ??u<=  ( is u1 less than or equal to u2? unsigned comparison )
+: ??≥ ( n1 n2 -- n1 n2 n1≥n2 )  ISNOTLESS2DUP, ;  condition  alias ??>=     ( is n1 greater than or equal to n2? signed comparison )
+: ??u≥ ( u1 u2 -- u1 u2 u1≥u2 )  ISNOTBELOW2DUP, ;  condition  alias ??u>=  ( is u1 greater than or equal to u2? unsigned comp'son )
 
 
 
@@ -350,59 +412,59 @@ alias −−o!  alias −−v!  alias −−2!                    ( aliases with
 
 --- Bitwise Logical Operators ---
 
-: and ( x2 x1 -- x3 )  AND, ;  inline                 ( conjoin aka logically AND two cells )
-: or ( x2 x1 -- x3 )  OR, ;  inline                   ( bijoin aka logically OR two cells )
-: xor ( x2 x1 -- x3 )  XOR, ;  inline                 ( disjoin aka logically XOR two cells )
-: not ( x1 -- ¬x1 )  NOT, ;  inline                   ( 2's complement of a cell )
-: andn ( x2 x1 -- x3 )  NOT, AND, ;  inline           ( conjoin x2 with the 2's complement of x1 )
+: and ( x2 x1 -- x3 )  AND, ;                         ( conjoin aka logically AND two cells )
+: or ( x2 x1 -- x3 )  OR, ;                           ( bijoin aka logically OR two cells )
+: xor ( x2 x1 -- x3 )  XOR, ;                         ( disjoin aka logically XOR two cells )
+: not ( x1 -- ¬x1 )  NOT, ;                           ( 2's complement of a cell )
+: andn ( x2 x1 -- x3 )  NOT, AND, ;                   ( conjoin x2 with the 2's complement of x1 )
 
 --- Boolean Operators ---
 
-: && ( x2 x1 -- x3 )  BOOLAND, ;  inline  alias both  ( True if both x2 and x1 are not false, else false )
-: || ( x2 x1 -- x3 )  BOOLOR, ;  inline  alias either ( True if either x2 or x1 or both are not false, else false )
-: ^^ ( x2 x1 -- x3 )  BOOLXOR, ;  inline  alias one   ( True if exactly one of x2 and x1 is not false, else false )
-: ¬ ( x1 -- x2 )  BOOLNOT, ;  inline  ( alias 0= )    ( True if x1 is false, else false )
+: && ( x2 x1 -- x3 )  BOOLAND, ;  alias both          ( True if both x2 and x1 are not false, else false )
+: || ( x2 x1 -- x3 )  BOOLOR, ;  alias either         ( True if either x2 or x1 or both are not false, else false )
+: ^^ ( x2 x1 -- x3 )  BOOLXOR, ;  alias one           ( True if exactly one of x2 and x1 is not false, else false )
+: ¬ ( x1 -- x2 )  BOOLNOT, ;          ( alias 0= )    ( True if x1 is false, else false )
 
 --- Shift and Rotate ---
 
-: u<< ( u # -- u' )  SHL, ;  inline  alias u≪         ( shift u logically left by # bit positions )
-: u>> ( u # -- u' )  SHR, ;  inline  alias u≫         ( shift u logically right by # bit positions )
-: << ( n # -- n' )  SHL, ;  inline  alias ≪           ( shift n arithmetically left by # bit positions )
-: >> ( n # -- n' )  SAR, ;  inline  alias ≫           ( shift n arithmetically right by # bit positions )
+: u<< ( u # -- u' )  SHL, ;  alias u≪                 ( shift u logically left by # bit positions )
+: u>> ( u # -- u' )  SHR, ;  alias u≫                 ( shift u logically right by # bit positions )
+: << ( n # -- n' )  SHL, ;  alias ≪                   ( shift n arithmetically left by # bit positions )
+: >> ( n # -- n' )  SAR, ;  alias ≫                   ( shift n arithmetically right by # bit positions )
 
 --- Stack Bit Operations ---
 
 ( Stack bit operations allow bit indices only up to the number of bits in a cell − 1.  The index is moduloed with the cell size
   by the underlying machine code instruction. )
 
-: bit+ ( x # -- x' )  BSET, ;  inline                 ( set bit # in x )
-: bit− ( x # -- x' )  BCLR, ;  inline  alias bit-     ( clear bit # in x )
-: bit× ( x # -- x' )  BCHG, ;  inline  alias bit*     ( flip bit # in x )
-: bit? ( x # -- ? )  BTST, ;  inline                  ( test if bit # in x is set )
-: ?bit? ( x # -- x ? )  BTSTX, ;  inline              ( test if bit # in x is set )
-: bit?+ ( x # -- x' ? )  BTSET, ;  inline             ( non-atomically test and set bit # in x )
-: bit?− ( x # -- x' ? )  BTCLR, ;  inline  alias bit?-    ( non-atomically test and clear bit # in x )
-: bit?× ( x # -- x' ? )  BTCHG, ;  inline  alias bit?*    ( non-atomically test and flip bit # in x )
-: bit?? ( x # -- x ? )  BTTST, ;  inline              ( test if bit # in x is set )
-: bita?+ ( x # -- x' ? )  ABTSET, ;  inline           ( atomically test and set bit # in x )
-: bita?− ( x # -- x' ? )  ABTCLR, ;  inline  alias bita?-    ( atomically test and clear bit # in x )
-: bita?× ( x # -- x' ? )  ABTCHG, ;  inline  alias bita?*    ( atomically test and flip bit # in x )
+: bit+ ( x # -- x' )  BSET, ;                         ( set bit # in x )
+: bit− ( x # -- x' )  BCLR, ;  alias bit-             ( clear bit # in x )
+: bit× ( x # -- x' )  BCHG, ;  alias bit*             ( flip bit # in x )
+: bit? ( x # -- ? )  BTST, ;                          ( test if bit # in x is set )
+: ?bit? ( x # -- x ? )  BTSTX, ;                      ( test if bit # in x is set )
+: bit?+ ( x # -- x' ? )  BTSET, ;                     ( non-atomically test and set bit # in x )
+: bit?− ( x # -- x' ? )  BTCLR, ;  alias bit?-        ( non-atomically test and clear bit # in x )
+: bit?× ( x # -- x' ? )  BTCHG, ;  alias bit?*        ( non-atomically test and flip bit # in x )
+: bit?? ( x # -- x ? )  BTTST, ;                      ( test if bit # in x is set )
+: bita?+ ( x # -- x' ? )  ABTSET, ;                   ( atomically test and set bit # in x )
+: bita?− ( x # -- x' ? )  ABTCLR, ;  alias bita?-     ( atomically test and clear bit # in x )
+: bita?× ( x # -- x' ? )  ABTCHG, ;  alias bita?*     ( atomically test and flip bit # in x )
 
 --- Memory Bit Operations ---
 
 ( Memory bit operations can have quite a big bit index, allowing for potentially huge bit arrays.  The bit index is divided
   through 8 and the result added to the address, then moduloed with 8 to get the bit index in the addressed byte. )
 
-: bit+! ( a # -- )  BSETAT, ;  inline                 ( set bit # at address a )
-: bit−! ( a # -- )  BCLRAT, ;  inline  alias bit-!    ( clear bit # at address a )
-: bit×! ( a # -- )  BCHGAT, ;  inline  alias bit*!    ( flip bit # at address a )
-: bit@ ( a # -- ? )  BTSTAT, ;  inline                ( test if bit # at address a is set )
-: bit@+! ( a # -- ? )  BTSETAT, ;  inline             ( non-atomically test and set bit # at address a )
-: bit@−! ( a # -- ? )  BTSETAT, ;  inline  alias bit@-!    ( non-atomically test and clear bit # at address a )
-: bit@×! ( a # -- ? )  BTSETAT, ;  inline  alias bit@*!    ( non-atomically test and flip bit # at address a )
-: bita@+! ( a # -- ? )  ABTSETAT, ;  inline           ( atomically test and set bit # at address a )
-: bita@−! ( a # -- ? )  ABTSETAT, ;  inline  alias bita@-!    ( atomically test and clear bit # at address a )
-: bita@×! ( a # -- ? )  ABTSETAT, ;  inline  alias bita@*!    ( atomically test and flip bit # at address a )
+: bit+! ( a # -- )  BSETAT, ;                         ( set bit # at address a )
+: bit−! ( a # -- )  BCLRAT, ;  alias bit-!            ( clear bit # at address a )
+: bit×! ( a # -- )  BCHGAT, ;  alias bit*!            ( flip bit # at address a )
+: bit@ ( a # -- ? )  BTSTAT, ;                        ( test if bit # at address a is set )
+: bit@+! ( a # -- ? )  BTSETAT, ;                     ( non-atomically test and set bit # at address a )
+: bit@−! ( a # -- ? )  BTSETAT, ;  alias bit@-!       ( non-atomically test and clear bit # at address a )
+: bit@×! ( a # -- ? )  BTSETAT, ;  alias bit@*!       ( non-atomically test and flip bit # at address a )
+: bita@+! ( a # -- ? )  ABTSETAT, ;                   ( atomically test and set bit # at address a )
+: bita@−! ( a # -- ? )  ABTSETAT, ;  alias bita@-!    ( atomically test and clear bit # at address a )
+: bita@×! ( a # -- ? )  ABTSETAT, ;  alias bita@*!    ( atomically test and flip bit # at address a )
 
 
 
@@ -444,82 +506,6 @@ alias −−o!  alias −−v!  alias −−2!                    ( aliases with
 
 
 
-=== Condition Tests ===
-
-: 0= ( x -- x=0 )  ISZERO, ;  inline condition        ( is x zero? )
-: 0≠ ( x -- x≠0 )  ISNOTZERO, ;  inline condition  alias 0−  alias 0-  alias 0<>    ( is x different from zero? )
-: 0< ( n -- n<0 )  ISNEGATIVE, ;  inline condition    ( is n negative, i.e. less than zero? )
-: 0> ( n -- n>0 )  ISPOSITIVE, ;  inline condition    ( is n positive, i.e. greater than zero? )
-: 0≤ ( n -- n≤0 )  ISNOTPOSITIVE, ;  inline condition  alias 0<=    ( is n zero or negative? )
-: 0≥ ( n -- n≥0 )  ISNOTNEGATIVE, ;  inline condition  alias 0>=    ( is n zero or positive? )
-
-: = ( x y -- x=y )  ISEQUAL, ;  inline condition      ( do x and y have the same value? )
-: ≠ ( x y -- x≠y )  ISINIQUAL, ;  inline condition  alias <>   ( do x and y have a different value? )
-: < ( n1 n2 -- n1<n2 )  ISLESS, ;  inline condition   ( is n1 less than n2? signed comparison )
-: u< ( u1 u2 -- u1<u2 )  ISBELOW, ;  inline condition ( is u1 less than u2? unsigned comparison )
-: > ( n1 n2 -- n1>n2 )  ISGREATER, ;  inline condition    ( is n1 greater than n2? signed comparison )
-: u> ( u1 u2 -- u1>u2 )  ISABOVE, ;  inline condition ( is u1 greater than u2? unsigned comparison )
-: ≤ ( n1 n2 -- n1≤n2 )  ISNOTGREATER, ;  inline condition  alias <=    ( is n1 less than or equal to n2? signed comparison )
-: u≤ ( u1 u2 -- u1≤u2 )  ISNOTABOVE, ;  inline condition  alias u<=    ( is u1 less than or equal to u2? unsigned comparison )
-: ≥ ( n1 n2 -- n1≥n2 )  ISNOTLESS, ;  inline condition  alias >=     ( is n1 greater than or equal to n2? signed comparison )
-: u≥ ( u1 u2 -- u1≥u2 )  ISNOTBELOW, ;  inline condition  alias u>=   ( is u1 greater than or equal to u2? unsigned comparison )
-
-: ?0= ( x -- x x=0 )  ISZERODUP, ;  inline condition  ( is x zero? )
-: ?0≠ ( x -- x x≠0 )  ISNOTZERODUP, ;                 ( is x different from zero? )
-  inline condition  alias ?0−  alias ?0-  alias ?0<>
-: ?0< ( n -- n n<0 )  ISNEGATIVEDUP, ;                ( is n negative, i.e. less than zero? )
-  inline condition
-: ?0> ( n -- n n>0 )  ISPOSITIVEDUP, ;                ( is n positive, i.e. greater than zero? )
-  inline condition
-: ?0≤ ( n -- n n≤0 )  ISNOTPOSITIVEDUP, ;             ( is n zero or negative? )
-  inline condition  alias ?0<=
-: ?0≥ ( n -- n n≥0 )  ISNOTNEGATIVEDUP, ;             ( is n zero or positive? )
-  inline condition  alias ?0>=
-
-: ?= ( x y -- x x=y )  ISEQUALDUP, ;                  ( do x and y have the same value? )
-  inline condition
-: ?≠ ( x y -- x x≠y )  ISINIQUALDUP, ;                ( do x and y have a different value? )
-  inline condition  alias ?<>
-: ?< ( n1 n2 -- n1 n1<n2 )  ISLESSDUP, ;              ( is n1 less than n2? signed comparison )
-  inline condition
-: ?u< ( u1 u2 -- u1 u1<u2 )  ISBELOWDUP, ;            ( is u1 less than u2? unsigned comparison )
-  inline condition
-: ?> ( n1 n2 -- n1 n1>n2 )  ISGREATERDUP, ;           ( is n1 greater than n2? signed comparison )
-  inline condition
-: ?u> ( u1 u2 -- u1 u1>u2 )  ISABOVEDUP, ;            ( is u1 greater than u2? unsigned comparison )
-  inline condition
-: ?≤ ( n1 n2 -- n1 n1≤n2 )  ISNOTGREATERDUP, ;        ( is n1 less than or equal to n2? signed comparison )
-  inline condition  alias ?<=
-: ?u≤ ( u1 u2 -- u1 u1≤u2 )  ISNOTABOVEDUP, ;         ( is u1 less than or equal to u2? unsigned comparison )
-  inline condition  alias ?u<=
-: ?≥ ( n1 n2 -- n1 n1≥n2 )  ISNOTLESSDUP, ;           ( is n1 greater than or equal to n2? signed comparison )
-  inline condition  alias ?>=
-: ?u≥ ( u1 u2 -- u1 u1≥u2 )  ISNOTBELOWDUP, ;         ( is u1 greater than or equal to u2? unsigned comparison )
-  inline condition  alias ?u>=
-
-: ??= ( x y -- x y x=y )  ISEQUAL2DUP, ;              ( do x and y have the same value? )
-  inline condition
-: ??≠ ( x y -- x y x≠y )  ISINIQUAL2DUP, ;            ( do x and y have a different value? )
-  inline condition  alias ??<>
-: ??< ( n1 n2 -- n1 n2 n1<n2 )  ISLESS2DUP, ;         ( is n1 less than n2? signed comparison )
-  inline condition
-: ??u< ( u1 u2 -- u1 u2 u1<u2 )  ISBELOW2DUP, ;       ( is u1 less than u2? unsigned comparison )
-  inline condition
-: ??> ( n1 n2 -- n1 n2 n1>n2 )  ISGREATER2DUP, ;      ( is n1 greater than n2? signed comparison )
-  inline condition
-: ??u> ( u1 u2 -- u1 u2 u1>u2 )  ISABOVE2DUP, ;       ( is u1 greater than u2? unsigned comparison )
-  inline condition
-: ??≤ ( n1 n2 -- n1 n2 n1≤n2 )  ISNOTGREATER2DUP, ;   ( is n1 less than or equal to n2? signed comparison )
-  inline condition  alias ??<=
-: ??u≤ ( u1 u2 -- u1 u2 u1≤u2 )  ISNOTABOVE2DUP, ;    ( is u1 less than or equal to u2? unsigned comparison )
-  inline condition  alias ??u<=
-: ??≥ ( n1 n2 -- n1 n2 n1≥n2 )  ISNOTLESS2DUP, ;      ( is n1 greater than or equal to n2? signed comparison )
-  inline condition  alias ??>=
-: ??u≥ ( u1 u2 -- u1 u2 u1≥u2 )  ISNOTBELOW2DUP, ;    ( is u1 greater than or equal to u2? unsigned comparison )
-  inline condition  alias ??u>=
-
-
-
 === String Operations ===
 
 --- UTF-8 Operations ---
@@ -533,29 +519,29 @@ alias −−o!  alias −−v!  alias −−2!                    ( aliases with
 : c$@++ ( a -- a' uc|-1 )  FETCHUC$INC, ;             ( read next UTF-8 character uc from buffer at address a, and increment )
 : $# ( a -- # )  c$@++ nip ;                          ( Length # of UTF-8 string at address a )
 : $count ( a$ -- a # )  FETCHUC$INC, ;                ( Address and Length of counted UTF-8 string )
-: 0count ( aº -- a # )  dup begin c$++ 0= until  1 − over − ;  ( Address and Length of zero-terminated UTF-8 string )
+: 0count ( aº -- a # )  dup begin c$++ 0= until  1 − over − ;          ( Address and Length of zero-terminated UTF-8 string )
 : $= ( $1 $2 -- ? )                                   ( check if two UTF-8 strings are equal )
   c$@++ rot c$@++ rot over = if
     0 udo  c$@++ rot c$@++ rot = unlessever  2 #drop false exitloop  then  loop
     2 #drop true exit  then
-  3 #drop false ;
+  3 #drop false ;        
 : c$>> ( a # -- a' #−1 uc|-1 || a 0 -1 )              ( read next UFT-8 character from buffer a/#, or return -1 if not OK )
-  dup unlessever  dup 1 −  else  swap c$@++ rot 1 − swap  then ;
+  dup unlessever  dup 1 −  else  swap c$@++ rot 1 − swap  then ;        
 ------
 
 : c$@++ ( a # -- a' #' uc|-1 )  GETUC, ;              ( read next UTF-8 char uc from buffer at a with length #, and advance )
 : $# ( $ -- #|-1 )  8 c$@++ -rot 2drop ;              ( Length of UTF-8 string $, or -1 if the length is invalid )
 : $count ( $ -- a #|-1 )  8 c$@++ nip ;               ( Address a and Length # of counted UTF-8 string $, -1 if invalid )
 : 0count ( a⁰ -- a #|-1 )
-  dup -1 begin  c$@++  1 < until  ?dup -1 = if  2nip exit  then  drop 1 − over − ;
+  dup -1 begin  c$@++  1 < until  ?dup -1 = if  2nip exit  then  drop 1 − over − ;        
 
 
 === Various ===
 
 --- Code execution ---
 
-: execute ( cfa -- )  EXECUTE, ;  inline              ( execute the code at the specified cfa )
-: execWord ( @w -- )  EXECUTEWORD, ;  inline          ( execute code of word @w )
+: execute ( cfa -- )  EXECUTE, ;                      ( execute the code at the specified cfa )
+: execWord ( @w -- )  EXECUTEWORD, ;                  ( execute code of word @w )
 
 
 

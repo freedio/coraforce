@@ -2,11 +2,11 @@
 
 ****** The BitSet Module for FORCE-linux 4.19.0-5-amd64 ******
 
+
+package force/intel/64/core
+import Force
+
 class: BitSet
-  package force/intel/64/core
-  requires force/intel/64/core/RichForce
-
-
 
   === Fields ===
 

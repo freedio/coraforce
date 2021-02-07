@@ -85,6 +85,13 @@ also Forcembler
 
 
 
+=== Exception Handling ===
+
+: EXPUSH, ( Exception -- )  RAX 0 [RDI] MOV  CELL [RDI] RDI LEA  RESTORE, ( TODO: check if stack limit exceeded? ) ;
+: EXPOP, ( -- Exception )  SAVE,  -CELL [RDI] RDI LEA  0 [RDI] RAX MOV ;
+
+
+
 === Clauses ===
 
 : #PICK, ( ... # -- x )  0 [RSP] [RAX] *8 RAX MOV ;
@@ -109,7 +116,7 @@ also Forcembler
   -4 of  [RAX] EAX MOV  CDQE  endof
   -8 of  [RAX] RAX MOV  endof
   cr ." Invalid operand size (expected 2ⁿ|n in ±1,±2,±4,±8): " . abort  endcase ;
-: #STORE, ( # -- )  dup n.size  case
+: #STORE, ( # -- )  dup nsize  case
   8 of  # RDX MOV  RDX 0 [RAX] MOV  endof
   swap  1 ADP+ # QWORD PTR 0 [RAX] MOV  1 ADP-  RESTORE, endcase ;
 : ##STORE, ( offs # -- )  abs case
@@ -198,8 +205,12 @@ also Forcembler
 : #ISLESS, ( x -- )  case
   0 of  RAX RAX TEST  0< _setCond  endof
   # RAX CMP  < _setCond  0 endcase ;
+: #ISGREATER, ( x -- )  case
+  0 of  RAX RAX TEST  0> _setCond  endof
+  # RAX CMP  > _setCond  0 endcase ;
 
 : ?UNTIL, ( a cc -- )  swap # swap [ also ForcemblerTools ] op#1+! [ previous ] ?JMPX ;
-: ?IF, ( cc -- )  there # swap [ also ForcemblerTools ] op#1+! [ previous ] ?JMPF ;
+: ?IF, ( cc -- a )  there # swap [ also ForcemblerTools ] op#1+! [ previous ] ?JMPF ;
+: ?WHILE, ( a1 cc -- a2 a1 )  there # -rot [ also ForcemblerTools ] op#1+! [ previous ] ?JMPF ;
 
 previous

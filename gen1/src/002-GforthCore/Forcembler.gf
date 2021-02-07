@@ -449,12 +449,12 @@ bytevar SIB
 variable IMMOPVAL ( Immediate operand value )
 : imm@ ( -- n )  IMMOPVAL @ ;
 : imm#! ( n # -- )  immsize!  IMMOPVAL ! imm+ ;
-: imm! ( n -- )  dup n.size imm#! imm+ ;
-: uimm! ( n -- )  dup u.size imm#! ;
+: imm! ( n -- )  dup nsize imm#! imm+ ;
+: uimm! ( n -- )  dup usize imm#! ;
 : imm/ ( -- )  immsize/  0 IMMOPVAL ! ;
 variable DISPLACEMENT ( Address displacement )
 : disp@ ( -- n )  DISPLACEMENT @ ;
-: disp! ( n -- )  dup n.size dispsize! DISPLACEMENT ! ;
+: disp! ( n -- )  dup nsize dispsize! DISPLACEMENT ! ;
 : disp/ ( -- ) 0 disp! ;
 variable CODEBASE
 : codebase@ ( -- u ) CODEBASE @ ;
@@ -925,9 +925,9 @@ CELL% scale *CELL
 : [RIP] ( disp -- )  T.ARCH i64 = unless  RIP_64_ONLY$ error  then
   5 #DIRECT 0 i64 makeDirect  #DWORD dispsize! op#1+! ;
 : @@ ( @rvoc sym$ u -- )  -rot reloc-sym ! reloc-voc ! reloc+ [] ;
-: # ( n -- )  dup n.size makeImmediate op#1+! ;
+: # ( n -- )  dup nsize makeImmediate op#1+! ;
 : ## ( @rvoc sym$ u -- )  -rot reloc-sym ! reloc-voc ! reloc+ # ;
-: u# ( u -- )  dup u.size makeUmmediate op#1+! ;
+: u# ( u -- )  dup usize makeUmmediate op#1+! ;
 
 : PTR ( # -- )  width>size sizex! ;
 : FAR ( -- )  far+ ;
@@ -959,7 +959,7 @@ also Forcembler
 : !fits ( n # -- n # )  fits? unless  IMMEDIATE_TOO_BIG$ error  then ;
 : !size= ( op1 op2 -- op1 op2 )  over .size over .size - if  OPERAND_SIZE_MISMATCH$ error  then ;
 : reladdr ( size offset -- )
-  imm@ r- swap .sh fits? unless  TARGET_ADDRESS_OUT_OF_RANGE$ error  then imm#! ;
+  imm@ r- swap fits? unless  TARGET_ADDRESS_OUT_OF_RANGE$ error  then imm#! ;
 : farptr?  ( -- ? )  false ;
 
 --- Operation Builders ---
@@ -1652,7 +1652,7 @@ hex
   1 jmpcall JMP
 : ?JMP ( target cond )  2 !args !condition .code 70 + #BYTE toff 2+ reladdr  nip op, ;
 : ?JMPF ( target cond )  2 !args !condition .code esc+ 80 + #DWORD toff 6 + reladdr  nip op, ;
-: ?JMPX ( target cond )  imm@ toff 2+ cr cr .sh - -128 128 .sh within if  ?JMP  else  ?JMPF  then ;
+: ?JMPX ( target cond )  imm@ toff 2+ - -128 128 within if  ?JMP  else  ?JMPF  then ;
   9F op00 LAHF                        ( )
   02 oplp LAR                         ( r/m reg )
   F0 F2 xmop01d LDDQU                 ( mem128 xmreg )
