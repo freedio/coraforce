@@ -24,6 +24,7 @@ public:
     my Handle@ SYS-READ, SystemResult1 ;  fallible
   : writeTo ( a # -- #' )                             ( write # bytes from buffer a to fd; reports actually written in #' )
     my Handle@ SYS-WRITE, SystemResult1 ;  fallible  alias write
+  : print$ ( $ --  )  my Handle@ SYS-WRITE, SystemResult1 ;  fallible    ( print counted string $ to fd )
   : close ( -- )  my Handle SYS-CLOSE, SystemResult0 ;  fallible    ( close the handle )
   : sendTo ( IO # -- #' )                             ( send # bytes from this IO to the specified IO; reports actually xferred #' )
     my Handle@ rot Handle@ 0 rot SYS-SENDFILE, SystemResult1 ;  fallible
@@ -40,5 +41,10 @@ public:
   : dupInto ( IO -- )                                 ( duplicate the IO into the specified IO )
     my Handle@ swap Handle@ SYS-DUP2,  SystemResult0 ;
   construct: new ( u4 -- )  my Handle! ;
+
+static:
+  0 IO new const stdin                                ( predefined Standard Input I/O )
+  1 IO new const stdout                               ( predefined Standard Output I/O )
+  2 IO new const stderr                               ( predefined Standard Error I/O )
 
 class;

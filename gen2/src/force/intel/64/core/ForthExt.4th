@@ -5,7 +5,7 @@
 package force/intel/64/core
 import ForthBase
 import force/intel/64/macro/CoreMacro
-import force/intel/64/core/ArithmeticException
+import force/trouble/ArithmeticException
 
 vocabulary: ForthExt
   requires ForthBase
@@ -47,20 +47,20 @@ vocabulary: ForthExt
 : !u8 ( u -- u )  dup usize 8 > if  "U8expected" errlit ERROR raise  then ;  fallible  ( abort if u is not an unsigned quad word )
 ---
 : !n1 ( n -- n )                                      ( abort if n is not a signed byte )
-  dup nsize 1 > if  "Expected N1, but got %d" ERROR ArithmeticException new raise  then ;  fallible
+  dup nsize 1 > if  "Expected N1, but got %d"| ERROR ArithmeticException new$ raise  then ;  fallible
 : !u1 ( u -- u )                                      ( abort if n is not a signed byte )
-  dup usize 1 > if  "Expected U1, but got %D" ERROR ArithmeticException new raise  then ;  fallible
+  dup usize 1 > if  "Expected U1, but got %D"| ERROR ArithmeticException new$ raise  then ;  fallible
 : !n2 ( n -- n )                                      ( abort if n is not a signed word )
-  dup nsize 2 > if  "Expected N2, but got %d" ERROR ArithmeticException new raise  then ;  fallible
+  dup nsize 2 > if  "Expected N2, but got %d"| ERROR ArithmeticException new$ raise  then ;  fallible
 : !u2 ( u -- u )                                      ( abort if n is not a signed word )
-  dup usize 2 > if  "Expected U2, but got %D" ERROR ArithmeticException new raise  then ;  fallible
+  dup usize 2 > if  "Expected U2, but got %D"| ERROR ArithmeticException new$ raise  then ;  fallible
 : !n4 ( n -- n )                                      ( abort if n is not a signed double word )
-  dup nsize 4 > if  "Expected N4, but got %d" ERROR ArithmeticException new raise  then ;  fallible
+  dup nsize 4 > if  "Expected N4, but got %d"| ERROR ArithmeticException new$ raise  then ;  fallible
 : !u4 ( u -- u )                                      ( abort if n is not a signed double word )
-  dup usize 4 > if  "Expected U4, but got %D" ERROR ArithmeticException new raise  then ;  fallible
+  dup usize 4 > if  "Expected U4, but got %D"| ERROR ArithmeticException new$ raise  then ;  fallible
 : !n8 ( n -- n )                                      ( abort if n is not a signed quadword )
-  dup nsize 8 > if  "Expected N8, but got %d" ERROR ArithmeticException new raise  then ;  fallible
+  dup nsize 8 > if  "Expected N8, but got %d"| ERROR ArithmeticException new$ raise  then ;  fallible
 : !u8 ( u -- u )                                      ( abort if n is not a signed quadword )
-  dup usize 8 > if  "Expected U8, but got %D" ERROR ArithmeticException new raise  then ;  fallible
+  dup usize 8 > if  "Expected U8, but got %D"| ERROR ArithmeticException new$ raise  then ;  fallible
 
 vocabulary;

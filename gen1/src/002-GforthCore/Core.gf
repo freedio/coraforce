@@ -38,6 +38,8 @@ defer closeAll
 : vocabulary-has-no-name ( -- )  cr ." Vocabulary has no name!"  abort ;
 : parameter-not-found ( $ -- )  cr ." Vocabulary parameter «" type$ ." » not found!"  terminate ;
 : invalid-vocabulary-type ( act exp -- )  cr ." Invalid vocabulary type: expected " . ." but got " .  terminate ;
+: module-not-found-in-package-tree ( $ -- )  cr ." Module " qtype$ ."  not found in package tree!" terminate ;
+
 
 
 
@@ -103,10 +105,8 @@ cell+     constant Heap#
 : _hallocate ( @hd -- )                               ( allocate the initial heap )
   PAGESIZE dup allocate throw rot tuck haddr!  tuck hsize!  0 swap hused! ;
 defer printVoc
-: #hgrow ( @hd u -- @hd )  printVoc  cr ." Growing segment " over haddr@ hex. ." from " over hsize@ hex. ." by " dup hex.
-  over hsize@ + PAGESIZE ->| over haddr@ over cr .sh resize throw .sh 2 pick haddr! over hsize!
-  dup haddr@ 16 - 16 hexdumpf
-   ; ( grow segment by at least u )
+: #hgrow ( @hd u -- @hd )                             ( grow segment by at least u )
+  over hsize@ + PAGESIZE ->| over haddr@ over resize throw 2 pick haddr! over hsize! ;
 : !hfree ( @hd u -- @hd )  over hfree@ over u< if  #hgrow dup  then drop ;  ( make sure at least u bytes are available on heap @hd )
 : !hactive ( @hd -- @hd )  dup haddr@ unless  dup _hallocate  then ;    ( make sure the heap is active )
 : hallot ( # @hd -- a # )  2dup >hend 2swap  !hactive  over !hfree  hused+!  swap ;    ( allot # bytes on heap @hd → @allotted )
@@ -359,7 +359,7 @@ variable loadedModule
   2dup vocabulary$ $$= if  2drop 0 true exit  then      ( $ is the vocabulary name → index 0 )
   §DEPS vocseg 1 >x begin dup while  -rot 2dup $$= if  2drop drop x> true exit  then  rot over c@ 1+ #+>  x> 1+ >x repeat
   2drop x> drop false ;
-: voc# ( @voc -- #voc )                               ( Dependency number of @voc in the current target vocabular )
+: voc# ( @voc -- #voc )  tvoc@ over = if  zap exit  then ( Dependency number of @voc in the current target vocabular )
   fqvoc$ tvoc@ dep# unless  cr ." Vocabulary " type$ ."  is not a dependency of " tvoc@ vocabulary. terminate  then ;
 : @dep ( # -- @voc )  ?dup unless  tvoc@ exit  then   ( #th dependency of the target vocabulary )
   1- §DEPS segment rot 0 udo  ?dup unless  cr ." Requested dependency index does not exist!" abort  then  over c@ 1+ #+>  loop
@@ -583,18 +583,24 @@ create FiletimeCmd  300 allot
   0 udo  dup 0= if  failed-to-decode  then  over c@ '0' -  x> 10 * + >x  +>  loop ;
 : skip ( a # c -- a' #' )  2 pick c@ = unless  failed-to-decode  then  +> ;    ( skip character c in buffer a# )
 : getFileTime ( $ -- u )  FiletimeCmd
-  c" ls --full-time " $>$  swap $+>$  c" | awk '{ print $6 " $+>$  '"' c+>$  $20 c+>$  '"' c+>$  c" $7 }' > /tmp/%" $+>$  count system
-  0 >x s" /tmp/%" slurp-file 1-  2dup FiletimeBfr -rot  a#>$ drop
+  c" (ls --full-time " $>$  swap $+>$  c" | awk '{ print $6 " $+>$  '"' c+>$  $20 c+>$  '"' c+>$  c" $7 }') > /tmp/% 2> /dev/null" $+>$  count system
+  0 >x s" /tmp/%" slurp-file ?dup unless  drop 0 exit  then  1-  2dup FiletimeBfr -rot  a#>$ drop
   4 digs '-' skip 2 digs '-' skip 2 digs $20 skip 2 digs ':' skip  2 digs ':' skip  2 digs '.' skip  5 digs 2drop x> ;
 : date. ( u -- )  s>d <# # # # # # '.' hold # # ':' hold # # ':' hold # # 'T' hold # # '-' hold # # '-' hold # # # # #> type ;
 
 variable file
 : ?loadModule ( $1 $2 -- ? )                        ( try loading module $1 from root $2 and report if successful )
-  cr .sh  ModulePath over 1+ c@ '~' = if  s" HOME" getenv a#>$  swap count +> a#+>$  else  swap $>$  then  SourcePath over $>$
-  cr .sh  '/' ?c+>$  c" src/" $+>$  2 pick $+>$  c" .4th" $+>$  drop .sh  '/' ?c+>$  s" lib/" a#+>$  swap $+>$  s" .4ce" a#+>$
-  cr .sh  count r/o open-file ifever  ."  failed (to open)." exit  then  file !
-  SourcePath getFileTime  ModulePath getFileTime 2dup u> if cr ." Source is newer: " swap date. ."  vs. " date. false exit then 2drop
-  ModulePath cr ." Loading module "  dup qtype$
+  ModulePath over 1+ c@ '~' = if  s" HOME" getenv a#>$ swap count +> a#+>$  else  swap $>$  then
+(  cr ." ?loadModule: ModulePath 1: " ModulePath dup qtype$ space '@' emit hex. )
+  SourcePath over $>$
+(  cr ." ?loadModule: SourcePath 1: " SourcePath dup qtype$ space '@' emit hex. }
+  '/' ?c+>$  c" src/" $+>$  2 pick $+>$  c" .4th" $+>$  getFileTime
+(  cr ." ?loadModule: SourcePath 2: " SourcePath qtype$ ." , source file time: " dup . )
+  swap '/' ?c+>$  c" lib/" $+>$  rot $+>$  c" .4ce" $+>$  getFileTime
+(  cr ." ?loadModule: ModulePath 2: " ModulePath qtype$ ." , module file time: " dup . )
+  ?dup unless  cr ." Module " ModulePath qtype$ ."  does not exist"  zap exit  then
+  u> if  cr ." Source is newer: module " ModulePath qtype$ ."  rejected in favor of source!" false exit  then
+  ModulePath cr ." Loading module "  dup qtype$  count r/o open-file ifever  ."  failed (to open)." exit  then  file !
   MODULE-HEADER 128 tuck file @ read-file throw = unlessever  ."  failed (to read header)" 0 else
     MODULE-HEADER Headline$ 16 tuck compare ifever  ."  failed: incompatible headers" 0 else
       MODULE-HEADER 16 + cr ." → vocabulary " dup qtype$  createVocabulary xdepth
@@ -606,19 +612,19 @@ variable file
   ." : loaded"
   lastVoc @ relocate  ." , relocated"
   file @ close-file throw  lastVoc @ addSearchVoc  ." , added to searchlist." ;
-: ?loadSource ( $1 $2 -- ? )  cr                            ( try loading module $1 from root $2 and report if successful )
+: ?loadSource ( $1 $2 -- ? )                          ( try loading module $1 from root $2 and report if successful )
   ModulePath over 1+ c@ '~' = if  s" HOME" getenv a#>$  swap count +> a#+>$  else  swap $>$  then
   '/' ?c+>$  c" src/" $+>$  swap $+>$  c" .4th" $+>$  cr ." Reading source file "  dup qtype$
-  dup count r/o open-file ifever  ."  failed (to open)."  zap exit  then  close-file throw  sourceModule true ;
+  dup count r/o open-file ifever  ."  failed (to open)."  drop zap exit  then  close-file throw  sourceModule true ;
 
 --- Module Methods ---
 
 create MODULE-NAME  256 allot
 create MODULE-PATH  256 allot
-: loadModule ( $ -- )  MODULE-PATH swap $>$           ( load the module with name $ )
+: loadModule ( $ -- )  cr ." >Loadmodule: " .sh MODULE-PATH swap $>$           ( load the module with name $ )
   cr ." Searching for vocabulary " dup qtype$ count '/' cxafterlast dup MODULE-NAME c!++ swap cmove  space '(' emit MODULE-NAME type$ ')' emit
   MODULE-NAME findVocabulary ?dup if  dup loadedModule !  cr ." Vocabulary " vocabulary. ."  already loaded."  exit  then
-  lastVoc @ targetVoc @
+  drop lastVoc @ targetVoc @
   MODULE-PATH c" ~/.force" ?loadModule unless
   MODULE-PATH c" ~/.force" ?loadSource unless
   MODULE-PATH c" /usr/force" ?loadModule unless
@@ -629,9 +635,11 @@ create MODULE-PATH  256 allot
   MODULE-PATH c" /usr/force" ?loadModule unless
   MODULE-PATH c" /usr/force" ?loadSource unless
   ( try URLs of extended package tree )
-  cr ." Module " dup qtype$ ."  not found in package tree!" abort
-  then  then  then  then  then  then  then  then  then  then
-  drop lastVoc @ loadedModule !  targetVoc ! lastVoc ! ;
+  MODULE-PATH module-not-found-in-package-tree
+  then  then  then  then  else  MODULE-PATH module-not-found-in-package-tree  then
+  then  then  then  then  then
+  lastVoc @ loadedModule !  targetVoc ! lastVoc !
+  cr ." Loadmodule>: " .sh ;
 
 
 
@@ -681,6 +689,7 @@ cell+ constant sWORD#
 %0000000100000000 constant %MAIN                      ( Module entry point )
 %0000001000000000 constant %STATIC                    ( Static )
 %0000010000000000 constant %INDIRECT                  ( There is an absolute jump address instead of the code field )
+%0000010000000000 constant %ABSTRACT                  ( Abstract method: %INDIRECT + CFA=0 )
 %0000100000000000 constant %CONDITION                 ( Word is a condition usable in conditional clauses )
 %0001000000000000 constant %INLINE                    ( Word is inline, i.e. code copied instead of called )
 %0010000000000000 constant %JOIN                      ( Word is an inline-joiner )
@@ -799,7 +808,7 @@ variable LAST_COMP                                    ( Last word compiled into 
   §CODE seg→| >r                                        ( save current length of code segment )
   swap  createCompactWord                               ( create word )
   dup &cpfa #PFA,                                       ( copy PFA, if present )
-  §CODE →tseg#↑  dup &ccfa  cell talign,  t&,           ( insert indirection to original CFA )
+  §CODE →tseg#↑  tvoc@ over &ccfa  cell talign,  t&,    ( insert indirection to original CFA )
   cell talign,  8 + r> r− !uword tw,                    ( punch word length )
   tseg#↓ ;
 : createStructuredAlias ( a$ -- )                     ( create alias for last word )
@@ -809,6 +818,20 @@ variable LAST_COMP                                    ( Last word compiled into 
 : createAlias ( a$ -- )  VOCAMODEL @ case             ( create an alias of the last word with name a$ )
     COMPACT-VOC of  createCompactAlias  endof
     STRUCTURED-VOC of  createStructuredAlias  endof
+    unknown-vocabulary-model  endcase
+  autoFlags @ nextFlags ! ;
+
+( create definition: )
+: createCompactDef ( a$ -- )                          ( create compact definition )
+  %ABSTRACT nextFlags or!                               ( copy flags )
+  §CODE seg→| >r                                        ( save current length of code segment )
+  createCompactWord  §CODE →tseg#↑   cell talign,  0 t, ( insert 0 code CFA )
+  cell talign,  there 2+ r> - !uword tw,  tseg#↓ ;
+: createStructuredDef ( a$ -- )                       ( create structured definition )
+  ***TODO*** ;
+: createDef ( a$ -- )  VOCAMODEL @ case               ( create an alias of the last word with name a$ )
+    COMPACT-VOC of  createCompactDef  endof
+    STRUCTURED-VOC of  createStructuredDef  endof
     unknown-vocabulary-model  endcase
   autoFlags @ nextFlags ! ;
 
@@ -1489,14 +1512,13 @@ also VocabularyWords definitions  context @ VOC-WORDS !
   dup voctype@ ?dup if  0 invalid-vocabulary-type  then  dup vocmodel case
     COMPACT-VOC of  insert-compact-voc  endof
     STRUCTURED-VOC of  insert-structured-voc  endof
-    unknown-vocabulary-model  endcase
-  cr ." End extends" ;
+    unknown-vocabulary-model  endcase ;
 
 previous definitions
 
 
 
-=== Class Words ===
+=== Class Vocabulary ===
 
 variable CLASS-WORDS
 
@@ -1515,6 +1537,23 @@ also ClassWords definitions  context @ CLASS-WORDS !
   readName  %CONSTRUCTOR nextFlags or!  cr ." constructor " dup type$  createWord  doCompile  enterMethod ;
 : destruct: ( -- )                                    ( create a destructor )
   %DESTRUCTOR nextFlags or!  cr ." destructor "  c" destroy"  createWord  doCompile  enterMethod ;
+: implements ( >name -- )                             ( add a base interface )
+  readName  loadModule depend ;
+
+previous definitions
+
+
+
+=== Interface Vocabulary ===
+
+variable INTERFACE-WORDS
+
+vocabulary InterfaceWords
+also InterfaceWords definitions  context @ INTERFACE-WORDS !
+
+: interface; ( -- )                                   ( end interface definition: ship interface )
+  INTERFACE-WORDS @ unvoc  shipVocabulary  target↓ ;
+: def ( >name -- )  readName createDef ;              ( add a method definition to the interface )
 
 previous definitions
 
@@ -1610,6 +1649,8 @@ also Interpreter definitions  context @ @INTERPRETER !
   lastVoc @ addSearchVoc  definitions  als0 VocabularyWords ;
 : class: ( >name -- )  vocabulary  1 >voctype         ( create class and set up for its body )
   lastVoc @ addSearchVoc  definitions  als0 ClassWords  §PARA →tseg#↑  c" Size" t$, 0 t, tseg#↓ ;
+: interface: ( >name -- )  vocabulary  2 >voctype     ( create interface and set up for its body )
+  lastVoc @ addSearchVoc  definitions  als0 InterfaceWords ;
 : code: ( >name -- )                                  ( create machine code word )
   readName  cr ." code: " dup type$  createWord  enterMethod  -1 FORC !  §CODE →tseg#↑ ;
 : alias ( >name -- )                                  ( create an alias for the last word with the given name )
