@@ -85,7 +85,7 @@ code: SYS-MMAP, ( a # pr fl u fd -- a'|-errno )       ( map # bytes at u in fd a
 code: SYS-MPROTECT ( a # pr -- 0|-errno )             ( protect # bytes from a with protection pr )
   RDI CELL [RSP] XCHG  0 [RSP] RSI XCHG  RAX RDX MOV  10 # CALLINUX  RSI POP  RDI POP ;
 code: SYS-MUNMAP, ( a # -- 0|-errno )                 ( unmap # bytes from a )
-  RDI CELL [RSP] XCHG  RSI PUSH  RX RSI MOV  11 # CALLINUX  RSI POP  RDI POP ;
+  RDI CELL [RSP] XCHG  RSI PUSH  RAX RSI MOV  11 # CALLINUX  RSI POP  RDI POP ;
 code: SYS-BRK, ( a -- a' )                            ( set program break to a, return new or current program break )
   RDI PUSH  RAX RDI MOV  12 # CALLINUX  RDI POP ;
 code: SYS-SIGACTION, ( a1 a0 u # -- 0|-errno )        ( set action descr for signal u to a1 and report old one in a0¹ )
@@ -144,14 +144,14 @@ code: SYS-GETITIMER, ( @tv tp -- 0|-errno )           ( Timer value of type tp �
 code: SYS-ALARM, ( u1 -- u2|-errno )                  ( set alarm to u1 secs / cancel alarm if u1=0, return previous alarm u2 )
   RDI PUSH  RAX RDI MOV  37 # CALLINUX  RDI POP ;
 code: SYS-SETITIMER, ( @tv1 @tv2 tp -- 0|-errno )     ( Arms or disarms timer of type tp using @tv1, report previous in @tv2 )
-  RSI CELL [RSP] XCHG  RDX POP  RDI PUSH  RAX RDI MOV  38 # CALLINUX  PDI POP  RSI POP ;
+  RSI CELL [RSP] XCHG  RDX POP  RDI PUSH  RAX RDI MOV  38 # CALLINUX  RDI POP  RSI POP ;
 code: SYS-GETPID ( -- pid )                           ( Caller's process ID, cannot fail )
   SAVE,  39 # CALLINUX ;
 code: SYS-SENDFILE ( infd outfd @u u1 -- u2|-errno )  ( write u1 bytes from infd to outfd [mmapped]¹, report #written in u2 )
   ( ¹ use and update file cursor @u unless 0 instead of infd file position )
   RSI 2 CELLS [RSP] XCHG  RDI CELL [RSP] XCHG  RDX POP  R10 PUSH  RAX R10 MOV  40 # CALLINUX  R10 POP  RDI POP  RSI POP ;
 code: SYS-SOCKET ( fam tp prot -- fd|-errno )         ( create socket fd of family fam and type tp using protocol prot )
-  RDI CELL [RSP] XCHG  RSI 0 [RSP]  RX RDX MOV  41 # CALLINUX  RSI POP  RDI POP ;
+  RDI CELL [RSP] XCHG  RSI 0 [RSP] XCHG  RAX RDX MOV  41 # CALLINUX  RSI POP  RDI POP ;
 code: SYS-CONNECT ( a # fd -- 0|-errno )              ( connect socket fd with memory block a# )
   RSI CELL [RSP] XCHG  RDX POP  RDI PUSH  RAX RDX MOV  42 # CALLINUX  RDI POP  RSI POP ;
 code: SYS-ACCEPT, ( a # fd1 -- fd2|-errno )           ( connect client socket fd2 for connection request on server socket fd1¹ )
@@ -201,7 +201,7 @@ code: SYS-FORK, ( -- pid|-errno )  SAVE,  57 # CALLINUX ;    ( fork process, rep
 code: SYS-VFORK, ( -- pid|-errno )  SAVE,  58 # CALLINUX ;   ( fork process halting parent until child calls execve or exit )
 code: SYS-EXECVE, ( fn⁰ @args @env -- -errno )        ( execute program fn⁰, passing cmdline args @args and environment @env¹ )
   ( ¹ does not return if OK, only returns with errors; @args and @env are both null-terminated vectors )
-  RDI CELL [RSP] XCHG  RSI 0 [RSP] XCHG  RX RDX MOV  59 # CALLINUX  RSI POP  RDI POP ;
+  RDI CELL [RSP] XCHG  RSI 0 [RSP] XCHG  RAX RDX MOV  59 # CALLINUX  RSI POP  RDI POP ;
 code: SYS-KILL, ( sig pid -- 0|-errno )               ( send signal sig to process pid )
   RSI 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV  62 # CALLINUX  RDI POP  RSI POP ;
 code: SYS-UNAME, ( a -- 0|-errno )                    ( return system information in structure at a )
@@ -224,7 +224,7 @@ code: SYS-MSGSND, ( a # fl id -- 0|-errno )           ( send message a# to msg q
   RDI POP  R10 POP  RDX POP  RSI POP ;
 code: SYS-MSGRCV, ( a # tp fl id -- u|-errno )        ( read message of type tp from msg queue id according to flags fl¹ )
   ( ¹ reports number of bytes actually read u )
-  RSI 3 CELLS [RSP] XCHG  RDX 2 CELLS [RSP] XCHG  R10 CELL [RSP] XCHG  R08 [RSP] XCHG  RDI PUSH  RAX RDI MOV  70 # CALLINUX
+  RSI 3 CELLS [RSP] XCHG  RDX 2 CELLS [RSP] XCHG  R10 CELL [RSP] XCHG  R08 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV  70 # CALLINUX
   RDI POP  R08 POP  R10 POP  RDX POP  RSI POP ;
 code: SYS-MSGCTL, ( a cmd id -- r|0|-errno )          ( perform ctrl op cmd on msq queue id with parameters a¹ )
   RDX CELL [RSP] XCHG  RSI 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV  71 # CALLINUX  RDI POP  RSI POP  RDX POP ;
@@ -315,13 +315,13 @@ code: SYS-GETGROUPS, ( @gid[] #gids -- u|-errno )     ( report list of supplemen
 code: SYS-SETGROUPS, ( @gid[] #gids -- 0|-errno )     ( set supplementary groups to @gid[] with size gids# )
   RSI 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV  116 # CALLINUX  RDI POP  RSI POP ;
 code: SYS-SETRESUID, ( ruid euid suid -- 0|-errno )   ( set real, effective and saved user id, any can be -1 to not set )
-  RDI CELL [RSP] XCHG  RSI 0 [RSP] XCHG  RX RDX MOV  117 # CALLINUX  RSI POP  RDI POP ;
+  RDI CELL [RSP] XCHG  RSI 0 [RSP] XCHG  RAX RDX MOV  117 # CALLINUX  RSI POP  RDI POP ;
 code: SYS-GETRESUID, ( @ruid @euid @suid -- 0|-err )  ( get real, effective and saved user id in respective variables )
-  RDI CELL [RSP] XCHG  RSI 0 [RSP] XCHG  RX RDX MOV  118 # CALLINUX  RSI POP  RDI POP ;
+  RDI CELL [RSP] XCHG  RSI 0 [RSP] XCHG  RAX RDX MOV  118 # CALLINUX  RSI POP  RDI POP ;
 code: SYS-SETRESGID, ( rgid egid sgid -- 0|-errno )   ( set real, effective and saved group id, any can be -1 to not set )
-  RDI CELL [RSP] XCHG  RSI 0 [RSP] XCHG  RX RDX MOV  119 # CALLINUX  RSI POP  RDI POP ;
+  RDI CELL [RSP] XCHG  RSI 0 [RSP] XCHG  RAX RDX MOV  119 # CALLINUX  RSI POP  RDI POP ;
 code: SYS-GETRESGID, ( @rgid @egid @sgid -- 0|-err )  ( get real, effective and saved group id in respective variables )
-  RDI CELL [RSP] XCHG  RSI 0 [RSP] XCHG  RX RDX MOV  120 # CALLINUX  RSI POP  RDI POP ;
+  RDI CELL [RSP] XCHG  RSI 0 [RSP] XCHG  RAX RDX MOV  120 # CALLINUX  RSI POP  RDI POP ;
 code: SYS-GETPGID, ( pid|0 -- pg|-errno )             ( Program group id of process pid, or caller if pid is 0 )
   RDI PUSH  RAX RDI MOV  121 # CALLINUX  RDI POP ;
 code: SYS-GETSID, ( pid|0 -- sid|-errno )             ( Session id of process pid, or caller if pid is 0 )
@@ -343,7 +343,7 @@ code: SYS-SIGSUSPEND, ( @ss #ss -- -errno )           ( suspend caller waiting f
   RDI 0 [RSP] XCHG  RSI PUSH  RAX RSI MOV  130 # CALLINUX  RSI POP  RDI POP ;
 code: SYS-SIGALTSTACK, ( @ss @oss -- 0|-errno )       ( define [@ss] / query [@oss] alternate signal stack¹ )
   ( ¹ @ss can be NIL to query only, @oss can be NIL to set only, otherwise reports previous altstack in @oss )
-  RSI 0 [RSP] XCHG  RSI PUSH  RX RSI MOV  131 # CALLINUX  RSI POP  RDI POP ;
+  RSI 0 [RSP] XCHG  RSI PUSH  RAX RSI MOV  131 # CALLINUX  RSI POP  RDI POP ;
 code: SYS-UTIME, ( fn⁰ @ut -- 0|-errno )              ( set last accessed/modified time of file fn⁰ to utime structure @ut )
   RDI 0 [RSP] XCHG  RSI PUSH  RAX RSI MOV  132 # CALLINUX  RSI POP  RDI POP ;
 code: SYS-MKNOD, ( fn⁰ md dev -- 0|-errno )           ( create fs node named fn⁰ with mode md [and device dev¹] )
@@ -485,8 +485,8 @@ code: SYS-TIME, ( -- u )  SAVE,  RDI PUSH  RDI RDI XOR  201 # CALLINUX  RDI POP 
 code: SYS-FUTEX, ( @f1 v op @t|v2 @f2 v3 -- r|0|-errno )    ( perform futex blocking operation¹, returning reply r or 0 )
   ( ¹ operation op with arg v to wait for condition on on futex @f1, possibly with timeout @t or second value v2, another
       futex @f2 and an additional value v3 )
-  RDI 4 CELLS [RSP] XCHG  RDX 3 CELLS [RSP] XCHG  RSI 2 CELL [RSP]  R10 CELL [RSP] XCHG  R08 0 [RSP] XCHG  R09 PUSH  RAX R09 MOV
-  202 # CALLINUX  R09 POP  R08 POP  R10 POP  RSI POP  RDX POP  RDI POP ;
+  RDI 4 CELLS [RSP] XCHG  RDX 3 CELLS [RSP] XCHG  RSI 2 CELLS [RSP] XCHG  R10 CELL [RSP] XCHG  R08 0 [RSP] XCHG  R09 PUSH
+  RAX R09 MOV  202 # CALLINUX  R09 POP  R08 POP  R10 POP  RSI POP  RDX POP  RDI POP ;
 code: SYS-SCHED_SETAFFINITY, ( a # pid -- 0|-errno )  ( set CPU affinity of thread pid [0=caller] in CPU set buffer a# )
   RDX POP  RSI 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV  203 # CALLINUX  RDI POP  RSI POP ;
 code: SYS-SCHED_GETAFFINITY, ( a # pid -- 0|-errno )  ( report CPU affinity of thread pid [0=caller] in CPU set buffer a# )
@@ -674,7 +674,7 @@ code: SYS-SPLICE, ( # @in fdi @out fdo fl -- #'|-errno ) ( move # bytes from in 
   275 # CALLINUX  R09 POP  R10 POP  RDI POP  RSI POP  R08 POP ;
 code: SYS-TEE, ( # fdi fdo fl -- #'|-errno )          ( dup/branch # bytes from fdi to fdo, return #' actually transferred )
   RDX 2 CELLS [RSP] XCHG  RDI CELL [RSP] XCHG  RSI 0 [RSP] XCHG  R10 PUSH  RAX R10 MOV  276 # CALLINUX
-  R10 POP t RSI POP  RDI POP  RDX POP ;
+  R10 POP  RSI POP  RDI POP  RDX POP ;
 code: SYS-SYNC_FILE_RANGE, ( o # fl fd -- 0|-errno )  ( sync # bytes in file fd with underlying storage controlled by fl )
   RSI 2 CELLS [RSP] XCHG  RDX CELL [RSP] XCHG  R10 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV  277 # CALLINUX
   RDI POP  R10 POP  RDX POP  RSI POP ;
@@ -694,7 +694,7 @@ code: SYS-EPOLL_PWAIT, ( @s #s @to @e[] #e epfd -- u|-errno )
   ( wait for at most #e events of type spec'd in sigmask @s#s on epoll file epfd within timeout @to, to be reported in array
     @e[#e]; returns #e number of events delivered )
   R08 4 CELLS [RSP] XCHG  R09 3 CELLS [RSP] XCHG  R10 2 CELLS [RSP] XCHG  RSI CELL [RSP] XCHG  RDX POP  RDI PUSH  RAX RDI MOV
-  281 @ CALLINUX  RDI POP  RSI POP  R10 POP  R09 POP  R08 POP ;
+  281 # CALLINUX  RDI POP  RSI POP  R10 POP  R09 POP  R08 POP ;
 code: SYS-SIGNALFD, ( @s #s sfd|-1 -- sfd'|-errno )   ( create or update signal fd sfd for signal mask @s#s¹ )
   ( ¹ if sfd=-1, a new signal fd sfd' is created, otherwise the signal mask is updated on sfd, and sfd'=sfd )
   RSI CELL [RSP] XCHG  RDX POP  RDI PUSH  RAX RDI MOV  282 # CALLINUX  RDI POP  RSI POP ;
@@ -727,7 +727,7 @@ code: SYS-DUP3, ( fl fd1 fd2 -- fd2|-errno )          ( same as SYS-DUP2, with p
   RDX CELL [RSP] XCHG  RDI 0 [RSP] XCHG  RSI PUSH  RAX RSI MOV  292 # CALLINUX  RSI POP  RDI POP  RDX POP ;
 code: SYS-PIPE2, ( @fd[] fl -- 0|-errno )             ( create pipe @fd[] fitted with flags fl¹ )
   ( ¹ reports reading end fd in @fd[0], writing end fd in @fd[1] )
-  RSI 0[RSP] XCHG  RDI PUSH  RAX RDI MOV  293 # CALLINUX  RDI POP  RSI POP ;
+  RSI 0 [RSP] XCHG  RDI PUSH  RAX RDI MOV  293 # CALLINUX  RDI POP  RSI POP ;
 code: SYS-INOTIFY_INIT1, ( fl -- ifd|-errno )         ( init new inotify instance ifd fitted with flags fl )
   RDI PUSH  RAX RDI MOV  294 # CALLINUX  RDI POP ;
 

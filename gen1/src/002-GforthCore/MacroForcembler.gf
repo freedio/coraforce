@@ -76,6 +76,7 @@ also Forcembler
 : ENTER, ( -- )  QWORD PTR 0 [RBP] POP  CELL [RBP] RBP LEA ;
 : EXIT, ( -- )  -CELL [RBP] RBP LEA  QWORD PTR 0 [RBP] PUSH  RET ;
 : EXXIT, ( -- X: -- reta )  there # NEAR JMP  there >Y ;
+: CALLINUX ( # -- )  AX MOV  AX RAX MOVZX  SYSCALL ;
 
 
 

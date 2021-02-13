@@ -263,7 +263,7 @@ create BSP  BSTACK ,
 : B2@  BSP @ 16 - @ ;
 : BDEPTH  BSP @ BSTACK - cell / ;
 
-create XSTACK 1024 allot
+create XSTACK 4096 allot
 create XSP  XSTACK ,
 : >X  XSP @ !  8 XSP +! ;
 : X>  8 XSP -!  XSP @ @ ;

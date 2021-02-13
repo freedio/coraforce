@@ -2,8 +2,9 @@
 
 ****** The ByteBuffer Module for FORCE-linux 4.19.0-5-amd64 ******
 
+package force/intel/64/core
+
 class: ByteBuffer
-  package force/intel/64/core
 
   cell val Address                                    ( Address of the buffer )
   cell val Capacity                                   ( Buffer capacity )

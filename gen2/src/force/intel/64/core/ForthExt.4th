@@ -4,8 +4,8 @@
 
 package force/intel/64/core
 import ForthBase
-import force/intel/64/macro/CoreMacro
-import force/trouble/ArithmeticException
+import /force/intel/64/macro/CoreMacro
+import /force/trouble/ArithmeticException
 
 vocabulary: ForthExt
   requires ForthBase

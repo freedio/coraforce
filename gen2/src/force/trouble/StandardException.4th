@@ -1,24 +1,19 @@
 ( Copyright © 2020 by Coradec GmbH.  All rights reserved )
 
-****** The Basic Exception module for FORCE-linux 4.19.0-5-amd64 ******
+****** The Standard Exception module for FORCE-linux 4.19.0-5-amd64 ******
 
 package force/trouble
 import /force/intel/64/core/ForthBase
-import /os/Inout
-import model/Severity
-import model/StackTrace
+import /force/core/String
 import Exception
 
-class: BasicException implements Exception
-  requires Severity
-  requires StackTrace
+class: BasicException extends BasicException
 
 
 
   === Fields ===
 
-  Severity val Severity                               ( how severe the exception is )
-  StackTrace val Stacktrace                           ( Snapshot of the caller stack at the time I was created )
+  String val Message                                  ( how severe the exception is )
 
 
 

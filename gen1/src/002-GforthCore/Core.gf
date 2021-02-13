@@ -294,7 +294,7 @@ variable VOCAMODEL
   segments createTable  dup addVTE  dup lastVoc ! →target↑
   §PARA →tseg#↑  c" Name" t$, t$,  c" Model" t$,  1 tc, VOCAMODEL @ tc, tseg#↓ ;
 : vocabulary$ ( @voc -- voc$|0 )  c" Name" para@ ;    ( Name voc$ of vocabulary @voc, if defined )
-: >voctype ( t -- )  §PARA →tseg#↑  c" Type" t$, c,  tseg#↓ ;  ( set vocabulary type to t )
+: >voctype ( t -- )  §PARA →tseg#↑  c" Type" t$, 1 tc, tc,  tseg#↓ ;  ( set vocabulary type to t )
 : voctype@ ( @voc -- t )  c" Type" !para@ 1+ c@ ;
 create FQVOC$  256 allot
 : fqvoc$ ( @voc -- fqvoc$ )  FQVOC$ $/                ( Fully qualified name voc$ of vocabulary @voc )
@@ -359,7 +359,7 @@ variable loadedModule
   2dup vocabulary$ $$= if  2drop 0 true exit  then      ( $ is the vocabulary name → index 0 )
   §DEPS vocseg 1 >x begin dup while  -rot 2dup $$= if  2drop drop x> true exit  then  rot over c@ 1+ #+>  x> 1+ >x repeat
   2drop x> drop false ;
-: voc# ( @voc -- #voc )  tvoc@ over = if  zap exit  then ( Dependency number of @voc in the current target vocabular )
+: voc# ( @voc -- #voc )  tvoc@ over = if  zap exit  then ( Dependency number of @voc in the current target vocabulary )
   fqvoc$ tvoc@ dep# unless  cr ." Vocabulary " type$ ."  is not a dependency of " tvoc@ vocabulary. terminate  then ;
 : @dep ( # -- @voc )  ?dup unless  tvoc@ exit  then   ( #th dependency of the target vocabulary )
   1- §DEPS segment rot 0 udo  ?dup unless  cr ." Requested dependency index does not exist!" abort  then  over c@ 1+ #+>  loop
@@ -458,7 +458,7 @@ variable relocs
   dup >>@voc vocabulary. '.' emit  dup >>segment segment. '#' emit  >>offset addr. ;  alias relocTarget.
 : _!sourceValid ( &s -- &s )  dup >>segment  §CODE = unless  cr ." Invalid source segment: " >>segment segment. abort  then
   dup >>@voc over >>segment vocuse over >>offset u< if  cr ." Out of segment length: " >>offset . terminate  then ;
-: _!targetValid ( &t -- &t )  dup >>segment  §CODE §PARA within unless  cr ." Invalid target segment: " >>segment segment. abort  then
+: _!targetValid ( &t -- &t )  dup >>segment  §DICT §PARA within unless  cr ." Invalid target segment: " >>segment segment. abort  then
   dup >>@voc over >>segment vocuse over >>offset u< if  cr ." Out of segment length: " >>offset . terminate  then ;
 : _!valid ( &t &s -- &t &s )                          ( make sure both locators are valid )
   _!sourceValid swap _!targetValid swap ;
@@ -588,15 +588,16 @@ create FiletimeCmd  300 allot
   4 digs '-' skip 2 digs '-' skip 2 digs $20 skip 2 digs ':' skip  2 digs ':' skip  2 digs '.' skip  5 digs 2drop x> ;
 : date. ( u -- )  s>d <# # # # # # '.' hold # # ':' hold # # ':' hold # # 'T' hold # # '-' hold # # '-' hold # # # # #> type ;
 
+: skip/ ( $ -- a # )  count  over c@ '/' = over 0- and if  +>  then ;
 variable file
 : ?loadModule ( $1 $2 -- ? )                        ( try loading module $1 from root $2 and report if successful )
   ModulePath over 1+ c@ '~' = if  s" HOME" getenv a#>$ swap count +> a#+>$  else  swap $>$  then
 (  cr ." ?loadModule: ModulePath 1: " ModulePath dup qtype$ space '@' emit hex. )
   SourcePath over $>$
-(  cr ." ?loadModule: SourcePath 1: " SourcePath dup qtype$ space '@' emit hex. }
-  '/' ?c+>$  c" src/" $+>$  2 pick $+>$  c" .4th" $+>$  getFileTime
+(  cr ." ?loadModule: SourcePath 1: " SourcePath dup qtype$ space '@' emit hex. )
+  '/' ?c+>$  c" src/" $+>$  2 pick skip/ a#+>$  c" .4th" $+>$  getFileTime
 (  cr ." ?loadModule: SourcePath 2: " SourcePath qtype$ ." , source file time: " dup . )
-  swap '/' ?c+>$  c" lib/" $+>$  rot $+>$  c" .4ce" $+>$  getFileTime
+  swap '/' ?c+>$  c" lib/" $+>$  rot skip/ a#+>$  c" .4ce" $+>$  getFileTime
 (  cr ." ?loadModule: ModulePath 2: " ModulePath qtype$ ." , module file time: " dup . )
   ?dup unless  cr ." Module " ModulePath qtype$ ."  does not exist"  zap exit  then
   u> if  cr ." Source is newer: module " ModulePath qtype$ ."  rejected in favor of source!" false exit  then
@@ -614,32 +615,33 @@ variable file
   file @ close-file throw  lastVoc @ addSearchVoc  ." , added to searchlist." ;
 : ?loadSource ( $1 $2 -- ? )                          ( try loading module $1 from root $2 and report if successful )
   ModulePath over 1+ c@ '~' = if  s" HOME" getenv a#>$  swap count +> a#+>$  else  swap $>$  then
-  '/' ?c+>$  c" src/" $+>$  swap $+>$  c" .4th" $+>$  cr ." Reading source file "  dup qtype$
+  '/' ?c+>$  c" src/" $+>$  swap skip/ a#+>$  c" .4th" $+>$  cr ." Reading source file "  dup qtype$
   dup count r/o open-file ifever  ."  failed (to open)."  drop zap exit  then  close-file throw  sourceModule true ;
 
 --- Module Methods ---
 
 create MODULE-NAME  256 allot
 create MODULE-PATH  256 allot
-: loadModule ( $ -- )  cr ." >Loadmodule: " .sh MODULE-PATH swap $>$           ( load the module with name $ )
+create MODULE-PATH2 512 allot
+: loadModule ( $ -- )  MODULE-PATH swap $>$           ( load the module with name $ )
   cr ." Searching for vocabulary " dup qtype$ count '/' cxafterlast dup MODULE-NAME c!++ swap cmove  space '(' emit MODULE-NAME type$ ')' emit
   MODULE-NAME findVocabulary ?dup if  dup loadedModule !  cr ." Vocabulary " vocabulary. ."  already loaded."  exit  then
   drop lastVoc @ targetVoc @
-  MODULE-PATH c" ~/.force" ?loadModule unless
-  MODULE-PATH c" ~/.force" ?loadSource unless
-  MODULE-PATH c" /usr/force" ?loadModule unless
-  MODULE-PATH c" /usr/force" ?loadSource unless
-  currentPackage c@ if  MODULE-NAME MODULE-PATH $$= if ( module has no package, then let's try WITH the package )
-  MODULE-PATH currentPackage $>$ '/' ?c+>$ MODULE-NAME $+>$ c" ~/.force" ?loadModule unless
-  MODULE-PATH c" ~/.force" ?loadSource unless
-  MODULE-PATH c" /usr/force" ?loadModule unless
-  MODULE-PATH c" /usr/force" ?loadSource unless
-  ( try URLs of extended package tree )
-  MODULE-PATH module-not-found-in-package-tree
-  then  then  then  then  else  MODULE-PATH module-not-found-in-package-tree  then
-  then  then  then  then  then
-  lastVoc @ loadedModule !  targetVoc ! lastVoc !
-  cr ." Loadmodule>: " .sh ;
+  MODULE-PATH dup c@ 0- swap 1+ c@ '/' = and if         ( absolute module name )
+    MODULE-PATH c" ~/.force" ?loadModule unless
+    MODULE-PATH c" ~/.force" ?loadSource unless
+    MODULE-PATH c" /usr/force" ?loadModule unless
+    MODULE-PATH c" /usr/force" ?loadSource unless
+    MODULE-PATH module-not-found-in-package-tree
+    then then then then  else                           ( relative module name: prefix with current package )
+  currentPackage c@ if
+    MODULE-PATH2 currentPackage $>$ '/' ?c+>$ MODULE-PATH $+>$ c" ~/.force" ?loadModule unless
+    MODULE-PATH2 c" ~/.force" ?loadSource unless
+    MODULE-PATH2 c" /usr/force" ?loadModule unless
+    MODULE-PATH2 c" /usr/force" ?loadSource unless
+    MODULE-PATH2 module-not-found-in-package-tree
+    then then then then  else  MODULE-PATH module-not-found-in-package-tree  then  then
+  lastVoc @ loadedModule !  targetVoc ! lastVoc ! ;
 
 
 
@@ -1022,7 +1024,7 @@ variable @CONSNEXTCHAR              ( Address of the console nextChar )
 
 --- Source Stack ---
 
-create BUFFER-STACK  PAGESIZE allot ( The input buffer stack )
+create BUFFER-STACK  32768 allot ( The input buffer stack )
 variable @BFR-STACK  BUFFER-STACK @BFR-STACK !
 
 : ?source ( -- ? )  @BFR-STACK @ BUFFER-STACK u> ;    ( check if there are files on the stack )
@@ -1223,7 +1225,7 @@ variable FORC                                         ( if we are in Forcembler 
   >charClause if  execute exit  then
   >cellClause if  execute exit  then
   >stringClause if  execute exit  then
-  over 1- findVocabulary ?dup if  drop exit  then  drop
+  over 1- findVocabulary ?dup if  cr ." Vocabulary " dup vocabulary. §DICT 0 >&  exit  then  drop
   cr ." Word «" type ." » not found! ⇒ quitting to FORTH." quit ;
 
 : unvoc ( @voc -- )                                   ( Remove gforth vocabulary @voc from the search list )
@@ -1301,8 +1303,8 @@ also Clauses definitions  context @ @CLAUSES !
 --- String Clauses ---
 
 --- Condition Clauses ---
-: ?until ( ctrl:ba -- )  cr ." ?UNTIL " CTRL> smashCondition ?UNTIL, ;
-: ?if ( -- ctrl:ba )  cr ." ?IF "  smashCondition ?IF,  tseg→| >CTRL ;
+: ?until ( ctrl:ba -- )  CTRL> smashCondition ?UNTIL, ;
+: ?if ( -- ctrl:ba )  smashCondition ?IF,  tseg→| >CTRL ;
 
 previous definitions
 
@@ -1377,7 +1379,7 @@ previous definitions
     x> false  endcase
   dup if
     x@ c@ 1+ CLAUSE-BUILDER c!++ c!++ x@ count slide cmove
-    CLAUSE-BUILDER  cr ." ---> Searching for clause " dup qtype$  count @CLAUSES @ search-wordlist dup if
+    CLAUSE-BUILDER  cr ." ---> Searching for clause " dup qtype$  count @CLAUSES @ search-wordlist dup if  ." : found."
       drop  [ also Forcembler ] depth 2- 0 max dup >B ADP+ execute B> ADP- [ previous ]  true  Held2 @0! Held !  x> drop exit  else
       ." : not found."  Held @ case
         IntHeld of  swap drop  endof
@@ -1417,6 +1419,8 @@ variable @codeAddr                                    ( Start address of current
 
 --- Code for Classes ---
 
+: pfa@ ( -- )  tvoc@ currentWord@ &PFA  « PUSHPFA, » ;
+
 create METHODNAME  256 allot
 variable OFFS
 variable constDepth
@@ -1428,14 +1432,16 @@ also Forcembler
 : lvl++  -1 dup constDepth +! ADP+ ;
 previous
 
-: createDynamicVal ( # &tp|0 val$ -- )                ( creates value val$ of size # and type &tp )
-  %PRIVATE nextFlags or! dup >x  createWord  dup #PFA,  ( create basic val )  cr ." > base val"
-  §CODE →tseg#↑  lvl>0  enterMethod  tvoc@ c" Size" !para@ dup >x @ dup OFFS ! « #PLUS, »  over abs x> +!  exitMethod  -1 wordComplete !  tseg#↓  lvl>
+: createDynamicVal ( # &tp|0 val$ -- )                ( create value val$ of size # and type &tp )
+  %VISIBILITY nextFlags andn!  %PRIVATE nextFlags or! dup >x  createWord  dup #PFA,  ( create basic val )  cr ." > base val"
+  §CODE →tseg#↑  lvl>0  enterMethod  tvoc@ c" Size" !para@ dup >x @ dup OFFS ! « #PLUS, »  over abs x> 1+ +!
+  exitMethod  -1 wordComplete !  tseg#↓  lvl>
   METHODNAME x> $>$ '@' c+>$  createWord  #PFA,         ( create getter )  cr ." > getter"
   §CODE →tseg#↑  lvl>0  enterMethod  OFFS @ swap lvl++ « ##FETCH, »  exitMethod  -1 wordComplete !  tseg#↓  lvl> ;
-: createDynamicVar ( # tp|0 var$ -- )                 ( creates variable var$ of size # and type tp )
-  %PRIVATE nextFlags or! dup >x  createWord  dup #PFA,  ( create basic var )  cr ." > base var"
-  §CODE →tseg#↑  lvl>0  enterMethod  tvoc@ c" Size" !para@ dup >x @ dup OFFS ! « #PLUS, »  over abs x> +!  exitMethod  -1 wordComplete !  tseg#↓  lvl>
+: createDynamicVar ( # &tp|0 var$ -- )                ( create variable var$ of size # and type &tp )
+  %VISIBILITY nextFlags andn!  %PRIVATE nextFlags or! dup >x  createWord  dup #PFA,  ( create basic var )  cr ." > base var"
+  §CODE →tseg#↑  lvl>0  enterMethod  tvoc@ c" Size" !para@ dup >x @ dup OFFS ! « #PLUS, »  over abs x> 1+ +!
+  exitMethod  -1 wordComplete !  tseg#↓  lvl>
   METHODNAME x@ $>$ '@' c+>$  createWord  dup #PFA,     ( create getter )  cr ." > getter"
   §CODE →tseg#↑  lvl>0  enterMethod  OFFS @ 2 pick « ##FETCH, »  exitMethod  -1 wordComplete !  tseg#↓  lvl>
   METHODNAME x> $>$ '!' c+>$  createWord  #PFA,         ( create setter )  cr ." > setter"
@@ -1527,10 +1533,10 @@ also ClassWords definitions  context @ CLASS-WORDS !
 
 : class; ( -- )                                       ( end class definition: ship class )
   CLASS-WORDS @ unvoc  shipVocabulary  target↓ ;
-: val ( &type >name -- )                              ( create an unmodifiable field member )
+: val ( &type|# >name -- )                            ( create an unmodifiable field member of type &type or size # )
   dup 2 cells ≤ if  ( it's a size )  &null  else  ( it's a type )  cell swap  then  readName
   nextFlags @ %STATIC and if  createStaticVal  else  createDynamicVal  then ;
-: var ( &type >name -- )                              ( create a modifiable field member )
+: var ( &type|# >name -- )                            ( create a modifiable field member of type &type or size # )
   dup 2 cells ≤ if  ( it's a size )  &null  else  ( it's a type )  cell swap  then  readName
   nextFlags @ %STATIC and if  createStaticVar  else  createDynamicVar  then ;
 : construct: ( >name -- )                             ( create a constructor )
@@ -1539,6 +1545,14 @@ also ClassWords definitions  context @ CLASS-WORDS !
   %DESTRUCTOR nextFlags or!  cr ." destructor "  c" destroy"  createWord  doCompile  enterMethod ;
 : implements ( >name -- )                             ( add a base interface )
   readName  loadModule depend ;
+1 constant U1
+2 constant U2
+4 constant U4
+8 constant U8
+-1 constant N1
+-2 constant N2
+-4 constant N4
+-8 constant N8
 
 previous definitions
 
@@ -1554,6 +1568,24 @@ also InterfaceWords definitions  context @ INTERFACE-WORDS !
 : interface; ( -- )                                   ( end interface definition: ship interface )
   INTERFACE-WORDS @ unvoc  shipVocabulary  target↓ ;
 : def ( >name -- )  readName createDef ;              ( add a method definition to the interface )
+
+previous definitions
+
+
+
+=== Enum Vocabulary ===
+
+variable ENUM-WORDS
+
+vocabulary EnumWords
+also EnumWords definitions  context @ ENUM-WORDS !
+
+: enum; ( -- )                                        ( end enum definition: ship enum )
+  ENUM-WORDS @ unvoc  shipVocabulary  target↓ ;
+: symbol ( >name -- )                                 ( add a symbol to the enum )
+  tvoc@ c" Next" !para@ 1+ dup @ readName  cr ." constant " dup qtype$  createWord  §CODE →tseg#↑
+  lvl>1  PFA,  pf,  enterMethod  pfa@  « FETCH, »  exitMethod  lvl>  -1 wordComplete !  tseg#↓
+  1+!  tvoc@ c" Count" !para@ 1+ 1+! ;
 
 previous definitions
 
@@ -1608,8 +1640,6 @@ previous definitions
 : pervious previous ;
 : als0 also ;
 
-: pfa@ ( -- )  tvoc@ currentWord@ &PFA  « PUSHPFA, » ;
-
 vocabulary Interpreter
 also Interpreter definitions  context @ @INTERPRETER !
 
@@ -1631,9 +1661,12 @@ also Interpreter definitions  context @ @INTERPRETER !
 : constant ( x >name -- )                             ( create a constant with value x )
   readName  cr ." constant " dup qtype$  createWord  §CODE →tseg#↑
   lvl>1  PFA,  pf,  enterMethod  pfa@  « FETCH, »  exitMethod  lvl>  -1 wordComplete !  tseg#↓ ;
-: variable ( >name -- )                               ( create a constant with value x )
+: variable ( >name -- )                               ( create a variable with initial value 0 )
   readName  cr ." variable " dup qtype$  createWord  §CODE →tseg#↑
   0 lvl>1  PFA,  pf,  enterMethod  pfa@  exitMethod  lvl>  -1 wordComplete !  tseg#↓ ;
+: =variable ( x >name -- )                            ( create a variable with initial value x )
+  readName  cr ." =variable " dup qtype$  createWord  §CODE →tseg#↑
+  lvl>1  PFA,  pf,  enterMethod  pfa@  exitMethod  lvl>  -1 wordComplete !  tseg#↓ ;
 : import ( >path -- )  readName  loadModule ;         ( import the file with the specified path or name )
 : requires ( >name -- )  readName                     ( import the specified file and make it a dependency of the current voc )
   loadModule depend ;
@@ -1648,13 +1681,20 @@ also Interpreter definitions  context @ @INTERPRETER !
 : vocabulary: ( >name -- )  vocabulary  0 >voctype    ( create vocabulary and set up for definitions )
   lastVoc @ addSearchVoc  definitions  als0 VocabularyWords ;
 : class: ( >name -- )  vocabulary  1 >voctype         ( create class and set up for its body )
-  lastVoc @ addSearchVoc  definitions  als0 ClassWords  §PARA →tseg#↑  c" Size" t$, 0 t, tseg#↓ ;
+  lastVoc @ addSearchVoc  definitions  als0 ClassWords  §PARA →tseg#↑  c" Size" t$, cell tc, 0 t, tseg#↓ ;
 : interface: ( >name -- )  vocabulary  2 >voctype     ( create interface and set up for its body )
   lastVoc @ addSearchVoc  definitions  als0 InterfaceWords ;
+: enum: ( >name -- )  vocabulary  3 >voctype          ( create enum and set up for its body )
+  lastVoc @ addSearchVoc  definitions  als0 EnumWords
+  §PARA →tseg#↑  c" Base" t$, cell tc, 0 t,  c" Next" t$, cell tc, 0 t,  c" Count" t$, cell tc, 0 t,  tseg#↓ ;
 : code: ( >name -- )                                  ( create machine code word )
   readName  cr ." code: " dup type$  createWord  enterMethod  -1 FORC !  §CODE →tseg#↑ ;
 : alias ( >name -- )                                  ( create an alias for the last word with the given name )
   readname  cr ." alias " dup qtype$  createAlias ;
+: public: ( -- )  %VISIBILITY autoFlags andn!  %PUBLIC autoFlags or! ;        ( set default visibility to public )
+: private: ( -- )  %VISIBILITY autoFlags andn!  %PRIVATE autoFlags or! ;      ( set default visibility to private )
+: protected: ( -- )  %VISIBILITY autoFlags andn!  %PROTECTED autoFlags or! ;  ( set default visibility to protected )
+: package: ( -- )  %VISIBILITY autoFlags andn!  %PACKAGE autoFlags or! ;      ( set default visibility to package )
 : init: ( -- )                                        ( creates the module entry point )
   cr ." init: " c" _main_" %PRIVATE nextFlags or!  createWord  doCompile  enterMethod ;
 : ( ( >...rpar -- )  c" )" comment-bracket ;          \ skips a parenthesis-comment

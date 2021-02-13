@@ -2,10 +2,14 @@
 
 ****** The error handling vocabulary for FORCE-linux 4.19.0-5-amd64 ******
 
-vocabulary: Errors  package force/intel/64/core
-  requires force/intel/64/core/RichForce
-  requires force/intel/64/core/Exception
-  uses linux/intel/64/system/SystemMacro
+package force/intel/64/core
+import RichForce
+import /force/trouble/Exception
+import /linux/intel/64/system/SystemMacro
+
+vocabulary: Errors
+  requires RichForce
+  requires Exception
 
 create EXSTACK  256 cells allot                       ( The exception stack growing upwards with space for 256 entries )
 EXSTACK =variable EXSP                                ( The exception stack pointer )

@@ -26,6 +26,7 @@
 )
 
 package force/intel/64/macro
+
 vocabulary: CoreMacro ( AMD64 )
 
 === Helpers ===
