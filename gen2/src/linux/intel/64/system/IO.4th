@@ -4,10 +4,12 @@
 
 package linux/intel/64/system
 import /force/intel/64/core/ForthBase
+import /linux/intel/64/system/memory/Memory
 import SystemMacro
 
 class: IO
   requires ForthBase
+  requires Memory
 
 
 

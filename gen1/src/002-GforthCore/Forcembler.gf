@@ -2080,6 +2080,7 @@ decimal
 : ?CONTINUE (?CONTINUE) ;
 : ADP+ ( n -- ) ( cr ." ADP+ " ADP @ . ) ADP +! ( ADP @ . ) ;
 : ADP- ( n -- ) ( cr ." ADP- " ADP @ . ) ADP -! ( ADP @ . ) ;
+: ADP? ( -- n ) ADP @ ;
 
 decimal
 stackcheck

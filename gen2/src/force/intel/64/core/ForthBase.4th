@@ -547,6 +547,12 @@ alias −−o!  alias −−v!  alias −−2!                    ( aliases with
 
 
 
+=== Cell sized aliases ===
+
+: @ ( a -- x )  q@ ;
+: ! ( x a -- )  q! ;
+
+
 === Module Initialization ===
 
 init: ( @initstr -- @initstr )  dup @PSP + q@ 8− PSP0 q!  dup @RSP + q@ 32+ RSP0 q! ;

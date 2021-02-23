@@ -12,15 +12,15 @@ class: PageArray
 
   === Fields ===
 
-  create Pages  512 cells zallot                      ( array of 512 page pointers, initialized to all 0 )
+  create Pages  512 cells 0allot                      ( array of 512 page pointers, initialized to all 0 )
 
 
 
   === Methods ===
 
 public:
-  : TopPage@ ( # -- #p )  my Pages@ swap cells + @ ;  ( Number #p of Page # in my pages )
-  : TopPage! ( #p # -- )  my Pages@ swap cells + ! ;  ( store #p in Page # of my pages )
+  : TopPage@ ( # -- #p|0 )  my Pages swap cells + @ ; ( Number #p of Page # in my pages, or 0 if none )
+  : TopPage! ( #p # -- )  my Pages swap cells + ! ;   ( store #p in Page # of my pages )
   : init ( -- ) ;
 
 class;

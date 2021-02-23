@@ -124,7 +124,7 @@ also Forcembler
   1 of  1 ADP+  RDX POP  1 ADP-  DL swap [RAX] MOV  RESTORE,  endof
   2 of  1 ADP+  RDX POP  1 ADP-  DX swap [RAX] MOV  RESTORE,  endof
   4 of  1 ADP+  RDX POP  1 ADP-  EDX swap [RAX] MOV  RESTORE,  endof
-  8 of   [RAX] POP  RESTORE,  endof
+  8 of   QWORD PTR [RAX] POP  RESTORE,  endof
   cr ." Invalid operand size (expected 2ⁿ|n in ±1,±2,±4,±8): " . abort  endcase ;
 : #PLUS, ( x -- )  case
   0 of  endof

@@ -111,10 +111,11 @@ defer printVoc
 : !hactive ( @hd -- @hd )  dup haddr@ unless  dup _hallocate  then ;    ( make sure the heap is active )
 : hallot ( # @hd -- a # )  2dup >hend 2swap  !hactive  over !hfree  hused+!  swap ;    ( allot # bytes on heap @hd → @allotted )
 : 0hallot ( # @hd -- a # )  hallot  2dup 0 cfill ;
-: h, ( x @hd -- )  !hactive  cell !hfree  tuck >hend !  cell swap hused+! ;    ( append cell x to heap @hd )
-: hd, ( d @hd -- )  !hactive  4 !hfree  tuck >hend d!  4 swap hused+! ;    ( append unsigned double word w to heap @hd )
-: hw, ( w @hd -- )  !hactive  2 !hfree  tuck >hend w!  2 swap hused+! ;    ( append unsigned word w to heap @hd )
-: hc, ( c @hd -- )  !hactive  1 !hfree  tuck >hend c!  1 swap hused+! ;    ( append unsigned byte c to heap @hd )
+: h#, ( x # @hd -- )  !hactive  cell !hfree  rot over >hend ! hused+! ;    ( append # bytes of x to heap @hd )
+: h, ( x @hd -- )  cell swap h#, ;                    ( append cell x to heap @hd )
+: hd, ( d @hd -- )  4 swap h#, ;                      ( append unsigned double word w to heap @hd )
+: hw, ( w @hd -- )  2 swap h#, ;                      ( append unsigned word w to heap @hd )
+: hc, ( c @hd -- )  1 swap h#, ;                      ( append unsigned byte c to heap @hd )
 : hf, ( @hd -- F: r -- )  !hactive  10 !hfree  dup >hend f!  10 swap hused+! ;    ( append 10byte float r to heap @hd )
 : h$, ( $ @hd -- )  !hactive  over c@ 1+ tuck !hfree  dup >hend -rot  hused+!  over c@ 1+ cmove ;    ( append $ to heap @hd )
 : ha#, ( a # @hd -- )  !hactive  over !hfree  dup >hend -rot  2dup hused+! drop cmove ;    ( append buffer a# to heap @hd )
@@ -262,7 +263,9 @@ variable VOCAMODEL
 : tf, ( -- F: r -- )  >tseg hf, ;                     ( punch 10byte real number into the current target segment )
 : t$, ( $ -- )  >tseg h$, ;                           ( punch $ into the current target segment )
 : ta#, ( a # -- )  >tseg ha#, ;                       ( punch byte array at a with length # into the current target segment )
-: pf, ( x -- )  §DATA →tseg#↑  t,  tseg#↓ ;           ( punch x into data segment )
+: t#, ( x # -- )  >tseg h#, ;                         ( punch cell x into the current target segment )
+: pf, ( x -- )  §DATA →tseg#↑  t,  tseg#↓ ;           ( punch x into parameter field [data segment] )
+: #pf, ( x # -- )  §DATA →tseg#↑  t#,  tseg#↓ ;       ( punch # bytes of x into parameter field [data segment] )
 : segname ( seg# -- $ )  cells SEGNAMES + @ ;         ( Name of segment seg# )
 : segment. ( seg# -- )  segname type$ ;               ( print the name of segment seg# )
 
@@ -1420,34 +1423,60 @@ variable @codeAddr                                    ( Start address of current
 --- Code for Classes ---
 
 : pfa@ ( -- )  tvoc@ currentWord@ &PFA  « PUSHPFA, » ;
+: pseg→|& ( -- )  §DATA &seg→|  « PUSHPFA, » ;
 
 create METHODNAME  256 allot
-variable OFFS
+variable DYNAMIC#
 variable constDepth
 also Forcembler
-: lvl>0  depth dup constDepth ! ADP+ ;
-: lvl>1  depth 1- dup constDepth ! ADP+ ;
-: lvl>2  depth 2- dup constDepth ! ADP+ ;
-: lvl>   constDepth @ ADP- ;
+: lvl>0  depth dup constDepth +! ADP+ ;
+: lvl>1  depth 1- dup constDepth +! ADP+ ;
+: lvl>2  depth 2- dup constDepth +! ADP+ ;
+: lvl>   constDepth @ ADP-  0 constDepth ! ;
 : lvl++  -1 dup constDepth +! ADP+ ;
+: lvl2+  -2 dup constDepth +! ADP+ ;
+: lvl?   ." ADP=" ADP? . ;
 previous
 
-: createDynamicVal ( # &tp|0 val$ -- )                ( create value val$ of size # and type &tp )
+: createDynamic ( val$ -- )                           ( create adress in instance data space )
+  %VISIBILITY nextFlags andn!  %PRIVATE nextFlags or!  createWord  cr ." > base val"
+  §CODE →tseg#↑  lvl>0  enterMethod  tvoc@ c" Size" !para@ 1+ @ « #PLUS, »
+  exitMethod  lvl>  -1 wordComplete !  tseg#↓  lvl> ;
+: createDynamicVal ( # &tp|0 val$ -- )                ( create dynamic value val$ of size # and type &tp )
   %VISIBILITY nextFlags andn!  %PRIVATE nextFlags or! dup >x  createWord  dup #PFA,  ( create basic val )  cr ." > base val"
-  §CODE →tseg#↑  lvl>0  enterMethod  tvoc@ c" Size" !para@ dup >x @ dup OFFS ! « #PLUS, »  over abs x> 1+ +!
+  §CODE →tseg#↑  lvl>0  enterMethod  tvoc@ c" Size" !para@ 1+ dup >x @ dup DYNAMIC# ! « #PLUS, »  over abs x> +!
   exitMethod  -1 wordComplete !  tseg#↓  lvl>
   METHODNAME x> $>$ '@' c+>$  createWord  #PFA,         ( create getter )  cr ." > getter"
-  §CODE →tseg#↑  lvl>0  enterMethod  OFFS @ swap lvl++ « ##FETCH, »  exitMethod  -1 wordComplete !  tseg#↓  lvl> ;
-: createDynamicVar ( # &tp|0 var$ -- )                ( create variable var$ of size # and type &tp )
+  §CODE →tseg#↑  lvl>0  enterMethod  DYNAMIC# @ swap lvl++ « ##FETCH, »  exitMethod  -1 wordComplete !  tseg#↓  lvl> ;
+: createDynamicVar ( # &tp|0 var$ -- )                ( create dynamic variable var$ of size # and type &tp )
   %VISIBILITY nextFlags andn!  %PRIVATE nextFlags or! dup >x  createWord  dup #PFA,  ( create basic var )  cr ." > base var"
-  §CODE →tseg#↑  lvl>0  enterMethod  tvoc@ c" Size" !para@ dup >x @ dup OFFS ! « #PLUS, »  over abs x> 1+ +!
+  §CODE →tseg#↑  lvl>0  enterMethod  tvoc@ c" Size" !para@ 1+ dup >x @ dup DYNAMIC# ! « #PLUS, »  over abs x> +!
   exitMethod  -1 wordComplete !  tseg#↓  lvl>
   METHODNAME x@ $>$ '@' c+>$  createWord  dup #PFA,     ( create getter )  cr ." > getter"
-  §CODE →tseg#↑  lvl>0  enterMethod  OFFS @ 2 pick « ##FETCH, »  exitMethod  -1 wordComplete !  tseg#↓  lvl>
+  §CODE →tseg#↑  lvl>0  enterMethod  DYNAMIC# @ 2 pick « ##FETCH, »  exitMethod  -1 wordComplete !  tseg#↓  lvl>
   METHODNAME x> $>$ '!' c+>$  createWord  #PFA,         ( create setter )  cr ." > setter"
-  §CODE →tseg#↑  lvl>0  enterMethod  OFFS @ swap lvl++ « ##STORE, »  exitMethod  -1 wordComplete !  tseg#↓  lvl> ;
-: createStaticVal ***TODO*** ;
-: createStaticVar ***TODO*** ;
+  §CODE →tseg#↑  lvl>0  enterMethod  DYNAMIC# @ swap lvl++ « ##STORE, »  exitMethod  -1 wordComplete !  tseg#↓  lvl> ;
+: allotDynamic ( # -- )  tvoc@ c" Size" !para@ 1+ +! ; ( allot # bytes of any value in instance data space )
+: 0allotDynamic ( # -- )  tvoc@ c" Size" !para@ 1+ +! ; ( allot # bytes of value 0 in instance data space )
+: createStatic ( val$ -- )                            ( create adress in instance data space )
+  %VISIBILITY nextFlags andn!  %PRIVATE nextFlags or!  createWord  PFA,  cr ." > base val"
+  §CODE →tseg#↑  lvl>0  enterMethod  pfa@  exitMethod  lvl>  -1 wordComplete !  tseg#↓  lvl> ;
+: createStaticVal ( x # &tp|0 val$ -- )  >x           ( create static value val$ with value x, size # and type &tp )
+  METHODNAME x@ $>$ '@' c+>$  createWord  PFA,          ( create getter )  cr ." > getter"
+  §CODE →tseg#↑  lvl>0  enterMethod  0 swap lvl>1 pseg→|& « ##FETCH, »  exitMethod  -1 wordComplete !  tseg#↓  lvl>
+  %VISIBILITY nextFlags andn!  %PRIVATE nextFlags or! x>  createWord  §CODE →tseg#↑  ( create base val )  cr ." > base val"
+  drop  lvl>1  PFA,  #pf,  enterMethod  pfa@  exitMethod  lvl>  -1 wordComplete !  tseg#↓ ;
+: createStaticVar ( # &tp|0 val$ -- )  >x  drop       ( create static variable val$ with size # and type &tp )
+  METHODNAME x@ $>$ '@' c+>$  createWord  PFA,          ( create getter )  cr ." > getter"
+  §CODE →tseg#↑  lvl>0  enterMethod  0 over lvl>1 pseg→|& lvl2+ « ##FETCH, »  exitMethod  -1 wordComplete !  tseg#↓  lvl>
+  METHODNAME x@ $>$ '!' c+>$  createWord  PFA,          ( create setter )  cr ." > setter"
+  §CODE →tseg#↑  lvl>0  enterMethod  0 over lvl>1 pseg→|& lvl2+ « ##STORE, »  exitMethod  -1 wordComplete !  tseg#↓  lvl>
+  %VISIBILITY nextFlags andn!  %PRIVATE nextFlags or! x>  createWord  §CODE →tseg#↑  ( create base val )  cr ." > base val"
+  lvl>1  PFA,  0 swap #pf,  enterMethod  pfa@  exitMethod  lvl>  -1 wordComplete !  tseg#↓ ;
+: allotStatic ( # -- )                                ( allot # bytes of any value in vocabulary data space )
+  §DATA >seg hallot 2drop ;
+: 0allotStatic ( # -- )                               ( allot # bytes of value 0 in vocabulary data space )
+  §DATA >seg 0hallot 2drop ;
 
 --- Main ---
 
@@ -1519,6 +1548,10 @@ also VocabularyWords definitions  context @ VOC-WORDS !
     COMPACT-VOC of  insert-compact-voc  endof
     STRUCTURED-VOC of  insert-structured-voc  endof
     unknown-vocabulary-model  endcase ;
+: val ( &type|# >name -- )                            ( create an unmodifiable field member of type &type or size # )
+  dup 2 cells ≤ if  ( it's a size )  &null  else  ( it's a type )  cell swap  then  readName  cr ." val " dup qtype$  createStaticVal ;
+: var ( &type|# >name -- )                            ( create a modifiable field member of type &type or size # )
+  dup 2 cells ≤ if  ( it's a size )  &null  else  ( it's a type )  cell swap  then  readName  cr ." var " dup qtype$  createStaticVar ;
 
 previous definitions
 
@@ -1534,10 +1567,10 @@ also ClassWords definitions  context @ CLASS-WORDS !
 : class; ( -- )                                       ( end class definition: ship class )
   CLASS-WORDS @ unvoc  shipVocabulary  target↓ ;
 : val ( &type|# >name -- )                            ( create an unmodifiable field member of type &type or size # )
-  dup 2 cells ≤ if  ( it's a size )  &null  else  ( it's a type )  cell swap  then  readName
+  dup 2 cells ≤ if  ( it's a size )  &null  else  ( it's a type )  cell swap  then  readName  cr ." val " dup qtype$
   nextFlags @ %STATIC and if  createStaticVal  else  createDynamicVal  then ;
 : var ( &type|# >name -- )                            ( create a modifiable field member of type &type or size # )
-  dup 2 cells ≤ if  ( it's a size )  &null  else  ( it's a type )  cell swap  then  readName
+  dup 2 cells ≤ if  ( it's a size )  &null  else  ( it's a type )  cell swap  then  readName  cr ." var " dup qtype$
   nextFlags @ %STATIC and if  createStaticVar  else  createDynamicVar  then ;
 : construct: ( >name -- )                             ( create a constructor )
   readName  %CONSTRUCTOR nextFlags or!  cr ." constructor " dup type$  createWord  doCompile  enterMethod ;
@@ -1545,14 +1578,12 @@ also ClassWords definitions  context @ CLASS-WORDS !
   %DESTRUCTOR nextFlags or!  cr ." destructor "  c" destroy"  createWord  doCompile  enterMethod ;
 : implements ( >name -- )                             ( add a base interface )
   readName  loadModule depend ;
-1 constant U1
-2 constant U2
-4 constant U4
-8 constant U8
--1 constant N1
--2 constant N2
--4 constant N4
--8 constant N8
+: create ( >name -- )                                 ( create a name referring to the parameter segment )
+  nextFlags @ %STATIC and if  createStatic  else  createDynamic  then ;
+: allot ( # -- )                                      ( reserve # bytes of any value in the parameter segment )
+  nextFlags @ %STATIC and if  allotStatic  else  allotDynamic  then ;
+: 0allot ( # -- )                                     ( reserve # bytes of value 0 in the parameter segment )
+  nextFlags @ %STATIC and if  0allotStatic  else  0allotDynamic  then ;
 
 previous definitions
 
@@ -1643,6 +1674,15 @@ previous definitions
 vocabulary Interpreter
 also Interpreter definitions  context @ @INTERPRETER !
 
+1 constant U1
+2 constant U2
+4 constant U4
+8 constant U8
+-1 constant N1
+-2 constant N2
+-4 constant N4
+-8 constant N8
+
 : vocabulary ( >name -- )                             ( create a vocabulary with name from input stream )
   readName  cr ." vocabulary " dup qtype$  createVocabulary  §PARA →tseg#↑  c" Package" t$, currentPackage t$,  tseg#↓ ;
 : package ( >name -- )                                ( adds a package specification to the vocabulary )
@@ -1667,6 +1707,11 @@ also Interpreter definitions  context @ @INTERPRETER !
 : =variable ( x >name -- )                            ( create a variable with initial value x )
   readName  cr ." =variable " dup qtype$  createWord  §CODE →tseg#↑
   lvl>1  PFA,  pf,  enterMethod  pfa@  exitMethod  lvl>  -1 wordComplete !  tseg#↓ ;
+: create ( >name -- )                                 ( create a name referring to the parameter segment )
+  readName  cr ." parameter " dup qtype$  createWord  §CODE →tseg#↑
+  lvl>0  PFA,  enterMethod  pfa@  exitMethod  lvl>  -1 wordComplete !  tseg#↓ ;
+: allot ( # -- )  §DATA >seg hallot 2drop ;           ( reserve # bytes in the parameter segment )
+: 0allot ( # -- )  §DATA >seg 0hallot 2drop ;         ( reserve # bytes in the parameter segment )
 : import ( >path -- )  readName  loadModule ;         ( import the file with the specified path or name )
 : requires ( >name -- )  readName                     ( import the specified file and make it a dependency of the current voc )
   loadModule depend ;
