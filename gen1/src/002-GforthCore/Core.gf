@@ -194,6 +194,7 @@ Stack effect comment:
 1+ dup constant §DEPS
 1+ dup constant §DBUG
 1+ constant segments
+    15 constant §VOCA
 
 ( Segment Names [segment$] )
 create DICT$ ," dictionary"
@@ -343,6 +344,12 @@ variable SegHeader
   segments 0 do
     cr i segname 31 over c@ - 0 max 0 udo  '.' emit  loop  space type$ ." : "
     '@' emit  i >seg dup haddr@ hex.  dup hused@ hex. '/' emit  hsize@ hex.  loop ;
+: voc. ( @voc -- )
+  cr ." Vocabulary " dup vocabulary$ dup type$  swap ."  @" hex.
+  cr ." -----------" c@ 0 udo  '-' emit  loop
+  segments 0 do
+    cr i segname 31 over c@ - 0 max 0 udo  '.' emit  loop  space type$ ." : "
+    '@' emit  i >seg dup haddr@ hex.  dup hused@ hex. '/' emit  hsize@ hex.  loop ;
 :noname tvoc. ; is printVoc
 create LOCALNAME  256 allot
 : >localname ( fqvoc$ -- voc$ )  count 2dup '/' cfindlast #+> dup LOCALNAME c!++ swap cmove  LOCALNAME ;
@@ -406,13 +413,16 @@ The locator type symbol (e.g. in stack effect comments) is ‹&›.
 
 --- Locator Primitives ---
 
-: >>offset ( & -- u )  %LOCATOR.OFFSET and ;             ( Extracts offset u from locator & )
+: >>offset ( & -- u )  %LOCATOR.OFFSET and ;          ( Extracts offset u from locator & )
 : >>segment ( & -- seg# )  LOCATOR.SEGMENT u>> %LOCATOR.SEGMENT and ;       ( extract seg# from locator & )
 : >>voc# ( & -- voc# )  LOCATOR.VOCABULARY u>> %LOCATOR.VOCABULARY and ;    ( extract vocabulary index voc# from locator & )
 : >>@voc ( & -- @voc )  >>voc# @dep ;                                       ( extract vocabulary address @voc from locator & )
 : >>extra ( & -- u )  LOCATOR.EXTRA u>> %LOCATOR.EXTRA and ;                ( extract extra info )
 : <<extra ( & %u -- &' )                              ( Sets the extra field or locator & to %u )
   %LOCATOR.EXTRA and LOCATOR.EXTRA u<< swap %LOCATOR.EXTRA LOCATOR.EXTRA u<< andn or ;
+
+: !seg# ( seg# -- #seg# )                             ( validate segment number )
+  dup §VOCA = over 0 segments within or unless  cr ." Invalid segment index: " . abort  then ;
 
 --- Locator Operations ---
 
@@ -421,12 +431,12 @@ defer reloc,
 : >& ( @voc seg# offs -- & )                          ( create locator from @voc, seg# and offs )
   cr ." >&: Voc=" 2 pick hex. ." , segment=" over . ." , offset=" dup hex.
   dup 32 >> 0- if  cr ." Offset too big: " hex. abort  then
-  swap dup 0 segments within unless  cr ." Invalid segment index: " . abort  then  LOCATOR.SEGMENT u<< +
-  swap voc#  LOCATOR.VOCABULARY u<< + ;
+  swap !seg#  LOCATOR.SEGMENT u<< +  swap voc#  LOCATOR.VOCABULARY u<< + ;
 : >T& ( seg# offs -- & )  !u4                         ( create locator from target vocabulary, seg# and offs )
-  swap dup 0 segments within unless  cr ." Invalid segment index: " . abort  then  LOCATOR.SEGMENT u<< + ;
+  swap !seg#  LOCATOR.SEGMENT u<< + ;
 : &> ( & -- @voc seg# offs )  dup >>@voc over >>segment rot >>offset ;    ( explode locator into its components )
-: &>a ( & -- a )  dup >>@voc  over >>segment addr@ swap >>offset + ;    ( resolve locator & to address )
+: &>a ( & -- a )                                      ( resolve locator & to address )
+  dup >>@voc  over >>segment dup §VOCA = if drop  else  addr@  then  swap >>offset + ;
 : &seg ( seg# -- & )  swap 0 >T& ;                    ( create locator to start of segment seg# in target vocabulary )
 : &seg→| ( seg# -- & )  dup segused@ >T& ;            ( create locator to end of segment seg# in target vocabulary )
 : &segoffs ( u seg# -- & )  swap >T& ;                ( create locator for offset u in segment seg# of target vocabulary )
@@ -459,17 +469,17 @@ variable relocs
 
 : relocSource. ( @source -- )                         ( Prints the relocation source )
   dup >>@voc vocabulary. '.' emit  dup >>segment segment. '#' emit  >>offset addr. ;  alias relocTarget.
-: _!sourceValid ( &s -- &s )  dup >>segment  §CODE = unless  cr ." Invalid source segment: " >>segment segment. abort  then
-  dup >>@voc over >>segment vocuse over >>offset u< if  cr ." Out of segment length: " >>offset . terminate  then ;
-: _!targetValid ( &t -- &t )  dup >>segment  §DICT §PARA within unless  cr ." Invalid target segment: " >>segment segment. abort  then
-  dup >>@voc over >>segment vocuse over >>offset u< if  cr ." Out of segment length: " >>offset . terminate  then ;
+: _!sourceValid ( &s -- &s )  dup >>segment  §CODE §TEXT within unless  cr ." Invalid source segment: " >>segment segment. abort  then
+  dup >>@voc over >>segment vocuse over >>offset u< if  cr ." Out of segment length: " >>offset . abort  then ;
+: _!targetValid ( &t -- &t )  dup >>segment  dup §VOCA = swap §DICT §PARA within or unless  cr ." Invalid target segment: " >>segment segment. abort  then
+  dup >>@voc over >>segment vocuse over >>offset u< if  cr ." Out of segment length: " >>offset . abort  then ;
 : _!valid ( &t &s -- &t &s )                          ( make sure both locators are valid )
   _!sourceValid swap _!targetValid swap ;
 
 --- Relocation Operations ---
 
 :noname ( &t &s -- )  _!valid §RELS →tseg#↑ t, t, tseg#↓ ; is reloc,  ( Add relocation with source &s and target &t to relocation table )
-: codereloc, ( &t &s -- )  cr .sh %CODE-LOCATION >extra .sh reloc, ;
+: codereloc, ( &t &s -- )  cr %CODE-LOCATION >extra reloc, ;
 : relocs. ( -- )  §RELS >seg heap RelocEntry# u/ 0 udo    ( Prints the relocation table )
   cr dup RELOC.SOURCE + @ relocSource.  space ." -> "  dup RELOC.TARGET + @ relocTarget.  RelocEntry# +  loop  drop ;
 : reloc ( @rel -- )  dup RELOC.SOURCE + @  swap RELOC.TARGET + @ &&! ;
@@ -731,7 +741,7 @@ variable LAST_COMP                                    ( Last word compiled into 
 : >ccf ( @word -- a )  flags %INDIRECT and >x         ( Address of code field of compact word )
   dup 2 + count +  swap d@ %WITH-PFA and if  cell ->| cell+  then  x> if  cell ->| @  else  2 ->| 2 +  then ;
 : &ccfa ( @voc @word -- &cfa )                        ( Reference to CFA of compact word @word in vocabulary @voc )
-  >ccf over §CODE .sh addr@ - §CODE swap >& ;
+  >ccf over §CODE addr@ - §CODE swap >& ;
 : &ccf ( @voc @word -- &cf )                          ( Reference to code field of compact word @word in vocabulary @voc )
   flags swap >ccf swap %INDIRECT and if  @  else  2+  then  §CODE vt& ;
 : &scfa ( @voc @word -- &cfa )                        ( Reference to CFA of structured word )
@@ -967,7 +977,7 @@ variable @COMP-WORDS                                  ( Compiler wordlist / voca
     1 dup TRIM !  §CODE >seg hused−!  then  then  then  then  then ;
 : ?>joiner ( @word -- @word )  #INLINED @ unless  flags %JOIN and if  %JOIN currentWord@ flags+!  then  then ;
 : ?>linker ( @word -- @word )  #INLINED @ unless  flags %LINK and if  %LINK currentWord@ flags+!  then  then ;
-: inline-call, ( @voc @word -- )  cr ." Inline call: " .sh  &CFA dup hex. &CALL, ;
+: inline-call, ( @voc @word -- )  cr ." Inline call: " &CFA dup hex. &CALL, ;
 : inline-copy, ( @voc @word -- )  ?>linker  ?>joiner  ?inline-join  there >x  nip dup code-range ta#,  x> inline-reloc,  TRIM 0! ;
 
 : int-indirect, ( n -- )  indirect-threading-not-supported ;
@@ -1228,7 +1238,7 @@ variable FORC                                         ( if we are in Forcembler 
   >charClause if  execute exit  then
   >cellClause if  execute exit  then
   >stringClause if  execute exit  then
-  over 1- findVocabulary ?dup if  cr ." Vocabulary " dup vocabulary. §DICT 0 >&  exit  then  drop
+  over 1- findVocabulary ?dup if  cr ." Vocabulary " dup vocabulary. §VOCA 0 >&  exit  then  drop
   cr ." Word «" type ." » not found! ⇒ quitting to FORTH." quit ;
 
 : unvoc ( @voc -- )                                   ( Remove gforth vocabulary @voc from the search list )
@@ -1438,7 +1448,7 @@ also Forcembler
 : lvl?   ." ADP=" ADP? . ;
 previous
 
-: createDynamic ( val$ -- )                           ( create adress in instance data space )
+: createDynamic ( addr$ -- )                          ( create adress in instance data space )
   %VISIBILITY nextFlags andn!  %PRIVATE nextFlags or!  createWord  cr ." > base val"
   §CODE →tseg#↑  lvl>0  enterMethod  tvoc@ c" Size" !para@ 1+ @ « #PLUS, »
   exitMethod  lvl>  -1 wordComplete !  tseg#↓  lvl> ;
@@ -1456,9 +1466,9 @@ previous
   §CODE →tseg#↑  lvl>0  enterMethod  DYNAMIC# @ 2 pick « ##FETCH, »  exitMethod  -1 wordComplete !  tseg#↓  lvl>
   METHODNAME x> $>$ '!' c+>$  createWord  #PFA,         ( create setter )  cr ." > setter"
   §CODE →tseg#↑  lvl>0  enterMethod  DYNAMIC# @ swap lvl++ « ##STORE, »  exitMethod  -1 wordComplete !  tseg#↓  lvl> ;
-: allotDynamic ( # -- )  tvoc@ c" Size" !para@ 1+ +! ; ( allot # bytes of any value in instance data space )
-: 0allotDynamic ( # -- )  tvoc@ c" Size" !para@ 1+ +! ; ( allot # bytes of value 0 in instance data space )
-: createStatic ( val$ -- )                            ( create adress in instance data space )
+: allotDynamic ( # -- )  cr ." Dynamic allot " dup .  tvoc@ c" Size" !para@ 1+ +! ; ( allot # bytes of any value in instance data space )
+: 0allotDynamic ( # -- )  cr ." Dynamic 0allot " dup .  tvoc@ c" Size" !para@ 1+ +! ; ( allot # bytes of value 0 in instance data space )
+: createStatic ( addr$ -- )                           ( create adress in instance data space )
   %VISIBILITY nextFlags andn!  %PRIVATE nextFlags or!  createWord  PFA,  cr ." > base val"
   §CODE →tseg#↑  lvl>0  enterMethod  pfa@  exitMethod  lvl>  -1 wordComplete !  tseg#↓  lvl> ;
 : createStaticVal ( x # &tp|0 val$ -- )  >x           ( create static value val$ with value x, size # and type &tp )
@@ -1466,17 +1476,22 @@ previous
   §CODE →tseg#↑  lvl>0  enterMethod  0 swap lvl>1 pseg→|& « ##FETCH, »  exitMethod  -1 wordComplete !  tseg#↓  lvl>
   %VISIBILITY nextFlags andn!  %PRIVATE nextFlags or! x>  createWord  §CODE →tseg#↑  ( create base val )  cr ." > base val"
   drop  lvl>1  PFA,  #pf,  enterMethod  pfa@  exitMethod  lvl>  -1 wordComplete !  tseg#↓ ;
-: createStaticVar ( # &tp|0 val$ -- )  >x  drop       ( create static variable val$ with size # and type &tp )
+: createStaticVar ( # &tp|0 var$ -- )  >x  drop       ( create static variable val$ with size # and type &tp )
   METHODNAME x@ $>$ '@' c+>$  createWord  PFA,          ( create getter )  cr ." > getter"
   §CODE →tseg#↑  lvl>0  enterMethod  0 over lvl>1 pseg→|& lvl2+ « ##FETCH, »  exitMethod  -1 wordComplete !  tseg#↓  lvl>
   METHODNAME x@ $>$ '!' c+>$  createWord  PFA,          ( create setter )  cr ." > setter"
   §CODE →tseg#↑  lvl>0  enterMethod  0 over lvl>1 pseg→|& lvl2+ « ##STORE, »  exitMethod  -1 wordComplete !  tseg#↓  lvl>
   %VISIBILITY nextFlags andn!  %PRIVATE nextFlags or! x>  createWord  §CODE →tseg#↑  ( create base val )  cr ." > base val"
   lvl>1  PFA,  0 swap #pf,  enterMethod  pfa@  exitMethod  lvl>  -1 wordComplete !  tseg#↓ ;
+: createStaticObject ( &tp obj$ -- )                  ( create direct static object obj$ of type &tp )
+  over &>a c" Size" !para@ 1+ @ >x                      ( = size of object instance )
+  %VISIBILITY nextFlags andn!  %PRIVATE nextFlags or!  createWord  PFA,  §CODE →tseg#↑  ( create base val )  cr ." > base val"
+  §DATA →tseg#↑  dup t&,  tseg#↓  lvl>1  enterMethod  pfa@  exitMethod  lvl>  -1 wordComplete !  tseg#↓
+  §DATA →tseg#↑  x> tallot, tseg#↓ ;
 : allotStatic ( # -- )                                ( allot # bytes of any value in vocabulary data space )
-  §DATA >seg hallot 2drop ;
+  cr ." Static allot " dup .  §DATA >seg hallot 2drop ;
 : 0allotStatic ( # -- )                               ( allot # bytes of value 0 in vocabulary data space )
-  §DATA >seg 0hallot 2drop ;
+  cr ." Static 0allot " dup .  §DATA >seg 0hallot 2drop ;
 
 --- Main ---
 
@@ -1552,6 +1567,8 @@ also VocabularyWords definitions  context @ VOC-WORDS !
   dup 2 cells ≤ if  ( it's a size )  &null  else  ( it's a type )  cell swap  then  readName  cr ." val " dup qtype$  createStaticVal ;
 : var ( &type|# >name -- )                            ( create a modifiable field member of type &type or size # )
   dup 2 cells ≤ if  ( it's a size )  &null  else  ( it's a type )  cell swap  then  readName  cr ." var " dup qtype$  createStaticVar ;
+: object ( &type >name -- )                           ( insert a direct object of type &type )
+  readName  cr ." object " dup qtype$  createStaticObject ;
 
 previous definitions
 
@@ -1579,7 +1596,7 @@ also ClassWords definitions  context @ CLASS-WORDS !
 : implements ( >name -- )                             ( add a base interface )
   readName  loadModule depend ;
 : create ( >name -- )                                 ( create a name referring to the parameter segment )
-  nextFlags @ %STATIC and if  createStatic  else  createDynamic  then ;
+  readName  nextFlags @ %STATIC and if  createStatic  else  createDynamic  then ;
 : allot ( # -- )                                      ( reserve # bytes of any value in the parameter segment )
   nextFlags @ %STATIC and if  allotStatic  else  allotDynamic  then ;
 : 0allot ( # -- )                                     ( reserve # bytes of value 0 in the parameter segment )
@@ -1707,11 +1724,6 @@ also Interpreter definitions  context @ @INTERPRETER !
 : =variable ( x >name -- )                            ( create a variable with initial value x )
   readName  cr ." =variable " dup qtype$  createWord  §CODE →tseg#↑
   lvl>1  PFA,  pf,  enterMethod  pfa@  exitMethod  lvl>  -1 wordComplete !  tseg#↓ ;
-: create ( >name -- )                                 ( create a name referring to the parameter segment )
-  readName  cr ." parameter " dup qtype$  createWord  §CODE →tseg#↑
-  lvl>0  PFA,  enterMethod  pfa@  exitMethod  lvl>  -1 wordComplete !  tseg#↓ ;
-: allot ( # -- )  §DATA >seg hallot 2drop ;           ( reserve # bytes in the parameter segment )
-: 0allot ( # -- )  §DATA >seg 0hallot 2drop ;         ( reserve # bytes in the parameter segment )
 : import ( >path -- )  readName  loadModule ;         ( import the file with the specified path or name )
 : requires ( >name -- )  readName                     ( import the specified file and make it a dependency of the current voc )
   loadModule depend ;

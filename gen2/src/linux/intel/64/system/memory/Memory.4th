@@ -56,6 +56,7 @@ import PageArray
 vocabulary: Memory
   requires PageArray
 
+private:
   cell var InitialBreak                                 ( Initial program break )
   cell var CurrentBreak                                 ( Current program break = top memory )
   PageArray object ObjectSpace                          ( The object space page array )
@@ -64,7 +65,6 @@ vocabulary: Memory
   Page# ± constant -Page#                               ( Mask of a memory page address. )
   12 constant Page%                                     ( Shift for page related operations, linked with Page#. )
 
-private:
   : @page ( #p -- @p )  Page% u<< ;                     ( Address @p of page number #p )
   : #page ( @p -- #p )  Page% u>> ;                     ( Number #p of page at address @p )
   : reduceRange ( a # -- a' )  over cell+ −!  dup cell+ @ @page + ;   ( reduce freed page range a by # pages; return removed range )
