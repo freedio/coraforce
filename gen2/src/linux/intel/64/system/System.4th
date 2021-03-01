@@ -2,9 +2,13 @@
 
 ****** The Linux System Module for FORCE-linux 4.19.0-5-amd64 ******
 
-vocabulary: System  package force/intel/64/linux
-  requires force/intel/64/core/RichForce
-  uses linux/intel/64/system/SystemMacro
+package force/intel/64/linux
+import /force/intel/64/core/ForthBase
+import /force/intel/64/core/Errors
+import SystemMacro
+
+vocabulary: System
+  requires Errors
 
 
 

@@ -39,6 +39,8 @@ vocabulary: ForthBase
     DS:RDI    for ESP (exception stack pointer)
 ---
 
+public:
+
 
 
 === Constants ===
@@ -79,18 +81,18 @@ The term "stack" without further specification refers to the parameter stack.
 
 --- Static Stack State ---
 
-variable PSP0      ( Initial parameter stack pointer )
-variable PSS       ( Parameter stack size in cells )
-variable RSP0      ( Initial return stack pointer )
-variable RSS       ( Return stack size in cells )
-variable OSP0      ( Initial object stack pointer )
-variable OSS       ( Object stack size in cells )
-variable XSP0      ( Initial extra stack pointer )
-variable XSS       ( Extra stack size in cells )
-variable YSP0      ( Initial Y-stack pointer )
-variable YSS       ( Y-stack size in cells )
-variable ZSP0      ( Initial X-stack pointer )
-variable ZSS       ( Z-stack size in cells )
+variable PSP0  private                                ( Initial parameter stack pointer )
+variable PSS  private                                 ( Parameter stack size in cells )
+variable RSP0  private                                ( Initial return stack pointer )
+variable RSS  private                                 ( Return stack size in cells )
+variable OSP0  private                                ( Initial object stack pointer )
+variable OSS  private                                 ( Object stack size in cells )
+variable XSP0  private                                ( Initial extra stack pointer )
+variable XSS  private                                 ( Extra stack size in cells )
+variable YSP0  private                                ( Initial Y-stack pointer )
+variable YSS  private                                 ( Y-stack size in cells )
+variable ZSP0  private                                ( Initial X-stack pointer )
+variable ZSS  private                                 ( Z-stack size in cells )
 
 --- Stack Operations ---
 

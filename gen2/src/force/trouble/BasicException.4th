@@ -4,7 +4,7 @@
 
 package force/trouble
 import /force/intel/64/core/ForthBase
-import /os/Inout
+import /force/core/Inout
 import model/Severity
 import model/StackTrace
 import Exception

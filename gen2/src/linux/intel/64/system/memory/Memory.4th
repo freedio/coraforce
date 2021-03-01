@@ -77,7 +77,7 @@ private:
     over cell+ @ over u> if  reduceRange  else  drop reallocRange  then
     debug? if  dup 1 ": @%016X."| debug.  then ;
   : allocNewPage ( -- a )                               ( allocate a single page after the current break; return its address a )
-    debug? if  cr " Allocating new page" debug.  then
+    debug? if  cr "Allocating new page" debug.  then
     CurrentBreak@ dup Page# + pgmbreak unless >errmsg 1 "Fatal error while setting the program break: %s!"|abort then  CurrentBreak!
     debug? if  cr CurrentBreak@ 1 ": @016X."| debug.  then ;
   : _unlinkPage ( @p a -- )                             ( unlink page @p from page array slot @a )

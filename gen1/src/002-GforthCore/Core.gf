@@ -32,7 +32,6 @@ defer closeAll
 : unbalanced-definition ( -- )  cr ." Unbalanced definition!" terminate ;
 : invalid-secondary-held ( u -- )  cr ." Invalid secondary held: type=" . '!' emit  terminate ;
 : condition-unknown ( $ -- )  cr ." Condition «" type$ ." » unknown!"  terminate ;
-: ctrl-stack-underflow ( -- )  cr ." Control stack underflow: no condition when expected!"  terminate ;
 : has-multiple-results ( # $ -- )  cr qtype$ ."  has " . ." results — narrow the search!"  terminate ;
 : module-not-found ( $ -- )  cr ." Module " qtype$ ."  not found!"  terminate ;
 : vocabulary-has-no-name ( -- )  cr ." Vocabulary has no name!"  abort ;
@@ -888,26 +887,32 @@ variable LAST_COMP                                    ( Last word compiled into 
 ( print word: )
 : printFlags ( flags -- )
   cr ." Flags: "
+  dup %VISIBILITY and case
+    %PRIVATE of  ."  • private"  endof
+    %PROTECTED of  ."  • package private"  endof
+    %PACKAGE of  ."  • package private"  endof
+    %PUBLIC of  ."  • public"  endof  endcase
+  dup %STATIC and if  ."  • static"  else  ."  • dynamic"  then
   dup 3 and case
-    0 of  ."  • inline code"  endof
+    0 of  ."  • code threaded"  endof
     1 of  ."  • direct threaded"  endof
     2 of  ."  • indirect threaded"  endof
     3 of  ."  • token threaded"  endof
     endcase
-  dup %WITH-PFA and if  ."  • with PFA"  then
-  dup %RELOCS and if  ."  • has relocations"  then
-  dup %MAIN and if  ."  • is main function"  then
-  dup %PRIVATE and if  ."  • private"  then
-  dup %PROTECTED and if  ."  • protected"  then
-  dup %PACKAGE and if  ."  • package private"  then
-  dup %PUBLIC and if  ."  • public"  then
-  dup %STATIC and if  ."  • static"  then
+  dup %FALLIBLE and if  ."  • fallible"  then
+  dup %INLINE and if  ."  • inline"  then
+  dup %JOIN and if  ."  • joiner"  then
+  dup %LINK and if  ."  • linker"  then
+  dup %MAIN and if  ."  • main"  then
+  dup %CODETYPE and case
+    %METHOD of  ."  • method"  endof
+    %DESTRUCTOR of  ."  • destructor"  endof
+    %CONSTRUCTOR of  ."  • constructor"  endof
+    %CASCADED of  ."  • cascaded constructor"  endof  endcase
   dup %INDIRECT and if  ."  • alias"  then
   dup %CONDITION and if  ."  • condition"  then
-  dup %INLINE and if  ."  • inline"  then
-  dup %JOIN and if  ."  • join"  then
-  dup %LINK and if  ."  • link"  then
-  dup %FALLIBLE and if  ."  • fallible"  then
+  dup %WITH-PFA and if  ."  • with PFA"  then
+  dup %RELOCS and if  ."  • with relocations"  then
   drop ;
 : printCompactAlias ( @word -- )                      ( print information about compact alias )
   cr ." Compact alias @" dup hex.
@@ -1248,14 +1253,6 @@ variable FORC                                         ( if we are in Forcembler 
 
 === Compiler Clause Vocabularies ===
 
-create CONTROLSTACK 1024 allot
-create CTRLSP  CONTROLSTACK ,
-: CTRLDEPTH  CTRLSP @ CONTROLSTACK - cell / ;
-: >CTRL  CTRLSP @ !  8 CTRLSP +! ;
-: CTRL>  CTRLDEPTH 0= if  ctrl-stack-underflow  then  8 CTRLSP -!  CTRLSP @ @ ;
-: CTRL@  CTRLSP @ 8- @ ;
-: CTRL2@  CTRLSP @ 16 - @ ;
-
 : pushHere ( -- ra )  tseg→| >CTRL ;
 : resolveForward ( ctrl:ba -- )  tseg→| CTRL> tuck − swap 4- d! ;
 : finishDef ( -- )
@@ -1316,8 +1313,12 @@ also Clauses definitions  context @ @CLAUSES !
 --- String Clauses ---
 
 --- Condition Clauses ---
-: ?until ( ctrl:ba -- )  CTRL> smashCondition ?UNTIL, ;
-: ?if ( -- ctrl:ba )  smashCondition ?IF,  tseg→| >CTRL ;
+: ?if ( -- ctrl:ba )  smashCondition ?IF, ;
+: ?ifever ( -- ctrl:ba )  smashCondition ?IFEVER, ;
+: ?unless ( -- ctrl:ba )  smashCondition ?UNLESS, ;
+: ?unlessever ( -- ctrl:ba )  smashCondition ?UNLESSEVER, ;
+: ?until ( ctrl:ba -- )  smashCondition ?UNTIL, ;
+: ?while ( ctrl:ba1 -- ctrl:ba2 ctrl:ba1 )  smashCondition ?WHILE, ;
 
 previous definitions
 
@@ -1569,6 +1570,9 @@ also VocabularyWords definitions  context @ VOC-WORDS !
   dup 2 cells ≤ if  ( it's a size )  &null  else  ( it's a type )  cell swap  then  readName  cr ." var " dup qtype$  createStaticVar ;
 : object ( &type >name -- )                           ( insert a direct object of type &type )
   readName  cr ." object " dup qtype$  createStaticObject ;
+: create ( >name -- )  readName  createStatic ;       ( create a name referring to the parameter segment )
+: allot ( # -- )  allotStatic ;                       ( reserve # bytes of any value in the parameter segment )
+: 0allot ( # -- )  0allotStatic ;                     ( reserve # bytes of value 0 in the parameter segment )
 
 previous definitions
 
@@ -1659,10 +1663,18 @@ also compiler definitions  context @ @COMP-WORDS !
 : litf ( &r -- ) « LITF, »  LAST_COMP0! ;
 : lit$ ( &$ -- )  « LIT$, »  LAST_COMP0! ;
 : my ( -- a )  « THIS, » ;  alias me  alias I'm  alias this   ( push the current instance )
-: begin ( -- ctrl:ba )  pushHere ;
-: then ( ctrl:ba -- )  resolveForward ;
-: again ( ctrl:ba -- )  resolveForward ;
 : raise ( -- )  « EXPUSH, » ;
+: begin ( -- ctrl:ba )  « BEGIN, » ;
+: then ( ctrl:ba -- )  « THEN, » ;
+: again ( ctrl:ba -- )  « AGAIN, » ;
+: until ( ctrl:ba -- )  « UNTIL, » ;
+: while ( ctrl:ba1 -- ctrl:ba2 ctrl:ba1 )  « WHILE, » ;
+: repeat ( ctrl:ba2 ctrl:ba1 -- )  « REPEAT, » ;
+: if ( -- ctrl:ba )  « IF, » ;
+: ifever ( -- ctrl:ba )  « IFEVER, » ;
+: unless ( -- ctrl:ba )  « UNLESS, » ;
+: unlessever ( -- ctrl:ba )  « UNLESSEVER, » ;
+: else ( ctrl:ba1 -- ctrl:ba2 )  « ELSE, » ;
 : ( ( >...rpar -- )  c" )" comment-bracket ;          \ skips a parenthesis-comment
 : ;  finishDef  exitMethod  -1 wordComplete !  LASTCONTRIB 0!  LAST_COMP0!  doInterpret ;     \ finish definition
 
@@ -1712,7 +1724,7 @@ also Interpreter definitions  context @ @INTERPRETER !
 : inline ( -- )  %INLINE @lastWord @ flags+! ;        ( make last word inline )
 : join ( -- )  %JOIN @lastword @ flags+! ;            ( Mark current word as joiner )
 : link ( -- )  %LINK @lastword @ flags+! ;            ( Mark current word as linker )
-: private ( -- )  %PRIVATE @lastword @ flags+! ;      ( Mark current word as private )
+: private ( -- )  @lastword @ flags %VISIBILITY andn  %PRIVATE or swap w! ;  ( Mark current word as private )
 : condition ( -- )  %CONDITION @lastword @ flags+! ;  ( Mark current word as a condition )
 : target ( -- @voc|0 )  tvoc@ ;                       ( Current target vocabulary )
 : constant ( x >name -- )                             ( create a constant with value x )
@@ -1736,7 +1748,7 @@ also Interpreter definitions  context @ @INTERPRETER !
 : see ( >name -- )  readName  findWord if             ( print word )
   word.  else  cr ." Word «" type$ ." » not found!"  then ;
 : vocabulary: ( >name -- )  vocabulary  0 >voctype    ( create vocabulary and set up for definitions )
-  lastVoc @ addSearchVoc  definitions  als0 VocabularyWords ;
+  lastVoc @ addSearchVoc  definitions  als0 VocabularyWords  %STATIC autoFlags or! ;
 : class: ( >name -- )  vocabulary  1 >voctype         ( create class and set up for its body )
   lastVoc @ addSearchVoc  definitions  als0 ClassWords  §PARA →tseg#↑  c" Size" t$, cell tc, 0 t, tseg#↓ ;
 : interface: ( >name -- )  vocabulary  2 >voctype     ( create interface and set up for its body )

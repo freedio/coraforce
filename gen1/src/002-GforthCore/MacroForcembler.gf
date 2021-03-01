@@ -12,6 +12,16 @@
 : inv  1 xor ;
 : [and] and ;
 
+: ctrl-stack-underflow ( -- )  cr ." Control stack underflow!"  abort ;
+
+create CONTROLSTACK 1024 allot
+create CTRLSP  CONTROLSTACK ,
+: CTRLDEPTH  CTRLSP @ CONTROLSTACK - cell / ;
+: >CTRL  CTRLSP @ !  8 CTRLSP +! ;
+: CTRL>  CTRLDEPTH 0= if  ctrl-stack-underflow  then  8 CTRLSP -!  CTRLSP @ @ ;
+: CTRL@  CTRLSP @ 8- @ ;
+: CTRL2@  CTRLSP @ 16 - @ ;
+
 needs Forcembler.gf
 
 
@@ -210,8 +220,22 @@ also Forcembler
   0 of  RAX RAX TEST  0> _setCond  endof
   # RAX CMP  > _setCond  0 endcase ;
 
-: ?UNTIL, ( a cc -- )  swap # swap [ also ForcemblerTools ] op#1+! [ previous ] ?JMPX ;
-: ?IF, ( cc -- a )  there # swap [ also ForcemblerTools ] op#1+! [ previous ] ?JMPF ;
-: ?WHILE, ( a1 cc -- a2 a1 )  there # -rot [ also ForcemblerTools ] op#1+! [ previous ] ?JMPF ;
+: ?UNTIL, ( ctrl:a cc -- )  CTRL> # swap [ also ForcemblerTools ] op#1+! [ previous ] ?JMPX ;
+: ?IF, ( cc -- ctrl:a )  there # swap [ also ForcemblerTools ] op#1+! [ previous ] ?JMPF  there >CTRL ;
+: ?IFEVER, ( cc -- ctrl:a )  there # swap [ also ForcemblerTools ] op#1+! [ previous ] LIKELY ?JMPF  there >CTRL ;
+: ?UNLESS, ( cc -- ctrl:a )  inv there # swap [ also ForcemblerTools ] op#1+! [ previous ] ?JMPF  there >CTRL ;
+: ?UNLESSEVER, ( cc -- ctrl:a )  inv there # swap [ also ForcemblerTools ] op#1+! [ previous ] LIKELY ?JMPF  there >CTRL ;
+: ?WHILE, ( ctrl:a1 cc -- ctrl:a2 ctrl:a1 )  CTRL> swap ?IF, >CTRL ;
+: IF, ( -- ctrl:a )  RAX RAX TEST  there # 0= ?JMPF  there >CTRL ;
+: IFEVER, ( -- ctrl:a )  RAX RAX TEST  there # 0= LIKELY ?JMPF  there >CTRL ;
+: UNLESS, ( -- ctrl:a )  RAX RAX TEST  there # 0≠ ?JMPF  there >CTRL ;
+: UNLESSEVER, ( -- ctrl:a )  RAX RAX TEST there # 0≠ LIKELY ?JMPF  there >CTRL ;
+: THEN, ( ctrl:a -- )  CTRL> there over - swap 4- d! ;
+: ELSE, ( ctrl:a1 -- ctrl:a2 )  CTRL>  0 # JMP  there >CTRL  there over - swap 4- d! ;
+: BEGIN, ( -- ctrl:a )  there >CTRL ;
+: AGAIN, ( ctrl:a -- )  CTRL> # JMP ;
+: UNTIL, ( ctrl:a -- )  RAX RAX TEST  CTRL> # 0= ?JMPX ;
+: WHILE, ( ctrl:a1 -- ctrl:a2 ctrl:a1 )  CTRL> IF, >CTRL ;
+: REPEAT, ( ctrl:a2 ctrl:a1 -- )  AGAIN, THEN, ;
 
 previous
