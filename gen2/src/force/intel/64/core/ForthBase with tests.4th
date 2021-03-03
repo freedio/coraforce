@@ -290,8 +290,19 @@ alias −−o!  alias −−v!  alias −−2!                    ( aliases with
 : d@! ( d a -- d' )  DXCHG, DROP, ;                   ( exchange unsigned double word d' at address a with d )
 : l@! ( l a -- l' )  LXCHG, DROP, ;                   ( exchange signed quad word l' at address a with l )
 : q@! ( q a -- q' )  QXCHG, DROP, ;                   ( exchange unsigned quad word q' at address a with q )
-: h@! ( v a -- v' )  HXCHG, DROP, ;                   ( exchange signed oct word h' at address a with h )
+: h@! ( h a -- h' )  HXCHG, DROP, ;                   ( exchange signed oct word h' at address a with h )
 : o@! ( o a -- o' )  OXCHG, DROP, ;                   ( exchange unsigned oct word o' at address a with o )
+
+: bxchg ( b a -- b' a )  BXCHG, ;                     ( exchange signed byte b' at address a with b )
+: cxchg ( c a -- c' a )  CXCHG, ;                     ( exchange unsigned byte c' at address a with c )
+: sxchg ( s a -- s' a )  SXCHG, ;                     ( exchange signed word s' at address a with s )
+: wxchg ( w a -- w' a )  WXCHG, ;                     ( exchange unsigned word w' at address a with w )
+: ixchg ( i a -- i' a )  IXCHG, ;                     ( exchange signed double word i' at address a with i )
+: dxchg ( d a -- d' a )  DXCHG, ;                     ( exchange unsigned double word d' at address a with d )
+: lxchg ( l a -- l' a )  LXCHG, ;                     ( exchange signed quad word l' at address a with l )
+: qxchg ( q a -- q' a )  QXCHG, ;                     ( exchange unsigned quad word q' at address a with q )
+: hxchg ( h a -- w' a )  HXCHG, ;                     ( exchange signed oct word h' at address a with h )
+: oxchg ( o a -- o' a )  OXCHG, ;                     ( exchange unsigned oct word o' at address a with o )
 
 
 

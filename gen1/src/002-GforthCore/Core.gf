@@ -143,10 +143,10 @@ newHeap Vocabularies
 defer printVocabularyName
 : addVTE ( @voc -- )  Vocabularies h, ;               ( append vocabulary @voc to the vocabulary table )
 : VTE[] ( u -- @vte )                                 ( Address @vte of uth vocabulary table entry )
-  Vocabularies !hactive over cells  over hused@ u> if  cr ." VTE index out of range: " swap . ." ≥ " hused@ cell/ . abort  then
+  Vocabularies !hactive over cells  over hused@ u> if  cr ." VTE index out of range: " swap . ." ≥ " hused@ cellu/ . abort  then
   haddr@ swap cells + ;
 : vocabularies. ( -- )  cr ." List of vocabularies:"  ( Lists the vocabulary table )
-  Vocabularies heap cell/ 0 ?do  dup @ cr ." • " printVocabularyName  cell+  loop  drop ;
+  Vocabularies heap cellu/ 0 ?do  dup @ cr ." • " printVocabularyName  cell+  loop  drop ;
 
 
 
@@ -307,9 +307,9 @@ create FQVOC$  256 allot
 : "vocabulary". ( @voc -- )  vocabulary$ qtype$ ;     ( prints the vocabulary name in double quotes )
 :noname vocabulary. ; is printVocabularyName
 : findVocabulary ( $ -- @voc | $ 0 )                  ( Vocabulary @voc with name $, or 0 if not found )
-  Vocabularies heap cell/ 0 ?do  dup @ vocabulary$ 2 pick $$= if  nip @ unloop exit  then  cell+ loop  zap ;
+  Vocabularies heap cellu/ 0 ?do  dup @ vocabulary$ 2 pick $$= if  nip @ unloop exit  then  cell+ loop  zap ;
 : vocabulary# ( @voc -- voc# )                        ( Index voc# of vocabulary @voc )
-  Vocabularies heap cell/ 0 ?do  2dup @ = if  2drop i unloop exit  then  cell+ loop  drop
+  Vocabularies heap cellu/ 0 ?do  2dup @ = if  2drop i unloop exit  then  cell+ loop  drop
   cr ." Vocabulary «" vocabulary. ." » not found!" terminate ;
 : vocmodel ( @voc -- u )  c" Model" !para@ 1+ c@ ;    ( Vocabulary model of vocabulary @voc )
 create ModulePath  256 allot
@@ -509,14 +509,14 @@ newHeap SearchOrder
 : addSearchVoc ( @voc -- )  SearchOrder h, ;          ( append vocabulary @voc to the search order => "also @voc" )
 : previousOrder ( -- )  cell SearchOrder hused−! ;    ( remove last search order entry => previous )
 : removeSearchVoc ( @voc -- )                         ( remove last occurrence of vocabulary @voc from the search order )
-  SearchOrder -heap cell/ 0 ?do  cell− dup @ 2 pick = if
+  SearchOrder -heap cellu/ 0 ?do  cell− dup @ 2 pick = if
     dup cell+ swap i move  cell SearchOrder hused−!  drop unloop exit  then  loop
   drop cr ." Warning: vocabulary «" vocabulary. ." » not found in search list! ⇒ not removed." ;
 : primary ( -- @voc|0 )                               ( Last = primary search list entry, or 0 if none )
   SearchOrder hempty? if  0  else  SearchOrder >hend  cell- @  then ;
 : searchlist. ( -- )                                  ( print the search order )
   cr ." Search order:"
-  SearchOrder heap cell/ 0 ?do  dup @  cr ." • " dup vocabulary.  targetVoc @ = if  space ." *"  then  cell+  loop  drop ;
+  SearchOrder heap cellu/ 0 ?do  dup @  cr ." • " dup vocabulary.  targetVoc @ = if  space ." *"  then  cell+  loop  drop ;
 
 
 
@@ -698,17 +698,16 @@ cell+ constant sWORD#
 %0000000000010000 constant %DESTRUCTOR                ( Code type: destructor )
 %0000000000100000 constant %CONSTRUCTOR               ( Code type: constructor )
 %0000000000110000 constant %CASCADED                  ( Code type: cascaded constructor )
-%0000000001000000 constant %WITH-PFA                  ( Word has a parameter field address )
-%0000000010000000 constant %RELOCS                    ( Code field contains relocations )
-%0000000100000000 constant %MAIN                      ( Module entry point )
-%0000001000000000 constant %STATIC                    ( Static )
-%0000010000000000 constant %INDIRECT                  ( There is an absolute jump address instead of the code field )
-%0000010000000000 constant %ABSTRACT                  ( Abstract method: %INDIRECT + CFA=0 )
-%0000100000000000 constant %CONDITION                 ( Word is a condition usable in conditional clauses )
-%0001000000000000 constant %INLINE                    ( Word is inline, i.e. code copied instead of called )
-%0010000000000000 constant %JOIN                      ( Word is an inline-joiner )
-%0100000000000000 constant %LINK                      ( Word is an inline-linker )
-%1000000000000000 constant %FALLIBLE                  ( Word can produce an exception state )
+%0000000001000000 constant %RELOCS                    ( Code field contains relocations )
+%0000000010000000 constant %MAIN                      ( Module entry point )
+%0000000100000000 constant %STATIC                    ( Static )
+%0000001000000000 constant %INDIRECT                  ( There is an absolute jump address instead of the code field )
+%0000001000000000 constant %ABSTRACT                  ( Abstract method: %INDIRECT + CFA=0 )
+%0000010000000000 constant %CONDITION                 ( Word is a condition usable in conditional clauses )
+%0000100000000000 constant %INLINE                    ( Word is inline, i.e. code copied instead of called )
+%0001000000000000 constant %JOIN                      ( Word is an inline-joiner )
+%0010000000000000 constant %LINK                      ( Word is an inline-linker )
+%0100000000000000 constant %FALLIBLE                  ( Word can produce an exception state )
 
 ( Linker and Joiner:
   - a joiner's first instruction is SAVE TOP − without even a [invisible] BEGIN preceding it.
@@ -795,6 +794,7 @@ variable LAST_COMP                                    ( Last word compiled into 
     unknown-vocabulary-model  endcase
   autoFlags @ nextFlags ! ;
 
+------  PFA doesn't exist anymore
 ( punch PFA: )
 : #PFA, ( &pfa -- )                                   ( add a parameter field address with &pfa to the word )
   dup &null = if  drop exit  then       ( &pfa null ⇒ silently ignore )
@@ -806,6 +806,7 @@ variable LAST_COMP                                    ( Last word compiled into 
     unknown-vocabulary-model  endcase
   →tseg#↑  cell talign,  t&,  tseg#↓  %WITH-PFA currentWord@ dor! ;
 : PFA, ( -- )  §DATA &seg→|  #PFA, ;                  ( add a parameter field address with the current DATA offset )
+------
 
 ( create alias: )
 : createIndirectAlias ( a$ @word -- )                 ( create alias for indirect word )
@@ -868,7 +869,7 @@ variable LAST_COMP                                    ( Last word compiled into 
     STRUCTURED-VOC of  findStructuredWord  endof
     unknown-vocabulary-model  endcase ;
 : findWord ( $ -- @voc @word t | $ f )                ( find word $ in search order, returning its voc and word address )
-  SearchOrder -heap cell/ 0 do
+  SearchOrder -heap cellu/ 0 do
     cr ." Looking up word in " dup cell- @ "vocabulary".
     cell− dup @ 2 pick over findLocalWord if  2swap 2drop true unloop exit  then  2drop  loop
   drop false ;
@@ -942,6 +943,33 @@ variable LAST_COMP                                    ( Last word compiled into 
     COMPACT-VOC of  printCompactWord  endof
     STRUCTURED-VOC of  printStructuredWord  endof
     unknown-vocabulary-model  endcase ;
+
+
+
+=== Word Table ===
+
+newHeap Words
+newHeap HashEntries
+PAGESIZE cellu/ =variable WordSlots
+
+--- Dictionary Entry Structure ---
+
+0000  dup constant DICT.WORD      ( Referent to word )
+cell+ dup constant DICT.NAME      ( Referent to name )
+cell+ dup constant DICT.NEXT      ( Address of next hash entry with same hash value )
+cell+ constant DICTENTRY#         ( Size of a dictionary entry )
+
+--- Dictionary Methods ---
+
+: dict@ ( -- @dict )  Words !hactive haddr@ ;         ( Address of word table )
+: dict@# ( -- @dict #dict )  Words !hactive heap ;    ( Address and length of word table )
+: $hash ( $ -- u )                                    ( Compute hash u of string $ )
+  count 0 -rot 0 do  c@++ rot 4 <u< + swap  loop  drop
+  0 8 0 do  over WordSlots @ 1− and xor swap 8 u>> swap  loop  nip ;
+: &hash ( &w -- u )  tvoc@ swap &word$ $hash ;        ( Compute hash u of word w )
+: word$>dict ( &w w$ -- )  swap dup &hash             ( Add word referent &w to word table under name w$ )
+  DICTENTRY# HashEntries 0hallot drop  dict@ rot cells+  xchg @  tuck DICT.NEXT + !  rot over DICT.NAME + !  DICT.WORD + ! ;
+: word>dict ( &w -- )  dup &word$ word$>dict ;        ( Add word referent &w to word table under its own name )
 
 
 
@@ -1083,13 +1111,13 @@ variable @BFR-STACK  BUFFER-STACK @BFR-STACK !
   FILEID @ if  >source  then  stdin FILEID !  c" Console" @FILENAME !  CURSOR 0!  LENGTH 0!  @BUFFER 0!
   @CONSNEXTCHAR @ @NEXTCHAR ! ;
 
-
-
 --- Initialize ---
 
 ' nextFileChar @FILENEXTCHAR !
 ' nextConsChar @CONSNEXTCHAR !
 >console
+
+
 
 === Parser ===
 
@@ -1750,7 +1778,8 @@ also Interpreter definitions  context @ @INTERPRETER !
 : vocabulary: ( >name -- )  vocabulary  0 >voctype    ( create vocabulary and set up for definitions )
   lastVoc @ addSearchVoc  definitions  als0 VocabularyWords  %STATIC autoFlags or! ;
 : class: ( >name -- )  vocabulary  1 >voctype         ( create class and set up for its body )
-  lastVoc @ addSearchVoc  definitions  als0 ClassWords  §PARA →tseg#↑  c" Size" t$, cell tc, 0 t, tseg#↓ ;
+  lastVoc @ addSearchVoc  definitions  als0 ClassWords  §PARA →tseg#↑  c" Size" t$, cell tc, 0 t, tseg#↓
+  createClassCheck ;
 : interface: ( >name -- )  vocabulary  2 >voctype     ( create interface and set up for its body )
   lastVoc @ addSearchVoc  definitions  als0 InterfaceWords ;
 : enum: ( >name -- )  vocabulary  3 >voctype          ( create enum and set up for its body )

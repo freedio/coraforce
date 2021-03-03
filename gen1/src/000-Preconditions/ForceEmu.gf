@@ -60,7 +60,7 @@
 : -2cells ( -- -2cells )  2 cells negate ;
 : -3cells ( -- -3cells )  3 cells negate ;
 : -4cells ( -- -4cells )  4 cells negate ;
-: cell/ ( u -- u' )  cell / ;
+: cellu/ ( u -- u' )  cell / ;
 : cell% ( -- u% )  cell 1 64 0 ?do  2dup <= if  2drop i unloop exit  then  2*  loop  2drop  64 ;
 : c@++ ( a -- c a+1 )  dup c@ swap 1+ ;
 : @c++ ( a -- a+1 c )  c@++ swap ;
