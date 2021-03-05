@@ -6,10 +6,12 @@ package force/intel/64/core
 import ForthBase
 import /force/intel/64/macro/CoreMacro
 import /force/trouble/ArithmeticException
+import /force/trouble/TypecastException
 
 vocabulary: ForthExt
   requires ForthBase
   requires ArithmeticException
+  requires TypecastException
 
 
 
@@ -46,21 +48,33 @@ vocabulary: ForthExt
 : !n8 ( n -- n )  dup nsize 8 > if  "N8expected" errlit ERROR raise  then ;  fallible  ( abort if n is not a signed quad word )
 : !u8 ( u -- u )  dup usize 8 > if  "U8expected" errlit ERROR raise  then ;  fallible  ( abort if u is not an unsigned quad word )
 ---
-: !n1 ( n -- n )                                      ( abort if n is not a signed byte )
+: !n1 ( n -- n -- ArithmeticException )               ( abort if n is not a signed byte )
   dup nsize 1 > if  "Expected N1, but got %d"| ERROR ArithmeticException new$ raise  then ;  fallible
-: !u1 ( u -- u )                                      ( abort if n is not a signed byte )
+: !u1 ( u -- u -- ArithmeticException )               ( abort if n is not a signed byte )
   dup usize 1 > if  "Expected U1, but got %D"| ERROR ArithmeticException new$ raise  then ;  fallible
-: !n2 ( n -- n )                                      ( abort if n is not a signed word )
+: !n2 ( n -- n -- ArithmeticException )               ( abort if n is not a signed word )
   dup nsize 2 > if  "Expected N2, but got %d"| ERROR ArithmeticException new$ raise  then ;  fallible
-: !u2 ( u -- u )                                      ( abort if n is not a signed word )
+: !u2 ( u -- u -- ArithmeticException )               ( abort if n is not a signed word )
   dup usize 2 > if  "Expected U2, but got %D"| ERROR ArithmeticException new$ raise  then ;  fallible
-: !n4 ( n -- n )                                      ( abort if n is not a signed double word )
+: !n4 ( n -- n -- ArithmeticException )               ( abort if n is not a signed double word )
   dup nsize 4 > if  "Expected N4, but got %d"| ERROR ArithmeticException new$ raise  then ;  fallible
-: !u4 ( u -- u )                                      ( abort if n is not a signed double word )
+: !u4 ( u -- u -- ArithmeticException )               ( abort if n is not a signed double word )
   dup usize 4 > if  "Expected U4, but got %D"| ERROR ArithmeticException new$ raise  then ;  fallible
-: !n8 ( n -- n )                                      ( abort if n is not a signed quadword )
+: !n8 ( n -- n -- ArithmeticException )               ( abort if n is not a signed quadword )
   dup nsize 8 > if  "Expected N8, but got %d"| ERROR ArithmeticException new$ raise  then ;  fallible
-: !u8 ( u -- u )                                      ( abort if n is not a signed quadword )
+: !u8 ( u -- u -- ArithmeticException )               ( abort if n is not a signed quadword )
   dup usize 8 > if  "Expected U8, but got %D"| ERROR ArithmeticException new$ raise  then ;  fallible
+
+=== Class Check ===
+
+: !type ( obj @c -- obj -- TypeCastException )       ( assert that obj points at an instance of class @c )
+  over q@ obj>cid over cls>cid type-assignable unless
+    over >type type$ swap type$ "Expected an object of %s, but got %s"| ERROR TypecastException new$ raise  then  drop ;  fallible
+
+
+
+=== Module Initialization ===
+
+init: ( @initstr -- @initstr )  ' !class TYPE_CHECKER ! ;
 
 vocabulary;

@@ -41,8 +41,8 @@ also Forcembler
 
 === Save and Restore ===
 
-: SAVE, ( -- )  RAX PUSH  %JOIN @lastWord @ flags+! ;
-: RESTORE, ( -- )  RAX POP  %LINK @lastWord @ flags+! ;
+: SAVE, ( -- )  RAX PUSH  %JOIN currentWord@ flags+! ;
+: RESTORE, ( -- )  RAX POP  %LINK currentWord@ flags+! ;
 
 
 
@@ -65,17 +65,26 @@ also Forcembler
 
 : LIT0, ( -- )  SAVE,  RAX RAX XOR ;
 : LIT-1, ( -- )  SAVE,  STC  RAX RAX SBB ;
-: LIT1, ( b -- )  SAVE,  1 ADP-  # AL MOV  AL RAX MOVSX  1 ADP+ ;
-: ULIT1, ( c -- )  SAVE,  1 ADP-  # AL MOV  AL RAX MOVZX  1 ADP+ ;
-: LIT2, ( s -- )  SAVE,  1 ADP-  # AX MOV  AX RAX MOVSX  1 ADP+ ;
-: ULIT2, ( w -- )  SAVE,  1 ADP-  # AX MOV  AX RAX MOVZX  1 ADP+ ;
+: LIT1, ( b -- )  SAVE,  1 ADP-  # DL MOV  DL RAX MOVSX  1 ADP+ ;
+: ULIT1, ( c -- )  SAVE,  EAX EAX XOR  1 ADP-  # EAX ADD  1 ADP+ ;
+: LIT2, ( s -- )  SAVE,  1 ADP-  # DX MOV  DX RAX MOVSX  1 ADP+ ;
+: ULIT2, ( w -- )  SAVE,  EAX EAX XOR  1 ADP-  # EAX ADD  1 ADP+ ;
 : LIT4, ( i -- )  SAVE,  1 ADP-  # EAX MOV  CDQE  1 ADP+ ;
 : ULIT4, ( d -- )  SAVE,  1 ADP-  # EAX MOV  1 ADP+ ;
-: LIT8, ( l -- )  SAVE,  1 ADP-  # RAX MOV  1 ADP+ ;
-: ULIT8, ( q -- )  SAVE,  1 ADP-  # RAX MOV  1 ADP+ ;
+: LIT8, ( l -- )  SAVE,  1 ADP-  dup nsize  case
+    1 of  EAX EAX XOR  # EAX ADD  endof
+    2 of  EAX EAX XOR  # EAX ADD  endof
+    4 of  EAX EAX XOR  # EAX ADD  endof
+    # RAX MOV  endcase  1 ADP+ ;
+: ULIT8, ( q -- )  SAVE,  1 ADP-  dup usize  case
+    1 of  EAX EAX XOR  # EAX ADD  endof
+    2 of  EAX EAX XOR  # EAX ADD  endof
+    4 of  # EAX MOV  endof
+    # RAX MOV  endcase  1 ADP+ ;
 : LITF, ( &f -- )  SAVE,  dup &>a # RAX MOV  -8 +&there reloc,  relocs 1+! ;
 : LIT$, ( &$ -- )  SAVE,  dup &>a # RAX MOV  -8 +&there reloc,  relocs 1+! ;
-: BLANK, ( -- ␣ )  SAVE,  20 # AL MOV  AL RAX MOVZX ;
+: LIT&, ( & -- )  SAVE,  dup &>a # RAX MOV  -8 +&there reloc,  relocs 1+! ;
+: BLANK, ( -- ␣ )  SAVE,  EAX EAX XOR  20 # EAX ADD ;
 
 
 
@@ -83,16 +92,10 @@ also Forcembler
 
 : &JUMP, ( & -- )  # JMP ;
 : &CALL, ( & -- )  1 ADP+  dup &>a # CALL  1 ADP-  -4 +&there codereloc,  relocs 1+! ;
-: ENTER, ( -- )  QWORD PTR 0 [RBP] POP  CELL [RBP] RBP LEA ;
-: EXIT, ( -- )  -CELL [RBP] RBP LEA  QWORD PTR 0 [RBP] PUSH  RET ;
-: EXXIT, ( -- X: -- reta )  there # NEAR JMP  there >Y ;
-: CALLINUX ( # -- )  AX MOV  AX RAX MOVZX  SYSCALL ;
-
-
-
-=== Object Orientation ===
-
-: THIS, ( -- a )  SAVE,  RBX RAX MOV ;
+: ENTER, ( -- )  QWORD PTR 0 [RBP] POP  CELL # RBP ADD ;
+: EXIT, ( -- )  CELL # RBP SUB  QWORD PTR 0 [RBP] PUSH  RET ;
+: EXXIT, ( -- Y: -- reta )  there # NEAR JMP  there >Y ;
+: CALLINUX ( # -- )  EAX MOV  SYSCALL ;
 
 
 
@@ -100,6 +103,12 @@ also Forcembler
 
 : EXPUSH, ( Exception -- )  RAX 0 [RDI] MOV  CELL [RDI] RDI LEA  RESTORE, ( TODO: check if stack limit exceeded? ) ;
 : EXPOP, ( -- Exception )  SAVE,  -CELL [RDI] RDI LEA  0 [RDI] RAX MOV ;
+
+
+
+=== Object Orientation ===
+
+: THIS, ( -- a )  SAVE,  RBX RAX MOV ;
 
 
 
@@ -136,6 +145,8 @@ also Forcembler
   4 of  1 ADP+  RDX POP  1 ADP-  EDX swap [RAX] MOV  RESTORE,  endof
   8 of   QWORD PTR [RAX] POP  RESTORE,  endof
   cr ." Invalid operand size (expected 2ⁿ|n in ±1,±2,±4,±8): " . abort  endcase ;
+: #ADD, ( # -- )  1 ADP+ # QWORD PTR 0 [RAX] ADD  1 ADP-  RESTORE, ;
+: #SUB, ( # -- )  1 ADP+ # QWORD PTR 0 [RAX] SUB  1 ADP-  RESTORE, ;
 : #PLUS, ( x -- )  case
   0 of  endof
   # RAX ADD  0 endcase ;

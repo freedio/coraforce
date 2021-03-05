@@ -14,9 +14,9 @@ vocabulary: System
 
 === Error Handling ===
 
-: Result0 ( 0|-errno -- t | LinuxError f )            ( transform SYS-result without result value to Force result )
+: Result0 ( 0|-errno -- -- LinuxError )               ( transform SYS-result without result value to Force result )
   RESULT0, unlessever  >ex  then ;
-: Result1 ( x|-errno -- x t | LinuxError f )          ( transform SYS-result with result value x to Force result )
+: Result1 ( x|-errno -- x -- LinuxError )             ( transform SYS-result with result value x to Force result )
   RESULT1, unlessever  >ex  then ;
 : ?Result0 ( 0|-error -- ? )                          ( transform SYS-result into consulatory Force result: result OK? )
   RESULT0, 0= ;

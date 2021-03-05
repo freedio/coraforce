@@ -19,6 +19,7 @@
 : u<< ( x1 n -- x2 )  lshift ;
 : >> ( x1 n -- x2 )  over 0< if  swap abs rshift negate  else  rshift  then ;
 : u>> ( x1 n -- x2 )  rshift ;
+: <u< ( x # -- x' )  2dup u<< -rot 64 swap - u>> or ;
 : 0- ( n -- ? )  0= 0= ;
 : u+ ( u1 u2 -- u3 ) + ;
 : u- ( u1 u2 -- u3 ) - ;
@@ -90,6 +91,7 @@
 : -! ( n a -- )  tuck @ swap - swap ! ;
 : −! ( n a -- )  tuck @ swap - swap ! ;
 : @! ( n1 a -- n2 )  dup @ -rot ! ;
+: xchg ( n1 a -- n2 a )  dup @ -rot tuck ! ;
 : @0! ( a -- @a )  dup @ swap 0! ;
 : #! ( x a # -- )  case
   1 of  c!  endof

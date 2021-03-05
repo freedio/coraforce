@@ -7,7 +7,7 @@ import /force/intel/64/core/ForthBase
 import /force/core/String
 import Exception
 
-class: BasicException extends BasicException
+class: StandardException extends BasicException
 
 
 

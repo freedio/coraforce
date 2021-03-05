@@ -33,18 +33,18 @@ vocabulary: CoreMacro ( AMD64 )
 
 code: SAVE, ( -- )  RAX PUSH ; join
 code: RESTORE, ( -- )  RAX POP ; link
-code: ENTER, ( -- )  QWORD PTR 0 [RBP] POP  CELL [RBP] RBP LEA ;
-code: EXIT, ( -- )  -CELL [RBP] RBP LEA  QWORD PTR 0 [RBP] PUSH ;
+code: ENTER, ( -- )  QWORD PTR 0 [RBP] POP  CELL # RBP ADD ;
+code: EXIT, ( -- )  CELL # RBP SUB  QWORD PTR 0 [RBP] PUSH  RET ;
 
 
 
 === Constants ===
 
-code: CELL, ( -- cell# )  SAVE,  CELL # AL MOV  AL RAX MOVZX ;
+code: CELL, ( -- cell# )  SAVE,  EAX EAX XOR  CELL # EAX ADD ;
 code: CELLPLUS, ( u -- u+cell# )  CELL # RAX ADD ;
 code: CELLTIMES, ( u -- u×cell# )  CELL% # RAX SHL ;
 code: CELLUBY, ( u×cell# -- u )  CELL% # RAX SHR ;
-code: BLANK, ( -- ␣ )  SAVE,  $20 # AL MOV  AL RAX MOVZX ;
+code: BLANK, ( -- ␣ )  SAVE,  EAX EAX XOR  $20 # EAX ADD ;
 
 
 
@@ -58,7 +58,7 @@ code: SETSP, ( @sp -- )  RAX RSP MOV ;
 code: DUP, ( x -- x x )  RAX PUSH ;
 code: TRIP, ( x -- x x x )  RAX PUSH  RAX PUSH ;
 code: DROP, ( x -- )  RAX POP ;
-code: ZAP, ( x -- 0 )  RAX RAX XOR ;
+code: ZAP, ( x -- 0 )  EAX EAX XOR ;
 code: SWAP, ( x2 x1 -- x1 x2 )  RAX 0 [RSP] XCHG ;
 code: SMASH, ( x2 x1 -- x2 x2 )  0 [RSP] RAX MOV ;
 code: OVER, ( x2 x1 -- x2 x1 x2 )  SAVE,  CELL [RSP] RAX MOV ;
@@ -75,10 +75,10 @@ code: 2SWAP, ( x2 y2 x1 y1 -- x1 y1 x2 y2 )  RDX POP  RDX CELL [RSP] XCHG  RAX 0
 code: 2NIP, ( x2 y2 x1 y1 -- x1 y1 )  RDX POP  2 CELLS # RSP ADD  RDX PUSH ;
 code: 2OVER, ( x2 y2 x1 y1 -- x2 y2 x1 y1 x2 y2 )  SAVE,  CELL PTR 3 CELLS [RSP] PUSH  3 CELLS [RSP] RAX MOV ;
 code: PICK, ( ... u -- ... uth )  0 [RSP] [RAX] *CELL RAX MOV ;
-code: ROLL, ( x1 x2 ... xu u -- x2 .. xu x1 )  RAX RCX MOV  RAX POP  RBX RBX XOR
-  BEGIN  RCX DEC  0> WHILE  0 [RSP] [RBX] *CELL RAX XCHG  RBX INC  REPEAT ;
-code: ROLLR, ( x1 x2 ... xu u -- xu x1 x2 ... )  RAX RCX MOV  RAX POP
-  BEGIN  RCX DEC  0> WHILE  -CELL [RSP] [RCX] *CELL RAX XCHG  REPEAT ;
+code: ROLL, ( x1 x2 ... xu u -- x2 .. xu x1 )  EAX ECX MOV  RAX POP  EBX EBX XOR
+  BEGIN  1 # ECX SUB  0> WHILE  0 [RSP] [RBX] *CELL RAX XCHG  EBX INC  REPEAT ;
+code: ROLLR, ( x1 x2 ... xu u -- xu x1 x2 ... )  EAX ECX MOV  RAX POP
+  BEGIN  1 # ECX SUB  0> WHILE  -CELL [RSP] [RCX] *CELL RAX XCHG  REPEAT ;
 code: ?DUP, ( x|0 -- x x | 0 )  RAX RAX TEST  0= UNLESSLIKELY  RAX PUSH  THEN ;
 
 --- Return Stack ---
@@ -106,8 +106,8 @@ code: WSTORE, ( w a -- )  RDX POP  DX 0 [RAX] MOV  RESTORE, ;
 code: DSTORE, ( d a -- )  RDX POP  EDX 0 [RAX] MOV  RESTORE, ;
 code: QSTORE, ( q a -- )  QWORD PTR 0 [RAX] POP  RESTORE, ;
 code: OSTORE, ( o a -- )  QWORD PTR 0 [RAX] POP  QWORD PTR CELL [RAX] POP  RESTORE, ;
-code: #USTORE, ( u a # -- )  RAX RCX MOV  RAX POP  RDX POP  FOR  DL 0 [RAX] MOV  8 # RDX SHR  NEXT  RESTORE, ;
-code: #NSTORE, ( n a # -- )  RAX RCX MOV  RAX POP  RDX POP  FOR  DL 0 [RAX] MOV  8 # RDX SAR  NEXT  RESTORE, ;
+code: #USTORE, ( u a # -- )  EAX ECX MOV  RAX POP  RDX POP  FOR  DL 0 [RAX] MOV  8 # RDX SHR  NEXT  RESTORE, ;
+code: #NSTORE, ( n a # -- )  EAX ECX MOV  RAX POP  RDX POP  FOR  DL 0 [RAX] MOV  8 # RDX SAR  NEXT  RESTORE, ;
 
 code: BFETCH, ( @b -- b )  BYTE PTR 0 [RAX] RAX MOVSX ;
 code: CFETCH, ( @c -- c )  BYTE PTR 0 [RAX] RAX MOVZX ;
@@ -159,18 +159,18 @@ code: DECBFETCH, ( a -- a−1 b )  RAX DEC  RAX PUSH  BYTE PTR 0 [RAX] RAX MOVSX
 code: DECCFETCH, ( a -- a−1 c )  RAX DEC  RAX PUSH  BYTE PTR 0 [RAX] RAX MOVZX ;
 code: DECSFETCH, ( a -- a−2 s )  2 # RAX SUB  RAX PUSH  WORD PTR 0 [RAX] RAX MOVSX ;
 code: DECWFETCH, ( a -- a−2 w )  2 # RAX SUB  RAX PUSH  WORD PTR 0 [RAX] RAX MOVZX ;
-code: DECIFETCH, ( a -- a−4 i )  4 # RAX SUB  RAX PUSH  0 [RAX] EAX MOV  CDQE ;
+code: DECIFETCH, ( a -- a−4 i )  4 # RAX SUB  RAX PUSH  DWORD PTR 0 [RAX] RAX MOVSXD ;
 code: DECDFETCH, ( a -- a−4 d )  4 # RAX SUB  RAX PUSH  0 [RAX] EAX MOV ;
 code: DECLFETCH, ( a -- a−8 l )  8 # RAX SUB  RAX PUSH  0 [RAX] RAX MOV ;
 code: DECQFETCH, ( a -- a−8 q )  8 # RAX SUB  RAX PUSH  0 [RAX] RAX MOV ;
 code: DECHFETCH, ( a -- a−16 h )  16 # RAX SUB  RAX PUSH  QWORD PTR 8 [RAX] PUSH  0 [RAX] RAX MOV ;
 code: DECOFETCH, ( a -- a−16 o )  16 # RAX SUB  RAX PUSH  QWORD PTR 8 [RAX] PUSH  0 [RAX] RAX MOV ;
 
-code: BXCHG, ( b a -- b' a )  0 [RSP] RDX MOV  DL 0 [RAX] XCHG  DL RDX MOVSX  RDX 0 [RSP] MOV ;
-code: CXCHG, ( c a -- c' a )  0 [RSP] RDX MOV  DL 0 [RAX] XCHG  DL RDX MOVZX  RDX 0 [RSP] MOV ;
-code: SXCHG, ( s a -- s' a )  0 [RSP] RDX MOV  DX 0 [RAX] XCHG  DX RDX MOVSX  RDX 0 [RSP] MOV ;
-code: WXCHG, ( s a -- s' a )  0 [RSP] RDX MOV  DX 0 [RAX] XCHG  DX RDX MOVZX  RDX 0 [RSP] MOV ;
-code: IXCHG, ( i a -- i' a )  0 [RSP] RDX MOV  EDX 0 [RAX] XCHG  CDQE  RDX 0 [RSP] MOV ;
+code: BXCHG, ( b a -- b' a )  0 [RSP] RDX MOV  DL 0 [RAX] XCHG  DL RCX MOVSX  RCX 0 [RSP] MOV ;
+code: CXCHG, ( c a -- c' a )  0 [RSP] RDX MOV  DL 0 [RAX] XCHG  DL RCX MOVZX  RCX 0 [RSP] MOV ;
+code: SXCHG, ( s a -- s' a )  0 [RSP] RDX MOV  DX 0 [RAX] XCHG  DX RCX MOVSX  RCX 0 [RSP] MOV ;
+code: WXCHG, ( s a -- s' a )  0 [RSP] RDX MOV  DX 0 [RAX] XCHG  DX RCX MOVZX  RCX 0 [RSP] MOV ;
+code: IXCHG, ( i a -- i' a )  0 [RSP] RDX MOV  EDX 0 [RAX] XCHG  EDX RDX MOVSXD  RDX 0 [RSP] MOV ;
 code: DXCHG, ( d a -- d' a )  0 [RSP] RDX MOV  EDX 0 [RAX] XCHG  EDX 0 [RSP] MOV ;
 code: LXCHG, ( l a -- l' a )  0 [RSP] RDX MOV  RDX 0 [RAX] XCHG  RDX 0 [RSP] MOV ;
 code: QXCHG, ( q a -- q' a )  0 [RSP] RDX MOV  RDX 0 [RAX] XCHG  RDX 0 [RSP] MOV ;
@@ -262,9 +262,13 @@ code: BOOLOR, ( x1 x2 -- x1|x2 )  RDX POP  RDX RAX OR  1 # RAX SUB  CMC  RAX RAX
 code: BOOLXOR, ( x1 x2 -- x1⋄x2 )  RDX POP  1 # RDX SUB  CMC  RDX RDX SBB  1 # RAX SUB  CMC  RAX RAX SBB  RDX RAX XOR ;
 code: BOOLNOT, ( x1 -- !x1 )  1 # RAX SUB  RAX RAX SBB ;
 
-code: SHL, ( x1 # -- x2 )  RAX RCX MOV  CL QWORD PTR 0 [RSP] SHL  RESTORE, ;
-code: SHR, ( x1 # -- x2 )  RAX RCX MOV  CL QWORD PTR 0 [RSP] SHR  RESTORE, ;
-code: SAR, ( x1 # -- x2 )  RAX RCX MOV  CL QWORD PTR 0 [RSP] SAR  RESTORE, ;
+code: SHL, ( x1 # -- x2 )  AL CL MOV  CL QWORD PTR 0 [RSP] SHL  RESTORE, ;
+code: SHR, ( x1 # -- x2 )  AL CL MOV  CL QWORD PTR 0 [RSP] SHR  RESTORE, ;
+code: SAR, ( x1 # -- x2 )  AL CL MOV  CL QWORD PTR 0 [RSP] SAR  RESTORE, ;
+code: ROL, ( x1 # -- x2 )  AL CL MOV  CL QWORD PTR 0 [RSP] ROL  RESTORE, ;
+code: ROR, ( x1 # -- x2 )  AL CL MOV  CL QWORD PTR 0 [RSP] ROR  RESTORE, ;
+code: RCL, ( x1 # -- x2 )  AL CL MOV  CL QWORD PTR 0 [RSP] RCL  RESTORE, ;
+code: RCR, ( x1 # -- x2 )  AL CL MOV  CL QWORD PTR 0 [RSP] RCR  RESTORE, ;
 
 code: BSET, ( x # -- x' )  RAX QWORD PTR 0 [RSP] BTS  RESTORE, ;
 code: BCLR, ( x # -- x' )  RAX QWORD PTR 0 [RSP] BTR  RESTORE, ;
@@ -429,8 +433,6 @@ code: EXECUTE, ( cfa -- )  RAX RDX MOV  RAX POP  RDX CALL ;
 code: EXECUTEWORD, ( @w -- ? )  RAX RDI MOV  RAX POP  WORD PTR 0 [RDI] RCX MOVZX
   3 # RCX TEST  0= IFLIKELY                           ( Inlined code: )
     BYTE PTR 2 [RDI] RDX MOVZX   2 [RDI] [RDX] RDI LEA  ( Skip name )
-    %WITH-PFA # RCX TEST  0= UNLESSEVER                 ( Skip PFA, if present )
-      7 # RDI ADD  -8 # RDI AND  8 # RDI ADD  THEN
     %INDIRECT # RCX TEST  0= IFLIKELY                   ( If not alias, skip code field length )
       1 # RDI ADD  -2 # RDI AND  2 # RDI ADD  ELSE      ( else load indirect address )
       7 # RDI ADD  -8 # RDI AND  0 [RDI] RDI MOV  THEN

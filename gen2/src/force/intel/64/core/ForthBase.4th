@@ -562,6 +562,10 @@ alias −−o!  alias −−v!  alias −−2!                    ( aliases with
 : execute ( cfa -- )  EXECUTE, ;                      ( execute the code at the specified cfa )
 : execWord ( @w -- )  EXECUTEWORD, ;                  ( execute code of word @w )
 
+--- Type check ---
+
+variable TYPE_CHECKER package-private                 ( Address of the type checker routine )
+: !type ( @obj @voc -- @obj -- TypeCastException )  TYPE_CHECKER q@ execute ;    ( assert that @obj is an object of type @voc )
 
 
 === Cell sized aliases ===
@@ -570,6 +574,7 @@ alias −−o!  alias −−v!  alias −−2!                    ( aliases with
 : ! ( x a -- )  q! ;
 : @! ( x a -- x' )  q@! ;
 : xchg ( x a -- x' a )  qxchg ;
+
 
 
 === Module Initialization ===
