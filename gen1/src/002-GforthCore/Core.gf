@@ -1676,16 +1676,24 @@ also compiler definitions  context @ @COMP-WORDS !
 : my ( -- a )  « THIS,  LAST_COMP0! » ;  alias me  alias I'm  alias this   ( push the current instance )
 : raise ( -- )  « EXPUSH, »  LAST_COMP0! ;
 : begin ( -- ctrl:ba )  « BEGIN, »  LAST_COMP0! ;
-: then ( ctrl:ba -- )  « THEN, »  LAST_COMP0! ;
 : again ( ctrl:ba -- )  « AGAIN, »  LAST_COMP0! ;
 : until ( ctrl:ba -- )  « UNTIL, »  LAST_COMP0! ;
 : while ( ctrl:ba1 -- ctrl:ba2 ctrl:ba1 )  « WHILE, »  LAST_COMP0! ;
 : repeat ( ctrl:ba2 ctrl:ba1 -- )  « REPEAT, »  LAST_COMP0! ;
+: do ( -- ctrl:ba1 ctrl:ba2 )  « DO, »  LAST_COMP0! ;
+: udo ( -- ctrl:ba1 ctrl:ba2 )  « UDO, »  LAST_COMP0! ;
+: loop ( ctrl:ba1 ctrl:ba2 -- )  « LOOP, »  LAST_COMP0! ;
+: +loop ( ctrl:ba1 ctrl:ba2 -- )  « +LOOP, »  LAST_COMP0! ;
+: −loop ( ctrl:ba1 ctrl:ba2 -- )  « -LOOP, »  LAST_COMP0! ;
+: -loop ( ctrl:ba1 ctrl:ba2 -- )  « -LOOP, »  LAST_COMP0! ;
 : if ( -- ctrl:ba )  « IF, »  LAST_COMP0! ;
 : ifever ( -- ctrl:ba )  « IFEVER, »  LAST_COMP0! ;
 : unless ( -- ctrl:ba )  « UNLESS, »  LAST_COMP0! ;
 : unlessever ( -- ctrl:ba )  « UNLESSEVER, »  LAST_COMP0! ;
+: ?dupif ( -- ctrl:ba )  « CONDUPIF, »  LAST_COMP0! ;
+: ?dupifever ( -- ctrl:ba )  « CONDUPIFEVER, »  LAST_COMP0! ;
 : else ( ctrl:ba1 -- ctrl:ba2 )  « ELSE, »  LAST_COMP0! ;
+: then ( ctrl:ba -- )  « THEN, »  LAST_COMP0! ;
 : ( ( >...rpar -- )  c" )" comment-bracket ;          \ skips a parenthesis-comment
 : ;  finishDef  exitMethod  -1 wordComplete !  LASTCONTRIB 0!  LAST_COMP0!  doInterpret ;     \ finish definition
 

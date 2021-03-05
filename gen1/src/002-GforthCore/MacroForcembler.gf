@@ -63,7 +63,7 @@ also Forcembler
 
 === Literals ===
 
-: LIT0, ( -- )  SAVE,  RAX RAX XOR ;
+: LIT0, ( -- )  SAVE,  EAX EAX XOR ;
 : LIT-1, ( -- )  SAVE,  STC  RAX RAX SBB ;
 : LIT1, ( b -- )  SAVE,  1 ADP-  # DL MOV  DL RAX MOVSX  1 ADP+ ;
 : ULIT1, ( c -- )  SAVE,  EAX EAX XOR  1 ADP-  # EAX ADD  1 ADP+ ;
@@ -241,6 +241,8 @@ also Forcembler
 : IFEVER, ( -- ctrl:a )  RAX RAX TEST  there # 0= LIKELY ?JMPF  there >CTRL ;
 : UNLESS, ( -- ctrl:a )  RAX RAX TEST  there # 0≠ ?JMPF  there >CTRL ;
 : UNLESSEVER, ( -- ctrl:a )  RAX RAX TEST there # 0≠ LIKELY ?JMPF  there >CTRL ;
+: CONDUPIF, ( -- ctrl:a )  RAX RAX TEST  there # 0= ?JMPF  there >CTRL  RAX PUSH ;
+: CONDUPIFEVER, ( -- ctrl:a )  RAX RAX TEST  there # 0= LIKELY ?JMPF  there >CTRL  RAX PUSH ;
 : THEN, ( ctrl:a -- )  CTRL> there over - swap 4- d! ;
 : ELSE, ( ctrl:a1 -- ctrl:a2 )  CTRL>  0 # JMP  there >CTRL  there over - swap 4- d! ;
 : BEGIN, ( -- ctrl:a )  there >CTRL ;
@@ -248,5 +250,20 @@ also Forcembler
 : UNTIL, ( ctrl:a -- )  RAX RAX TEST  CTRL> # 0= ?JMPX ;
 : WHILE, ( ctrl:a1 -- ctrl:a2 ctrl:a1 )  CTRL> IF, >CTRL ;
 : REPEAT, ( ctrl:a2 ctrl:a1 -- )  AGAIN, THEN, ;
+: DO, ( -- ctrl:a1 ctrl:a2 )  RAX 0 [RSP] CMP  there # < ?JMPF  there >CTRL
+  RAX 0 [RBP] MOV  QWORD PTR CELL [RBP] POP  2 CELLS # RBP ADD  there >CTRL ;
+: LOOP, ( ctrl:a1 ctrl:a2 -- )  -2CELLS [RBP] RDX MOV  1 # RDX ADD  RDX -2CELLS [RBP] MOV  RDX -CELL [RBP] CMP  CTRL> # < ?JMPX  THEN ;
+: -LOOP, ( ctrl:a1 ctrl:a2 -- )
+  -2CELLS [RBP] RDX MOV  RAX RDX SUB  RAX POP  RDX -2CELLS [RBP] MOV  RDX -CELL [RBP] CMP  CTRL> # < ?JMPX  THEN ;
+: +LOOP, ( ctrl:a1 ctrl:a2 -- )
+  -2CELLS [RBP] RDX MOV  RAX RDX ADD  RAX POP  RDX -2CELLS [RBP] MOV  RDX -CELL [RBP] CMP  CTRL> # < ?JMPX  THEN ;
+: UDO, ( -- ctrl:a1 ctrl:a2 )  RAX 0 [RSP] CMP  there # U< ?JMPF  there >CTRL
+  RAX 0 [RBP] MOV  QWORD PTR CELL [RBP] POP  2 CELLS # RBP ADD  there >CTRL ;
+: ULOOP, ( ctrl:a1 ctrl:a2 -- )
+  -2CELLS [RBP] RDX MOV  1 # RDX ADD  RDX -2CELLS [RBP] MOV  RDX -CELL [RBP] CMP  CTRL> # U< ?JMPX  THEN ;
+: -ULOOP, ( ctrl:a1 ctrl:a2 -- )
+  -2CELLS [RBP] RDX MOV  RAX RDX SUB  RAX POP  RDX -2CELLS [RBP] MOV  RDX -CELL [RBP] CMP  CTRL> # U< ?JMPX  THEN ;
+: +ULOOP, ( ctrl:a1 ctrl:a2 -- )
+  -2CELLS [RBP] RDX MOV  RAX RDX ADD  RAX POP  RDX -2CELLS [RBP] MOV  RDX -CELL [RBP] CMP  CTRL> # U< ?JMPX  THEN ;
 
 previous

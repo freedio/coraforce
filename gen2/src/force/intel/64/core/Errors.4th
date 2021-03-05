@@ -21,13 +21,13 @@ vocabulary: Errors
 
   : OK ( -- ? )  exdepth 0= ;                         ( check if everything OK, i.e. no exceptions occurred at all )
   : reallyOK ( -- ? )                                 ( check if really everything OK, i.e. no /severe/ exception occurred )
-    0 exdepth ?dupifever  0 udo  i #ex Severity@ max  loop  0= ;
+    0 exdepth ?dupifever  0 udo  i #ex Severity@ max  uloop  then  0= ;
   : KO ( -- ? )  exdepth 0≠ ;                         ( check if an exception occurred [could also we only a warning...!] )
   : reallyKO ( -- ? )                                 ( check if something went awry, i.e. a /severe/ exception occurred )
-    0 exdepth ?dupifever  0 udo  i #ex Severity@ max  loop  0≠ ;
+    0 exdepth ?dupifever  0 udo  i #ex Severity@ max  uloop  then  0≠ ;
   : ?abort ( # -- )  ?dupifever  ABORT @ execute then ;  ( abort if error severity # is not 0 )
   : fail ( -- )  exdepth ?dupifever                   ( if at least one exception occurred: print all exceptions and abort  )
-    0 swap 0 udo  ex> dup Severity@ rot max  swap eprint  loop  ?abort  then ;
+    0 swap 0 udo  ex> dup Severity@ rot max  swap eprint  uloop  ?abort  then ;
 
   init: ( @initstr -- @initstr )  EXSTACK EXSP ! ;
 

@@ -8,7 +8,8 @@ import /force/intel/64/core/ForthBase
 interface: Exception
   requires ForthBase
 
-  def Stacktrace@                                     ( return the stack trace where the exception originated )
+  def Severity@                                       ( Severity of the exception )
+  def Stacktrace@                                     ( Stack trace where the exception originated )
   def eprint ( -- )                                   ( print the exception to stderr )
 
 interface;
