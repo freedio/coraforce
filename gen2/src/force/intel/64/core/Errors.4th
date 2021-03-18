@@ -8,8 +8,8 @@ import /force/trouble/Exception
 import /linux/intel/64/system/SystemMacro
 
 vocabulary: Errors
-  requires ForthBase
   requires Exception
+  requires ForthBase
 
   create EXSTACK  256 cells allot                     ( The exception stack growing upwards with space for 256 entries )
   variable EXSP                                       ( The exception stack pointer )

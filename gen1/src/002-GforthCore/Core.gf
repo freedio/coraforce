@@ -333,7 +333,7 @@ variable SegHeader
   >x 2dup swap x> vocseg 16 ->| rot write-file throw ;
 : shipVoc ( @voc -- )                                 ( ship vocabulary @voc )
   cr ." Shipping vocabulary " dup "vocabulary". space
-  ModulePath over c" Package" !para@ $>$  '/' c+>$  over c" Name" !para@ $+>$  drop
+  ModulePath over c" Package" !para@ $>$  '/' ?c+>$  over c" Name" !para@ $+>$  drop
   dup moddir count 511 mkdir-parents drop               ( create the intermediate directories )
   dup modpath count w/o create-file throw               ( open a new file with path derived from vocabulary path )
   writeHeader  segments 0 do  i writeSegment  loop      ( write header and all segments )
@@ -407,7 +407,9 @@ defer target&,
   1- §DEPS segment rot DEPENDENCY# u* #-> DEPENDENCY# u< if  abort" Invalid dependency index"  then
   DEPENDENCY.#VOCA + d@ dup . @vte  dup "vocabulary". ;
 : depfix ( @voc @dep -- @voc @dep )                   ( Insert absolute #VOCA at dep entry @dep in vocabulary @voc )
-  dup DEPENDENCY.@NAME + @ >localName findVocabulary ?dup unless  cr ." Dependency " "vocabulary". ."  not found!" terminate then
+  dup DEPENDENCY.@NAME + @ >localName
+   cr ." Depfix: vocabulary " dup type$
+  .sh findVocabulary ?dup unless  .sh cr ." Dependency " qtype$ ."  not found!" terminate then
   vte# over DEPENDENCY.#VOCA + d! ;
 
 
@@ -536,7 +538,7 @@ variable relocs
 : reloc ( @rel -- )  dup RELOC.SOURCE + @  swap RELOC.TARGET + @
   over >>extra %CODE-LOCATION and if  c&&!  else  &&!  then ;
 : relocate ( @voc -- )                                ( relocate vocabulary @voc )
-  dup §DEPS vocseg 0 udo  depfix  DEPENDENCY# + DEPENDENCY# +loop  drop
+  dup §DEPS vocseg 0 udo  cr 'x' emit .sh depfix 'y' emit .sh  DEPENDENCY# + DEPENDENCY# +loop  drop
   dup §RELS vocseg 0 udo  dup reloc  RelocEntry# tuck +  swap +loop  2drop ;
 : relocDeps ( @voc -- )                               ( relocate dependency table of vocabulary @voc )
   dup §RELS vocseg 0 udo  dup RELOC.SOURCE + @ >>segment §DEPS = if  dup reloc  then  RelocEntry# tuck +  swap +loop  2drop ;
@@ -665,9 +667,9 @@ variable file
 (  cr ." ?loadModule: ModulePath 1: " ModulePath dup qtype$ space '@' emit hex. )
   SourcePath over $>$
 (  cr ." ?loadModule: SourcePath 1: " SourcePath dup qtype$ space '@' emit hex. )
-  '/' ?c+>$  c" src/" $+>$  2 pick skip/ a#+>$  c" .4th" $+>$  getFileTime
+  '/' ?c+>$  c" src" $+>$  2 pick $+>$  c" .4th" $+>$  getFileTime
 (  cr ." ?loadModule: SourcePath 2: " SourcePath qtype$ ." , source file time: " dup . )
-  swap '/' ?c+>$  c" lib/" $+>$  rot skip/ a#+>$  c" .4ce" $+>$  getFileTime
+  swap '/' ?c+>$  c" lib" $+>$  rot $+>$  c" .4ce" $+>$  getFileTime
 (  cr ." ?loadModule: ModulePath 2: " ModulePath qtype$ ." , module file time: " dup . )
   ?dup unless  cr ." Module " ModulePath qtype$ ."  does not exist"  zap exit  then
   u> if  cr ." Source is newer: module " ModulePath qtype$ ."  rejected in favor of source!" false exit  then
@@ -685,7 +687,7 @@ variable file
   file @ ?dup if  close-file throw  0 file !  then  lastVoc @ addSearchVoc  ." , added to searchlist." ;
 : ?loadSource ( $1 $2 -- ? )                          ( try loading module $1 from root $2 and report if successful )
   ModulePath over 1+ c@ '~' = if  s" HOME" getenv a#>$  swap count -> a#+>$  else  swap $>$  then
-  '/' ?c+>$  c" src/" $+>$  swap skip/ a#+>$  c" .4th" $+>$  cr ." Reading source file "  dup qtype$
+  '/' ?c+>$  c" src" $+>$  swap $+>$  c" .4th" $+>$  cr ." Reading source file "  dup qtype$
   dup count r/o open-file ifever  ."  failed (to open)."  drop zap exit  then  close-file throw  sourceModule true ;
 
 --- Module Methods ---
@@ -1079,6 +1081,7 @@ variable TRIM                                         ( Number of bytes to trim 
 variable LASTCONTRIB                                  ( Last word added to the compiled code [inline only] )
 variable @FORCEMBLER                                  ( Forcembler vocabulary )
 variable @COMP-WORDS                                  ( Compiler wordlist / vocabulary )
+16 constant MAX-BARE-COPY                             ( Maximum code-size to inline-copy, unless marked %INLINE )
 
 : compExec ( a$ -- )  cr ." Compexec " dup qtype$  dup count @COMP-WORDS @ search-wordlist if  nip    ( execute compiler word a$ )
     depth 1- 0 max dup >B [ also Forcembler ] ADP+ execute B> ADP- [ previous ] exit  then
@@ -1124,7 +1127,8 @@ variable @COMP-WORDS                                  ( Compiler wordlist / voca
 : word-direct, ( @voc @word -- )  §CODE →tseg#↑ word, t&,  tseg#↓ ;
 : word-token, ( @voc @word -- )  token-threading-not-supported ;
 : word-inline, ( @voc @word -- )
-  dup >r flags %INLINE and over code# 16 < or if inline-copy, else inline-call, then #INLINED 1+! r> dup LASTCONTRIB ! LAST_COMP ! ;
+  dup >r flags %INLINE and over code# MAX-BARE-COPY < or if inline-copy, else inline-call, then
+  #INLINED 1+! r> dup LASTCONTRIB ! LAST_COMP ! ;
 : method-indirect, ( @voc @word -- )  indirect-threading-not-supported ;
 : method-direct, ( @voc @word -- )  ***TODO*** ;
 : method-token, ( @voc @word -- )  token-threading-not-supported ;

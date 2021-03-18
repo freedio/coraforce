@@ -41,9 +41,17 @@ code: EXIT, ( -- )  CELL # RBP SUB  QWORD PTR 0 [RBP] PUSH  RET ;
 === Constants ===
 
 code: CELL, ( -- cell# )  SAVE,  EAX EAX XOR  CELL # EAX ADD ;
+code: CELLSHIFT, ( -- #cell )  SAVE,  EAX EAX XOR  CELL 8 * # EAX ADD ;
 code: CELLPLUS, ( u -- u+cell# )  CELL # RAX ADD ;
 code: CELLTIMES, ( u -- u×cell# )  CELL% # RAX SHL ;
 code: CELLUBY, ( u×cell# -- u )  CELL% # RAX SHR ;
+
+code: HALF, ( -- half# )  SAVE,  EAX EAX XOR  HALF # EAX ADD ;
+code: HALFSHIFT, ( -- #half )  SAVE,  EAX EAX XOR  HALF 8 * # EAX ADD ;
+code: HALFPLUS, ( u -- u+half# )  HALF # RAX ADD ;
+code: HALFTIMES, ( u -- u×half# )  HALF% # RAX SHL ;
+code: HALFUBY, ( u×half# -- u )  HALF% # RAX SHR ;
+
 code: BLANK, ( -- ␣ )  SAVE,  EAX EAX XOR  $20 # EAX ADD ;
 
 
@@ -446,7 +454,8 @@ code: EXECUTEWORD, ( @w -- ? )  RAX RDI MOV  RAX POP  WORD PTR 0 [RDI] RCX MOVZX
     UD2  ELSE                                           ( currently unsupported )
   UD2  THEN  THEN  THEN  THEN ;
 
-code: INVOKEMETHOD, ( m# @v this -- )  RAX RBX MOV  RSI POP  RCX POP  RCX RDX MOV  16 # EDX SHR  $FFFF # ECX AND  RAX POP
+code: INVOKEMETHOD, ( m# @v this -- )
+  RAX RBX MOV  RSI POP  RCX POP  RCX RDX MOV  16 # EDX SHR  $FFFF # ECX AND  RAX POP
   -4 [RBX] EDI MOV  0 [RSI] [RDI] *CELL RDI MOV ;
 
 vocabulary;

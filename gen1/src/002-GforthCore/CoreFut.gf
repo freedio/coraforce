@@ -331,7 +331,7 @@ variable SegHeader
   >x 2dup swap x> vocseg 16 ->| rot write-file throw ;
 : shipVoc ( @voc -- )                                 ( ship vocabulary @voc )
   cr ." Shipping vocabulary " dup "vocabulary". space
-  ModulePath over c" Package" !para@ $>$  '/' c+>$  over c" Name" !para@ $+>$  drop
+  ModulePath over c" Package" !para@ $>$  '/' ?c+>$  over c" Name" !para@ $+>$  drop
   dup moddir count 511 mkdir-parents drop               ( create the intermediate directories )
   dup modpath count w/o create-file throw               ( open a new file with path derived from vocabulary path )
   writeHeader  segments 0 do  i writeSegment  loop      ( write header and all segments )

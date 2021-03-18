@@ -64,6 +64,9 @@
 : -4cells ( -- -4cells )  4 cells negate ;
 : cellu/ ( u -- u' )  cell / ;
 : cell% ( -- u% )  cell 1 64 0 ?do  2dup <= if  2drop i unloop exit  then  2*  loop  2drop  64 ;
+: half ( -- half )  cell 2/ ;
+: half% ( -- u% )  cell% 2/ ;
+: half+ ( u -- u+half)  half + ;
 : c@++ ( a -- c a+1 )  dup c@ swap 1+ ;
 : @c++ ( a -- a+1 c )  c@++ swap ;
 : --@c ( a -- a-1 c )  1- dup c@ ;
