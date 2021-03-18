@@ -2,7 +2,7 @@
 
 ****** The Linux Trouble Severity model for FORCE-linux 4.19.0-5-amd64 ******
 
-package force/trouble/model
+package /force/trouble/model
 import /force/intel/64/core/ForthBase
 
 enum: Severity

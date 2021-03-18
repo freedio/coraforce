@@ -2,7 +2,7 @@
 
 ****** The FORTH base vocabulary of FORCE-linux 4.19.0-5-amd64 ******
 
-package force/intel/64/core
+package /force/intel/64/core
 import force/intel/64/macro/CoreMacro
 
 vocabulary: ForthBase
@@ -338,8 +338,8 @@ alias −−o!  alias −−v!  alias −−2!                    ( aliases with
 : ×÷ ( n3 n2 n1 -- n )  TIMESBY, ;  alias */          ( n = n3×n2÷n1, where n3×n2 is a double-cell intermediate result )
 : u×÷ ( u3 u2 u1 -- u )  UTIMESBY, ;  alias u*/       ( u = u3×u2÷u1, where u3×u2 is a double-cell intermediate result )
 : nxt ( x2 x1 -- x2+1 x1 )  INCS, ;                   ( increment second of stack )
-: +> ( a # -- a+1 #-1 )  ADV1, ;                      ( advance cursor in buffer with address a and length # by 1 )
-: #+> ( a # u -- a+u #-u )  ADV, ;                    ( advance cursor in buffer with address a and length # by u )
+: -> ( a # -- a+1 #-1 )  ADV1, ;                      ( advance cursor in buffer with address a and length # by 1 )
+: #-> ( a # u -- a+u #-u )  ADV, ;                    ( advance cursor in buffer with address a and length # by u )
 : →| ( n2|0 n1 -- n3|0 )  tuck 1− + over / * ;  alias >|    ( round n2 up to the next multiple of n1, leaving 0 as it is )
 : u→| ( u2|0 u1 -- u3|0 )  tuck 1− + over u/ u* ;  alias >|    ( round u2 up to the next multiple of u1, leaving 0 as it is )
 : |← ( n2|0 n1 -- n3|0 )  over r% − ;  alias |<       ( round n2 down to the next smaller multiple of n1, leaving 0 as it is )

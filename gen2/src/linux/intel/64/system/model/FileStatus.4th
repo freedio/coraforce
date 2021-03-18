@@ -8,7 +8,7 @@ class: FileStatus
 
 
 
-  === Fields ===
+  === Interface ===
 
   U8 val Device                                       ( ID of device containing file )
   U8 val Inode                                        ( Inode number )
@@ -26,7 +26,7 @@ class: FileStatus
 
 
 
-  === Methods ===
+  === Implementation ===
 
 
 

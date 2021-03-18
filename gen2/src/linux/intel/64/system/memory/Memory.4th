@@ -2,7 +2,7 @@
 
 ****** The Linux Memory Module for FORCE-linux 4.19.0-5-amd64 ******
 
-package linux/intel/64/system/memory
+package /linux/intel/64/system/memory
 import /force/intel/64/core/ForthBase
 import /linux/intel/64/system/SystemMacro
 import PageArray

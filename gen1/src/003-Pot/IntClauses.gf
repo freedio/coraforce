@@ -122,7 +122,8 @@ needs IntClauseMacros.gf
 : #cells ( #u -- u*cell )  [CELLS], ;
 : #cells+ ( #u -- u*cell )  [CELLSPLUS], ;
 
-: #+> ( a # #u -- a+u #-u )  [ADVANCE], ;
+: #-> ( a # #u -- a+u #-u )  [ADVANCE], ;
+: #−> ( a # #u -- a+u #-u )  [ADVANCE], ;
 : #u*+ ( u1 u2 #u3 -- u1*u3+u2 )  [UNUMBUILD], ;
 : #u*+! ( u1 a #u2 -- )  [UNUMBUILDAT], ;
 

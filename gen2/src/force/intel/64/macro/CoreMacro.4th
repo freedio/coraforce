@@ -25,7 +25,7 @@
   R15:  Address of Z-Stack Descriptor
 )
 
-package force/intel/64/macro
+package //force/intel/64/macro
 
 vocabulary: CoreMacro ( AMD64 )
 
@@ -70,6 +70,7 @@ code: ROTR, ( x3 x2 x1 -- x1 x3 x2 )  RAX CELL [RSP] XCHG  RAX 0 [RSP] XCHG ;
 code: SLIDE, ( x3 x2 x1 -- x2 x3 x1 )  0 [RSP] RDX MOV  CELL [RSP] RDX XCHG  RDX 0 [RSP] MOV ;
 code: REV, ( x3 x2 x1 -- x1 x2 x3 )  CELL [RSP] RAX XCHG ;
 code: 2DUP, ( x1 y1 -- x1 y1 x1 y1 )  RAX PUSH  CELL PTR CELL [RSP] PUSH ;
+code: DUPE, ( x y -- x x y )  CELL PTR CELL [RSP] PUSH ;
 code: 2DROP, ( x1 y1 -- )  CELL # RSP ADD  RESTORE, ;
 code: 2SWAP, ( x2 y2 x1 y1 -- x1 y1 x2 y2 )  RDX POP  RDX CELL [RSP] XCHG  RAX 0 [RSP] XCHG  RDX PUSH ;
 code: 2NIP, ( x2 y2 x1 y1 -- x1 y1 )  RDX POP  2 CELLS # RSP ADD  RDX PUSH ;
@@ -445,6 +446,7 @@ code: EXECUTEWORD, ( @w -- ? )  RAX RDI MOV  RAX POP  WORD PTR 0 [RDI] RCX MOVZX
     UD2  ELSE                                           ( currently unsupported )
   UD2  THEN  THEN  THEN  THEN ;
 
-
+code: INVOKEMETHOD, ( m# @v this -- )  RAX RBX MOV  RSI POP  RCX POP  RCX RDX MOV  16 # EDX SHR  $FFFF # ECX AND  RAX POP
+  -4 [RBX] EDI MOV  0 [RSI] [RDI] *CELL RDI MOV ;
 
 vocabulary;

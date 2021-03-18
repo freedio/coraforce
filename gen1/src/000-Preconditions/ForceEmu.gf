@@ -12,6 +12,7 @@
 : slide ( x1 x2 x3 -- x2 x1 x3 ) rot swap ;
 : nip2 ( x1 x2 x3 -- x3 )  -rot 2drop ;
 : zap ( x -- 0 )  drop 0 ;
+: dupe ( x y -- x x y )  >r dup r> ;
 : − ( n1 n2 -- n1−n2 ) - ;
 : ≤ ( n1 n2 -- ? ) <= ;
 : ≠ ( n1 n2 -- ? ) <> ;
@@ -121,8 +122,8 @@
   dup 0 256 within if  drop 1  else
   dup 0 65536 within if  drop 2  else
   dup 0 4294967296 within if  drop 4  else  drop 8  then then then then ;
-: +> ( a # -- a+1 #-1 )  1- swap 1+ swap ;
-: #+> ( a # u -- a+u #-u )  tuck - -rot + swap ;
+: -> ( a # -- a+1 #-1 )  1- swap 1+ swap ;
+: #-> ( a # u -- a+u #-u )  tuck - -rot + swap ;
 : nextchar ( a # -- a+1 #-1 c )  1- swap dup 1+ -rot c@ ;
 : regress ( a # -- a-1 #+1 )  1+ swap 1- swap ;
 : =variable ( x -- )  create , ;
@@ -136,6 +137,7 @@
 
 : hexdump ( a # -- a # )  2dup  cr  over addr. ." : " 0 ?do dup c@ hexb. space 1+ loop  drop ;
 : bare-hexline ( a # -- )  0 ?do dup c@ hexb. space 1+ loop  drop ;
+: u. ( u -- )  0 <# #s #> type ;
 
 : hexline ( a # -- )
   CR OVER 0 <# # # # # # # # # # # # # #> type space

@@ -2,7 +2,7 @@
 
 ****** The Core Module for FORCE-linux 4.19.0-5-amd64 ******
 
-package force/intel/64/core
+package /force/intel/64/core
 import RichForce
 
 vocabulary: Core

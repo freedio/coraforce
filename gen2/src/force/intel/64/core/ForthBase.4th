@@ -2,8 +2,8 @@
 
 ****** The FORTH base vocabulary of FORCE-linux 4.19.0-5-amd64 ******
 
-package force/intel/64/core
 import /force/intel/64/macro/CoreMacro
+package /force/intel/64/core
 
 vocabulary: ForthBase
 
@@ -74,7 +74,7 @@ drop
 === Stack Operations ===
 
 ------
-Assumption is that the parameter and return stacks grows downwards, all others upwards.
+Assumption is that the parameter stack grows downwards, all others upwards.
 Imposed by the architecture, parameter and return stack reside in the same segment and converge on each other.
 The term "stack" without further specification refers to the parameter stack.
 ------
@@ -120,6 +120,7 @@ variable ZSS  private                                 ( Z-stack size in cells )
 : rev ( x3 x2 x1 -- x1 x2 x3 )  REV, ;                ( revert stack triple = exchange top and 3rd of stack )
 
 : 2dup ( y x -- y x y x )  2DUP, ;                    ( duplicate top of stack pair )
+: dupe ( y x -- y y x )  DUPE, ;                      ( duplicate second of stack )
 : 2drop ( y x -- )  2DROP, ;                          ( drop top of stack pair )
 : 2nip ( y2 x2 y1 x1 -- y1 x1 )  2NIP, ;              ( drop 2 cells above top )
 : 2swap ( y2 x2 y1 x1 -- y1 x1 y2 x2 )  2SWAP, ;      ( swap top and second of stack pair )
@@ -340,8 +341,8 @@ alias −−o!  alias −−v!  alias −−2!                    ( aliases with
 : ×÷ ( n3 n2 n1 -- n )  TIMESBY, ;  alias */          ( n = n3×n2÷n1, where n3×n2 is a double-cell intermediate result )
 : u×÷ ( u3 u2 u1 -- u )  UTIMESBY, ;  alias u*/       ( u = u3×u2÷u1, where u3×u2 is a double-cell intermediate result )
 : nxt ( x2 x1 -- x2+1 x1 )  INCS, ;                   ( increment second of stack )
-: +> ( a # -- a+1 #-1 )  ADV1, ;                      ( advance cursor in buffer with address a and length # by 1 )
-: #+> ( a # u -- a+u #-u )  ADV, ;                    ( advance cursor in buffer with address a and length # by u )
+: -> ( a # -- a+1 #-1 )  ADV1, ;  alias −>            ( advance cursor in buffer with address a and length # by 1 )
+: #-> ( a # u -- a+u #-u )  ADV, ;  alias #−>         ( advance cursor in buffer with address a and length # by u )
 : →| ( n2|0 n1 -- n3|0 )  tuck 1− + over / * ;  alias >|    ( round n2 up to the next multiple of n1, leaving 0 as it is )
 : u→| ( u2|0 u1 -- u3|0 )  tuck 1− + over u/ u* ;  alias >|    ( round u2 up to the next multiple of u1, leaving 0 as it is )
 : |← ( n2|0 n1 -- n3|0 )  over r% − ;  alias |<       ( round n2 down to the next smaller multiple of n1, leaving 0 as it is )
@@ -553,6 +554,41 @@ alias −−o!  alias −−v!  alias −−2!                    ( aliases with
 : 0count ( a⁰ -- a #|-1 )
   dup -1 begin  c$@++  1 < until  ?dup -1 = if  2nip exit  then  drop 1 − over − ;
 
+=== Vocabulary Operations ===
+
+create VOCABULARIES  1024 cells allot  private        ( Table of loaded vocabularies, 1024 entries )
+0 =variable #VOCABULARIES  private                    ( Count of vocabularies )
+
+ 0000 dup constant @DICT    private                   ( Address of the dictionary )
+cell+ dup constant #DICT    private                   ( Capacity of the dictionary in bytes )
+cell+ dup constant →DICT    private                   ( Usage of the dictionary in bytes )
+cell+ dup constant @CODE    private                   ( Address of the code segment )
+cell+ dup constant #CODE    private                   ( Capacity of the code segment in bytes )
+cell+ dup constant →CODE    private                   ( Usage of the code segment in bytes )
+cell+ dup constant @DATA    private                   ( Address of the data segment )
+cell+ dup constant #DATA    private                   ( Capacity of the data segment in bytes )
+cell+ dup constant →DATA    private                   ( Usage of the data segment in bytes )
+cell+ dup constant @TEXT    private                   ( Address of the text segment )
+cell+ dup constant #TEXT    private                   ( Capacity of the text segment in bytes )
+cell+ dup constant →TEXT    private                   ( Usage of the text segment in bytes )
+cell+ dup constant @PARA    private                   ( Address of the parameter table )
+cell+ dup constant #PARA    private                   ( Capacity of the parameter table in bytes )
+cell+ dup constant →PARA    private                   ( Usage of the parameter table in bytes )
+cell+ dup constant @RELS    private                   ( Address of the relocation table )
+cell+ dup constant #RELS    private                   ( Capacity of the relocation table in bytes )
+cell+ dup constant →RELS    private                   ( Usage of the relocation table in bytes )
+cell+ dup constant @DEPS    private                   ( Address of the dependency table )
+cell+ dup constant #DEPS    private                   ( Capacity of the dependency table in bytes )
+cell+ dup constant →DEPS    private                   ( Usage of the dependency table in bytes )
+cell+ dup constant @DBUG    private                   ( Address of the debug segment )
+cell+ dup constant #DBUG    private                   ( Capacity of the debug segment in bytes )
+cell+ dup constant →DBUG    private                   ( Usage of the debug segment in bytes )
+drop
+
+
+
+
+
 
 
 === Various ===
@@ -561,11 +597,18 @@ alias −−o!  alias −−v!  alias −−2!                    ( aliases with
 
 : execute ( cfa -- )  EXECUTE, ;                      ( execute the code at the specified cfa )
 : execWord ( @w -- )  EXECUTEWORD, ;                  ( execute code of word @w )
+: invoke ( m# this -- )  VOCABULARIES swap INVOKEMETHOD, ;
 
 --- Type check ---
 
 variable TYPE_CHECKER package-private                 ( Address of the type checker routine )
 : !type ( @obj @voc -- @obj -- TypeCastException )  TYPE_CHECKER q@ execute ;    ( assert that @obj is an object of type @voc )
+
+--- Unimplemented ---
+
+variable UNIMPLEMENTED package-private
+: unimplemented ( -- )  UNIMPLEMENTED q@ execute ;  ( ran into an unimplemented method: abort )
+
 
 
 === Cell sized aliases ===

@@ -2,7 +2,7 @@
 
 ****** The Linux Signal Module for FORCE-linux 4.19.0-5-amd64 ******
 
-package linux/intel/64/system
+package /linux/intel/64/system
 import force/intel/64/core/Force
 import System
 import SystemMacro

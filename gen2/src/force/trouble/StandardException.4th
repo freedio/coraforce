@@ -2,7 +2,7 @@
 
 ****** The Standard Exception module for FORCE-linux 4.19.0-5-amd64 ******
 
-package force/trouble
+package /force/trouble
 import /force/intel/64/core/ForthBase
 import /force/core/String
 import Exception
@@ -11,18 +11,14 @@ class: StandardException extends BasicException
 
 
 
-  === Fields ===
+  === Interface ===
 
   String val Message                                  ( how severe the exception is )
+  constructor new ( $ # -- )                          ( initialize instance with severity # and message $ )
 
 
+  === Implementation ===
 
-  === Methods ===
-
-public:
-  : eprint ( -- )                                     ( print the exception to stderr )
-    ecr  my Severity adj my class name e$. ;
-  construct: new ( # -- )                             ( initialize instance with severity # )
-    my Severity !  StackTrace new my Stacktrace ! ;
+  : new ( $ # -- )  ^ new  my Message ! ;
 
 class;

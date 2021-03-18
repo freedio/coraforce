@@ -2,12 +2,12 @@
 
 ****** The Input/Output module for FORCE-linux 4.19.0-5-amd64 ******
 
-package force/core
+package /force/core
 import /force/intel/64/core/ForthBase
 import /linux/intel/64/system/IOBase
 
 vocabulary: Inout
-  require IOBase
+  requires IOBase
 
 private:
   10 =variable CR                                     ( single newline character )

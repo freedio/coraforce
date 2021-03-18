@@ -2,7 +2,7 @@
 
 ****** The Arithmetic Exception module for FORCE-linux 4.19.0-5-amd64 ******
 
-package force/trouble
+package /force/trouble
 import /force/intel/64/core/ForthBase
 import BasicException
 
@@ -10,13 +10,14 @@ class: ArithmeticException extends StandardException
 
 
 
-  === Fields ===
+  === Interface ===
+
+  constructor new$                                    ( initialize instance with severity # and message $ )
 
 
 
-  === Methods ===
+  === Implementation ===
 
-public:
-  construct: new$ ( $ # -- )  ^ new$ ;                ( initialize instance with severity # and message $ )
+  : new$ ( $ # -- )  ^ new$ ;
 
 class;

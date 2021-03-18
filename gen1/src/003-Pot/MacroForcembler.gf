@@ -61,7 +61,7 @@ also Forcembler
 === Jump, Call, Return ===
 
 : &JUMP, ( & -- )  # JMP ;
-: &CALL, ( & -- )  1 ADP+  dup &>a # CALL  1 ADP-  -4 +&there codereloc,  relocs 1+! ;
+: &CALL, ( & -- )  1 ADP+  dup &>a # CALL  1 ADP-  &there codereloc,  relocs 1+! ;
 : ENTER, ( -- )  RBP RSP XCHG ;
 : EXIT, ( -- )  RSP RBP XCHG  RET ;
 : EXXIT, ( -- X: -- reta )  there # NEAR JMP  there >X ;

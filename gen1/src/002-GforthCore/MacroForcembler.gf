@@ -49,7 +49,7 @@ also Forcembler
 === Parameter Stack ===
 
 : PUSH, ( -- )  RAX PUSH ;
-: PUSHPFA, ( &pfa -- )  1 ADP+  SAVE,  dup &>a # RAX MOV  -8 +&there reloc, 1 ADP- ;
+: PUSHPFA, ( &pfa -- )  1 ADP+  SAVE,  dup &>a # RAX MOV  &there 8 - reloc, 1 ADP- ;
 : DROP, ( -- )  RAX POP ;
 : ZAP, ( -- )  RAX RAX XOR ;
 
@@ -92,6 +92,7 @@ also Forcembler
 
 : &JUMP, ( & -- )  # JMP ;
 : &CALL, ( & -- )  1 ADP+  dup &>a # CALL  1 ADP-  -4 +&there codereloc,  relocs 1+! ;
+: &ICALL, ( & -- )  1 ADP+  dup &>a [] CALL  1 ADP-  -4 +&there codereloc,  relocs 1+! ;
 : ENTER, ( -- )  QWORD PTR 0 [RBP] POP  CELL # RBP ADD ;
 : EXIT, ( -- )  CELL # RBP SUB  QWORD PTR 0 [RBP] PUSH  RET ;
 : EXXIT, ( -- Y: -- reta )  there # NEAR JMP  there >Y ;
@@ -114,8 +115,8 @@ also Forcembler
 
 === Clauses ===
 
-: #PICK, ( ... # -- x )  0 [RSP] [RAX] *8 RAX MOV ;
-: #DROP, ( # -- )  1- dup 0> if  dup cells # RSP ADD  then  RAX POP ;
+: #PICK, ( ... # -- x )  SAVE,  cells [RSP] [RAX] *8 RAX MOV ;
+: #DROP, ( # -- )  1- dup 0> if  dup cells # RSP ADD  then  drop  RAX POP ;
 : #FETCH, ( # -- )  case
   1 of  BYTE PTR 0 [RAX] RAX MOVZX  endof
   2 of  WORD PTR 0 [RAX] RAX MOVZX  endof
@@ -253,17 +254,17 @@ also Forcembler
 : DO, ( -- ctrl:a1 ctrl:a2 )  RAX 0 [RSP] CMP  there # < ?JMPF  there >CTRL
   RAX 0 [RBP] MOV  QWORD PTR CELL [RBP] POP  2 CELLS # RBP ADD  there >CTRL ;
 : LOOP, ( ctrl:a1 ctrl:a2 -- )  -2CELLS [RBP] RDX MOV  1 # RDX ADD  RDX -2CELLS [RBP] MOV  RDX -CELL [RBP] CMP  CTRL> # < ?JMPX  THEN ;
-: -LOOP, ( ctrl:a1 ctrl:a2 -- )
+: MINUS_LOOP, ( ctrl:a1 ctrl:a2 -- )
   -2CELLS [RBP] RDX MOV  RAX RDX SUB  RAX POP  RDX -2CELLS [RBP] MOV  RDX -CELL [RBP] CMP  CTRL> # < ?JMPX  THEN ;
-: +LOOP, ( ctrl:a1 ctrl:a2 -- )
+: PLUS_LOOP, ( ctrl:a1 ctrl:a2 -- )
   -2CELLS [RBP] RDX MOV  RAX RDX ADD  RAX POP  RDX -2CELLS [RBP] MOV  RDX -CELL [RBP] CMP  CTRL> # < ?JMPX  THEN ;
 : UDO, ( -- ctrl:a1 ctrl:a2 )  RAX 0 [RSP] CMP  there # U< ?JMPF  there >CTRL
   RAX 0 [RBP] MOV  QWORD PTR CELL [RBP] POP  2 CELLS # RBP ADD  there >CTRL ;
 : ULOOP, ( ctrl:a1 ctrl:a2 -- )
-  -2CELLS [RBP] RDX MOV  1 # RDX ADD  RDX -2CELLS [RBP] MOV  RDX -CELL [RBP] CMP  CTRL> # U< ?JMPX  THEN ;
-: -ULOOP, ( ctrl:a1 ctrl:a2 -- )
-  -2CELLS [RBP] RDX MOV  RAX RDX SUB  RAX POP  RDX -2CELLS [RBP] MOV  RDX -CELL [RBP] CMP  CTRL> # U< ?JMPX  THEN ;
-: +ULOOP, ( ctrl:a1 ctrl:a2 -- )
-  -2CELLS [RBP] RDX MOV  RAX RDX ADD  RAX POP  RDX -2CELLS [RBP] MOV  RDX -CELL [RBP] CMP  CTRL> # U< ?JMPX  THEN ;
+  -2CELLS [RBP] RDX MOV  1 # RDX ADD  RDX -2CELLS [RBP] MOV  RDX -CELL [RBP] CMP  CTRL> # U< ?JMPX  THEN, ;
+: MINUS_ULOOP, ( ctrl:a1 ctrl:a2 -- )
+  -2CELLS [RBP] RDX MOV  RAX RDX SUB  RAX POP  RDX -2CELLS [RBP] MOV  RDX -CELL [RBP] CMP  CTRL> # U< ?JMPX  THEN, ;
+: PLUS_ULOOP, ( ctrl:a1 ctrl:a2 -- )
+  -2CELLS [RBP] RDX MOV  RAX RDX ADD  RAX POP  RDX -2CELLS [RBP] MOV  RDX -CELL [RBP] CMP  CTRL> # U< ?JMPX  THEN, ;
 
 previous

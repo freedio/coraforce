@@ -8,14 +8,14 @@ structure: FileTime
 
 
 
-  === Fields ===
+  === Interface ===
 
   U8 val Seconds                                      ( The seconds-since-the-epoch part )
   U8 val Nanoseconds                                  ( The nano-seconds with the second, 0..999,999,999 )
 
 
 
-  === Methods ===
+  === Implementation ===
 
 
 

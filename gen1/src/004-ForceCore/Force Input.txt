@@ -1508,9 +1508,9 @@ private variable RSP0
   test;
 
 ( Advances cursor of buffer with address a and length # by u bytes. )
-: +> ( a # u -- a+u #-u )  ADV, ;
+: #-> ( a # u -- a+u #-u )  ADV, ;
 
-  test: +>: checks if both 2OP and TOP are affected in the right direction.
+  test: #->: checks if both 2OP and TOP are affected in the right direction.
   given sp0!  42 13
   when: 12 +>
   then: 1 !=
@@ -1518,23 +1518,23 @@ private variable RSP0
         depth 0 !=
   test;
 
-  test: +>: checks if +> fails gracefully on an empty stack.
+  test: #->: checks if +> fails gracefully on an empty stack.
   given sp0!
-  when: capture{ +> }capture
+  when: capture{ #-> }capture
   then: captured@ ParameterStackUnderflow !=
         depth 0 !=
   test;
 
-  test: +>: checks if +> fails gracefully on a stack with only one entry.
+  test: #->: checks if +> fails gracefully on a stack with only one entry.
   given sp0!  42
-  when: capture{ +> }capture
+  when: capture{ #-> }capture
   then: captured@ ParameterStackUnderflow !=
         depth 1 !=
   test;
 
-  test: +>: checks if +> fails gracefully on a stack with only two entries.
+  test: #->: checks if +> fails gracefully on a stack with only two entries.
   given sp0!  42 13
-  when: capture{ +> }capture
+  when: capture{ #-> }capture
   then: captured@ ParameterStackUnderflow !=
         depth 2 !=
   test;

@@ -2,7 +2,7 @@
 
 ****** The Linux I/O Module for FORCE-linux 4.19.0-5-amd64 ******
 
-package linux/intel/64/system
+package /linux/intel/64/system
 import /force/intel/64/core/ForthBase
 import /linux/intel/64/system/memory/Memory
 import SystemMacro

@@ -2,9 +2,9 @@
 
 ****** The FORTH extension vocabulary of FORCE-linux 4.19.0-5-amd64 ******
 
-package force/intel/64/core
+package /force/intel/64/core
 import ForthBase
-import /force/intel/64/macro/CoreMacro
+import ../macro/CoreMacro
 import /force/trouble/ArithmeticException
 import /force/trouble/TypecastException
 

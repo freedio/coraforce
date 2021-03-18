@@ -2,7 +2,7 @@
 
 ****** A test module for FORCE-linux 4.19.0-5-amd64 ******
 
-package test
+package /test
 import /force/intel/64/core/ForthBase
 
 vocabulary: Test

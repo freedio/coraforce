@@ -2,7 +2,7 @@
 
 ****** The Exception interface for FORCE-linux 4.19.0-5-amd64 ******
 
-package force/trouble
+package /force/trouble
 import /force/intel/64/core/ForthBase
 
 interface: Exception
