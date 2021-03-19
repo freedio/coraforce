@@ -3,10 +3,10 @@
 ****** The Linux System Module for FORCE-linux 4.19.0-5-amd64 ******
 
 package /force/intel/64/linux
-import /force/intel/64/core/ForthBase
+import /linux/intel/64/system/model/Polls
 import /force/intel/64/core/Errors
+import /force/intel/64/core/ForthBase
 import SystemMacro
-import model/Polls
 
 vocabulary: System
   requires Errors

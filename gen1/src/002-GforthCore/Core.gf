@@ -557,6 +557,14 @@ variable CODESEG#
   cr ." Insertion done." ;
 : insert-structured-voc ( @voc -- )                   ( copy the words of vocabulary @voc into the current target vocabulary )
   ***TODO*** ;
+: insert-voc ( @voc -- )  dup vocmodel case
+  COMPACT-VOC of  insert-compact-voc  endof
+  STRUCTURED-VOC of  insert-structured-voc  endof
+  unknown-vocabulary-model  endcase ;
+: copy-methods ( @voc -- )                            ( copy the methods of vocabulary @voc into the current target vocabulary )
+  §VMAT →tseg#↑  dup §VMAT vocseg  ta#,  tseg#↓         ( copy method table )
+  §RELS →tseg#↑  §RELS vocseg 0 udo  dup RELOC.SOURCE + @ >>segment §VMAT = if  dup RelocEntry# ta#,  then  RelocEntry# +loop drop ;
+
 create DEPENDENCIES  256 cells allot                  ( translation table for dependencies of one vocabulary )
 
 
@@ -1701,10 +1709,7 @@ also VocabularyWords definitions  context @ VOC-WORDS !
 : vocabulary; ( -- )  VOC-WORDS @ unvoc  shipVocabulary  target↓ ;    ( end vocabulary definition: ship vocabulary )
 : extends ( >name -- )                                                ( load entire vocabulary into current vocabulary )
   readName findVocabulary ?dup unless  vocabulary-not-found  then
-  dup voctype@ ?dup if  0 invalid-vocabulary-type  then  dup vocmodel case
-    COMPACT-VOC of  insert-compact-voc  endof
-    STRUCTURED-VOC of  insert-structured-voc  endof
-    unknown-vocabulary-model  endcase ;
+  dup voctype@ ?dup if  0 invalid-vocabulary-type  then  insert-voc ;
 : val ( &type|# >name -- )                            ( create an unmodifiable field member of type &type or size # )
   dup 2 cells ≤ if  ( it's a size )  &null  else  ( it's a type )  cell swap  then  readName  cr ." val " dup qtype$  createStaticVal ;
 : var ( &type|# >name -- )                            ( create a modifiable field member of type &type or size # )
@@ -1741,7 +1746,9 @@ also ClassWords definitions  context @ CLASS-WORDS !
 : destruct: ( -- )                                    ( create a destructor )
   %DESTRUCTOR nextFlags or!  cr ." destructor "  c" destroy"  createWord  doCompile  enterMethod ;
 : implements ( >name -- )                             ( add a base interface )
-  readName  loadModule depend ;
+  readName  loadModule depend  loadedModule @ copy-methods ;
+: extends ( >name -- )                                ( add a base class )
+  readName  loadModule depend  loadedModule @ copy-methods ;
 : create ( >name -- )                                 ( create a name referring to the parameter segment )
   readName  nextFlags @ %STATIC and if  createStatic  else  createDynamic  then ;
 : allot ( # -- )                                      ( reserve # bytes of any value in the parameter segment )

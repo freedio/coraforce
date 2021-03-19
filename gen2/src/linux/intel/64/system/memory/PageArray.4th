@@ -7,6 +7,7 @@ import /force/intel/64/core/ForthBase
 import /linux/intel/64/system/SystemMacro
 
 class: PageArray
+  requires ForthBase
 
 
 

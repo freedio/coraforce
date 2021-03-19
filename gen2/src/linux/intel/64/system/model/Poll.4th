@@ -2,23 +2,28 @@
 
 ****** The Linux Poll model for FORCE-linux 4.19.0-5-amd64 ******
 
+package /linux/intel/64/system/model
+
+import /linux/intel/64/system/IO
+
 class: Poll
-  package linux/intel/64/system/model
-  requires force/intel/64/core/RichForce
 
 
 
-  === Fields ===
+  === Interface ===
 
   IO val Observable                                   ( observed IO )
   PollEvents val Interests                            ( set of events we're interested in )
   PollEvents var Active                               ( set of active events on the observable )
+  def >pollement ( -- Pollement )                     ( concert poll to a pollement )
+  def new ( IO PollEvents -- )                        ( initialize object with observable IO and interests PollEvents )
 
 
 
-  === Methods ===
+  === Implementation ===
 
   : >pollement ( -- Pollement )  my Observable my Interests newPollement ;
+  : new ( IO PollEvents -- )  my Interests !  my Observable ! ;
 
 
 
