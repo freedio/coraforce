@@ -6,6 +6,7 @@ package /linux/intel/64/system/memory
 import /force/intel/64/core/ForthBase
 import /linux/intel/64/system/SystemMacro
 import PageArray
+import PageDirectory
 
 ------
 • Memory page size is 4096 bytes — if this assumption has to be changed, the how module is obsolete.
@@ -55,6 +56,7 @@ import PageArray
 
 vocabulary: Memory
   requires PageArray
+  requires PageDirectory
 
 private:
   cell var InitialBreak                                 ( Initial program break )

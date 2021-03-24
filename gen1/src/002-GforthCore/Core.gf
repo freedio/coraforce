@@ -145,8 +145,7 @@ defer printVocabularyName
 : vocabularies. ( -- )  cr ." List of vocabularies:"  ( Lists the vocabulary table )
   Vocabularies heap cellu/ 0 ?do  dup @ cr ." • " printVocabularyName  cell+  loop  drop ;
 : vte# ( @voc -- # )                                  ( Absolute index # of vocabulary @voc )
-  cr ." Absolute index of vocabulary " dup printVocabularyName
-  Vocabularies heap cellu/ 0 ?do  2dup @ = if  2drop i ." : " dup . unloop exit  then  cell+  loop
+  Vocabularies heap cellu/ 0 ?do  2dup @ = if  2drop i unloop exit  then  cell+  loop
   drop cr printVocabularyName ."  not found!" abort ;
 : @vte ( # -- @voc )                                  ( Lookup vocabulary @voc by absolute index # )
   Vocabularies heap cellu/ 2 pick u< if  cr ." Vocabulary number out of range: " drop . abort  then  swap cells+ @ ;
@@ -214,6 +213,7 @@ create SEGNAMES DICT$ , CODE$ , DATA$ , TEXT$ , PARA$ , VMAT$ , RELS$ , DEPS$ , 
 variable lastVoc                                      ( Last created vocabulary )
 variable targetVoc                                    ( Current target vocabulary )
 variable targetSegment                                ( Current target segment )
+variable tempSearchVoc                                ( Temporary search vocabulary )
 create currentPackage  256 allot                      ( Name of last selected package )
   currentPackage 0!
 
@@ -372,23 +372,6 @@ variable loadedModule
 
 defer &there
 defer target&,
-------
-: depend ( -- )  DEPENDENCY-NAME  loadedModule @ >x   ( make the current target vocabulary depend on the last loaded module )
-  cr ." Loaded Module: " x@ "vocabulary".  cr ." Target vocabulary: " tvoc@ "vocabulary".
-  x@ c" Package" para@ ?dup unless cr ." Dependency " x> "vocabulary". ."  has no package name!" terminate then $>$ '/' ?c+>$
-  x@ c" Name" para@ ?dup unless  cr ." Dependency " x> "vocabulary". ."  has no name property!" terminate then  $+>$
-  §DEPS →tseg#↑  t$,  tseg#↓  xdrop ;
-: dep# ( $ @voc -- #voc t | $ f )                     ( get dependency index # of vocabulary fqpath $ in vocabulary @voc, if found )
-  2dup vocabulary$ $$= if  2drop 0 true exit  then      ( $ is the vocabulary name → index 0 )
-  §DEPS vocseg 1 >x begin dup while  -rot 2dup $$= if  2drop drop x> true exit  then  rot over c@ 1+ #->  x> 1+ >x repeat
-  2drop x> drop false ;
-: voc# ( @voc -- #voc )  tvoc@ over = if  zap exit  then ( Dependency number of @voc in the current target vocabulary )
-  fqvoc$ tvoc@ dep# unless  cr ." Vocabulary " type$ ."  is not a dependency of " tvoc@ vocabulary. terminate  then ;
-: @dep ( # -- @voc )  ?dup unless  tvoc@ exit  then   ( #th dependency of the target vocabulary )
-  1- §DEPS segment rot 0 udo  ?dup unless  cr ." Requested dependency index does not exist!" abort  then  over c@ 1+ #->  loop
-  drop >localname findVocabulary ?dup unless  cr ." Vocabulary " qtype$ ."  not found!" terminate  then ;
-------
-
 : depend ( -- )  DEPENDENCY-NAME  loadedModule @ >x   ( make the current target vocabulary depend on the last loaded module )
   x@ c" Package" para@ ?dup unless cr ." Dependency " x> "vocabulary". ."  has no package name!" terminate then $>$ '/' ?c+>$
   x@ c" Name" para@ ?dup unless  cr ." Dependency " x> "vocabulary". ."  has no name property!" terminate then  $+>$
@@ -486,13 +469,14 @@ defer reloc,
 : &tseg→| ( -- & )  tseg#@ &seg→| ;                   ( create locator to end of current target segment )
 :noname tseg#@ &seg→| ;  is &there
 : &voc ( @voc -- & )  15 0 >& ;                       ( create locator to vocabulary @voc itself )
-: &tvoc ( -- & )  tvoc@ &voc ;                        ( create locator to vocabulary @voc itself )
+: &tvoc ( -- & )  tvoc@ &voc ;                        ( create locator to target vocabulary itself )
 : &&! ( &s &t -- )  &>a swap &>a ! ;                  ( relocate s to t, full-cell source )
 : c&&! ( &s &t -- )  &>a swap &>a dup 4+ rot r- swap d! ; ( relocate s to t, code-to-code, max. 32 bits )
 : t&, ( & -- )  &tseg→| over &>a t,  reloc, ;         ( punch & into current target segment and create relocation entry )
 :noname t&, ; is target&,
 : s&, ( & seg# -- )  →tseg#↑  t&,  tseg#↓ ;           ( punch & into target segment seg# and create relocation entry )
 : t& ( a seg# -- & )  tuck  segaddr@ - >T& ;          ( create locator for address a in target segment seg# )
+: a& ( a @voc seg# -- & )  2dup addr@  3 roll - >& ;  ( create locator for address a in segment seg# of vocabulary @voc )
 : vt& ( @voc a seg# -- & )  2 pick over addr@ rot r− >& ;   ( create locator for address a in #seg segment of vocabulary @voc )
 : withVoc ( @voc &1 -- &2 )  dup >>segment swap >>offset >& ;    ( replace voc# in &1 with @voc )
 : +&there ( offs -- & )  tseg#@ swap tsegused@ + >T& ; ( Locator for offset offs from end of current target segment )
@@ -561,9 +545,13 @@ variable CODESEG#
   COMPACT-VOC of  insert-compact-voc  endof
   STRUCTURED-VOC of  insert-structured-voc  endof
   unknown-vocabulary-model  endcase ;
-: copy-methods ( @voc -- )                            ( copy the methods of vocabulary @voc into the current target vocabulary )
-  §VMAT →tseg#↑  dup §VMAT vocseg  ta#,  tseg#↓         ( copy method table )
-  §RELS →tseg#↑  §RELS vocseg 0 udo  dup RELOC.SOURCE + @ >>segment §VMAT = if  dup RelocEntry# ta#,  then  RelocEntry# +loop drop ;
+: copy-methods ( @voc -- )  >x                        ( copy the methods of vocabulary @voc into the current target vocabulary )
+  §VMAT →tseg#↑  x@ §VMAT vocuse 0tallot,  tseg#↓
+  §RELS →tseg#↑  x@ §RELS vocseg 0 ?do  dup RELOC.SOURCE + @ >>segment §VMAT = if
+    dup RELOC.SOURCE + @ &> >& t,  dup RELOC.TARGET + @ &> >& t,  then  RelocEntry# +loop  x> 2drop ;
+: extend ( voc$ -- )                                  ( makes the target vocabulary extend the specified vocabulary )
+  cr ." Adding dependency to " loadedModule @ "vocabulary".
+  depend  loadedModule @ copy-methods ;
 
 create DEPENDENCIES  256 cells allot                  ( translation table for dependencies of one vocabulary )
 
@@ -908,16 +896,16 @@ variable LAST_COMP                                    ( Last word compiled into 
     unknown-vocabulary-model  endcase ;
 : findWord ( $ -- @voc @word t | $ f )                ( find word $ in search order, returning its voc and word address )
   SearchOrder -heap cellu/ 0 do
-    cr ." Looking up word in " dup cell- @ "vocabulary".
-    cell− dup @ 2 pick over findLocalWord if  2swap 2drop true unloop exit  then  2drop  loop
+    cell- cr ." Looking up word in " dup @ "vocabulary".
+    dup @ 2 pick over findLocalWord if  2swap 2drop true unloop exit  then  2drop  loop
   drop false ;
-: findLocalMethod ( $ @voc -- # t | $ f )             ( look up method $ in vocabulary @voc, returning its index # if found )
-  §VMAT >segment heap 2 cells u/ ?dup if  0 do
-    dup @ 2 pick $$= if  2drop i true unloop exit  then  2 cells +  loop  then  drop false ;
+: findLocalMethod ( $ @voc -- # t | $ f )  cr           ( look up method $ in vocabulary @voc, returning its index # if found )
+  §VMAT >segment heap 2 cells u/ ?dup if  0 do  .sh
+    dup @ 2 pick .sh $$= if  2drop i true unloop exit  then  2 cells +  loop  then  drop false ;
 : findMethod ( $ -- @voc # t | $ f )                  ( find method $ in search order, returning its voc and method index # )
   SearchOrder -heap cellu/ 0 do
     cell- cr ." Looking up method in " dup @ "vocabulary".
-    dup @ 2 pick over findLocalMethod if  2swap 2drop true unloop exit  then  2drop  loop
+    dup @ 2 pick over '!' emit .sh findLocalMethod '?' emit .sh if  2swap 2drop true unloop exit  then  2drop  loop
   drop false ;
 
 ( create definition: )
@@ -929,6 +917,20 @@ variable LAST_COMP                                    ( Last word compiled into 
 : createDef ( a$ -- )  VOCAMODEL @ case               ( create a virtual method with name a$ )
     COMPACT-VOC of  createCompactDef  endof
     STRUCTURED-VOC of  createStructuredDef  endof
+    unknown-vocabulary-model  endcase
+  autoFlags @ nextFlags ! ;
+: createCompactConstr ( a$ -- )  createCompactDef ;   ( create compact constructor )
+: createStructuredConstr ( a$ -- )  createStructuredDef ; ( create structured constructor )
+: createConstructor ( a$ -- )  VOCAMODEL @ case       ( create a constructor with name a$ )
+    COMPACT-VOC of  createCompactConstr  endof
+    STRUCTURED-VOC of  createStructuredConstr  endof
+    unknown-vocabulary-model  endcase
+  autoFlags @ nextFlags ! ;
+: createCompactDestr ( a$ -- )  createCompactDef ;    ( create compact constructor )
+: createStructuredDestr ( a$ -- )  createStructuredDef ; ( create structured constructor )
+: createDestructor ( -- )  VOCAMODEL @ case           ( create a destructor )
+    COMPACT-VOC of  createCompactDestr  endof
+    STRUCTURED-VOC of  createStructuredDestr  endof
     unknown-vocabulary-model  endcase
   autoFlags @ nextFlags ! ;
 
@@ -1648,7 +1650,7 @@ previous
   ?buildClause if  exit  then
   ?punchLiteral
   findMethod if  cr .sh over voc.  punchMethod  exit  then
-  findWord if  flags %CONDITION and if  holdCondition  then  punchWord  exit  then
+  findWord  tempSearchVoc 0!  if  flags %CONDITION and if  holdCondition  then  punchWord  exit  then
   count
   >int if  holdInt exit  then
   >float if  holdFloat exit  then
@@ -1660,7 +1662,7 @@ previous
   >stringClause if  execute exit  then
   2dup @COMP-WORDS @ search-wordlist if
     -rot 2drop [ also Forcembler ] depth 1- 0 max dup >B ADP+ execute B> ADP- [ previous ] exit  then
-  over 1- findVocabulary  if  vocabulary, exit  then  drop
+  over 1- findVocabulary  ?dup if  vocabulary, exit  then  drop
   word-not-found ;
 :noname ( $ -- )  compile ; is compile,
 
@@ -1740,21 +1742,22 @@ also ClassWords definitions  context @ CLASS-WORDS !
   dup 2 cells ≤ if  ( it's a size )  &null  else  ( it's a type )  cell swap  then  readName  cr ." var " dup qtype$
   nextFlags @ %STATIC and if  createStaticVar  else  createDynamicVar  then ;
 : def ( >name -- )                                    ( add a method definition to the interface )
-  readName cr ." method " dup type$  createDef ;
-: construct: ( >name -- )                             ( create a constructor )
-  readName  %CONSTRUCTOR nextFlags or!  cr ." constructor " dup type$  createWord  doCompile  enterMethod ;
-: destruct: ( -- )                                    ( create a destructor )
-  %DESTRUCTOR nextFlags or!  cr ." destructor "  c" destroy"  createWord  doCompile  enterMethod ;
+  readName  cr ." method " dup type$  createDef ;
+: constructor ( >name -- )                            ( create a constructor )
+  readName  cr ." constructor " dup type$  createConstructor ;
+: destructor ( -- )                                   ( create a destructor )
+  cr ." destructor "  createDestructor ;
 : implements ( >name -- )                             ( add a base interface )
-  readName  loadModule depend  loadedModule @ copy-methods ;
+  readName  loadModule  extend ;
 : extends ( >name -- )                                ( add a base class )
-  readName  loadModule depend  loadedModule @ copy-methods ;
+  readName  loadModule  extend ;
 : create ( >name -- )                                 ( create a name referring to the parameter segment )
   readName  nextFlags @ %STATIC and if  createStatic  else  createDynamic  then ;
 : allot ( # -- )                                      ( reserve # bytes of any value in the parameter segment )
   nextFlags @ %STATIC and if  allotStatic  else  allotDynamic  then ;
 : 0allot ( # -- )                                     ( reserve # bytes of value 0 in the parameter segment )
   nextFlags @ %STATIC and if  0allotStatic  else  0allotDynamic  then ;
+: size ( -- u ) tvoc@ c" Size" !para@ holdInt ;
 
 previous definitions
 
@@ -1775,6 +1778,30 @@ previous definitions
 
 
 
+=== Structure Vocabulary ===
+
+variable STRUCT-WORDS
+
+vocabulary StructWords
+also StructWords definitions  context @ STRUCT-WORDS !
+
+: structure; ( -- )                                   ( end structure definition: ship structure )
+  createTypeCheck STRUCT-WORDS @ unvoc  shipVocabulary  target↓ ;
+: val ( &type|# >name -- )                            ( create an unmodifiable field member of type &type or size # )
+  dup 2 cells ≤ if  ( it's a size )  &null  else  ( it's a type )  cell swap  then  readName  cr ." val " dup qtype$
+  createDynamicVal ;
+: var ( &type|# >name -- )                            ( create a modifiable field member of type &type or size # )
+  dup 2 cells ≤ if  ( it's a size )  &null  else  ( it's a type )  cell swap  then  readName  cr ." var " dup qtype$
+  createDynamicVar ;
+: constructor ( >name -- )                            ( create a constructor )
+  readName  cr ." constructor " dup type$  createConstructor ;
+: destructor ( -- )                                   ( create a destructor )
+  cr ." destructor "  createDestructor ;
+
+previous definitions
+
+
+
 === Enum Vocabulary ===
 
 variable ENUM-WORDS
@@ -1785,9 +1812,29 @@ also EnumWords definitions  context @ ENUM-WORDS !
 : enum; ( -- )                                        ( end enum definition: ship enum )
   ENUM-WORDS @ unvoc  shipVocabulary  target↓ ;
 : symbol ( >name -- )                                 ( add a symbol to the enum )
+  cr .sh tvoc@ c" Next" !para@ 1+ dup @ readName  .sh cr ." constant " dup qtype$  createWord  §CODE →tseg#↑ .sh
+  lvl>1  enterMethod  int,  exitMethod  lvl>  -1 wordComplete !  tseg#↓
+  .sh 1+!  tvoc@ c" Count" !para@ 1+ 1+! ;
+
+previous definitions
+
+
+
+=== Enumset Vocabulary ===
+
+variable ENUMSET-WORDS
+
+vocabulary EnumsetWords
+also EnumsetWords definitions  context @ ENUMSET-WORDS !
+
+: enumset; ( -- )                                     ( end enum definition: ship enum )
+  ENUMSET-WORDS @ unvoc  shipVocabulary  target↓ ;
+: symbol ( >name -- )                                 ( add a symbol to the enum )
   tvoc@ c" Next" !para@ 1+ dup @ readName  cr ." constant " dup qtype$  createWord  §CODE →tseg#↑
-  lvl>1  enterMethod  « FETCH, »  exitMethod  lvl>  -1 wordComplete !  tseg#↓
+  lvl>1  enterMethod  int,  exitMethod  lvl>  -1 wordComplete !  tseg#↓
   1+!  tvoc@ c" Count" !para@ 1+ 1+! ;
+: count ( -- # )  tvoc@ c" Count" !para@ 1+ @ ;       ( number of symbols in the enumset )
+: next ( -- # )  tvoc@ c" Next" !para@ 1+ @ ;         ( index of the next symbol in the enumset )  alias size
 
 previous definitions
 
@@ -1813,7 +1860,9 @@ also compiler definitions  context @ @COMP-WORDS !
 : lit$ ( &$ -- )  « LIT$, »  LAST_COMP0! ;
 : invoke ( &methref -- )  cr ." > invoke: method reference " dup hex.
   $FFFFFFFF and « ULIT4, » c" invoke" findWord unlessever word-not-found$ else .sh punchWord then  LAST_COMP0! ;
-: my ( -- a )  « THIS,  LAST_COMP0! » ;  alias me  alias I'm  alias this  alias self   ( push the current instance )
+: my ( -- a )  « THIS, »  LAST_COMP0! ;  alias me  alias I'm  alias this  alias self   ( push the current instance )
+: vocabulary ( @voc -- )  cr ." Adding " dup "vocabulary". ."  to search list."  dup addSearchVoc tempSearchVoc ! ;
+: size ( -- u ) tvoc@ c" Size" !para@ holdInt ;
 : raise ( -- )  « EXPUSH, »  LAST_COMP0! ;
 : begin ( -- ctrl:ba )  « BEGIN, »  LAST_COMP0! ;
 : again ( ctrl:ba -- )  « AGAIN, »  LAST_COMP0! ;
@@ -1893,7 +1942,7 @@ also Interpreter definitions  context @ @INTERPRETER !
 : target ( -- @voc|0 )  tvoc@ ;                       ( Current target vocabulary )
 : constant ( x >name -- )                             ( create a constant with value x )
   readName  cr ." constant " dup qtype$  createWord  §CODE →tseg#↑
-  cr .sh lvl>1  enterMethod  .sh « LIT8, »  .sh  exitMethod  lvl>  -1 wordComplete !  tseg#↓ ;
+  lvl>1  enterMethod  int,  exitMethod  lvl>  -1 wordComplete !  tseg#↓ ;
 : variable ( >name -- )                               ( create a variable with initial value 0 )
   readName  cr ." variable " dup qtype$  createWord  §CODE →tseg#↑
   lvl>0  enterMethod  pseg→|&  §DATA →tseg#↑  0 t,  tseg#↓  exitMethod  lvl>  -1 wordComplete !  tseg#↓ ;
@@ -1920,8 +1969,15 @@ also Interpreter definitions  context @ @INTERPRETER !
 : enum: ( >name -- )  vocabulary  3 >voctype          ( create enum and set up for its body )
   lastVoc @ addSearchVoc  definitions  als0 EnumWords
   §PARA →tseg#↑  c" Base" t$, cell tc, 0 t,  c" Next" t$, cell tc, 0 t,  c" Count" t$, cell tc, 0 t,  tseg#↓ ;
+: enumset: ( >name -- )                               ( create enum set and set up for its body )
+  vocabulary  4 >voctype  c" /force/internal/enumsetbase" loadModule
+    extend
+      lastVoc @ addSearchVoc  definitions  als0 EnumsetWords
+  §PARA →tseg#↑  c" Base" t$, cell tc, 0 t,  c" Next" t$, cell tc, 0 t,  c" Count" t$, cell tc, 0 t,  tseg#↓ ;
+: structure: ( >name -- )  vocabulary  5 >voctype     ( create structure and set up for its body )
+  lastVoc @ addSearchVoc  definitions  als0 StructWords  §PARA →tseg#↑  c" Size" t$, cell tc, 0 t, tseg#↓ ;
 : code: ( >name -- )                                  ( create machine code word )
-  cr ." Entering definition with depth " depth .
+  cr ." Entering definition with depth " depth . ."  (should be 0)"
   readName  cr ." code: " dup type$  createWord  enterMethod  -1 FORC !  §CODE →tseg#↑ ;
 : alias ( >name -- )                                  ( create an alias for the last word with the given name )
   readname  cr ." alias " dup qtype$  createAlias ;
@@ -1933,7 +1989,7 @@ also Interpreter definitions  context @ @INTERPRETER !
   cr ." init: " c" _main_" %PRIVATE nextFlags or!  createWord  doCompile  enterMethod ;
 : ( ( >...rpar -- )  c" )" comment-bracket ;          \ skips a parenthesis-comment
 : : \ >name -- \                                      \ create a code word with name from input stream \
-  cr ." Entering definition with depth " depth .
+  cr ." Entering definition with depth " depth . ."  (should be 0)"
   readName  cr ." : " dup type$  createWord  doCompile  enterMethod ;
 
 pervious definitions

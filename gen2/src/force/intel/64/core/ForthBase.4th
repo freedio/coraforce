@@ -194,10 +194,6 @@ alias !l++ ( a l -- a+8 )                             ( store signed quad-word l
 : !o++ ( a o -- a+16 )  STOREOINC, ;                  ( store unsigned oct-word o at address a and increment the address )
 alias h!++ ( a h -- a+16 )                            ( store signed oct-word h at address a and increment the address )
 
-: #! ( n a # -- )  #NSTORE, ;                         ( store # least significant bytes of signed n at address a )
-: u#! ( u a # -- )  #USTORE, ;                        ( store # least significant bytes of unsigned u at address a )
-
-
 --- Store with post-increment over ---
 
 : c!++ ( c a -- a+1 )  CSTOREINC, ;                   ( store unsigned byte c at address a and increment the address )
@@ -313,6 +309,13 @@ alias −−o!  alias −−v!  alias −−2!                    ( aliases with
 : qxchg ( q a -- q' a )  QXCHG, ;                     ( exchange unsigned quad word q' at address a with q )
 : hxchg ( h a -- w' a )  HXCHG, ;                     ( exchange signed oct word h' at address a with h )
 : oxchg ( o a -- o' a )  OXCHG, ;                     ( exchange unsigned oct word o' at address a with o )
+
+( Store and fetch partially )
+
+: #! ( n a # -- )  #NSTORE, ;                         ( store # least significant bytes of signed n at address a )
+: u#! ( u a # -- )  #USTORE, ;                        ( store # least significant bytes of unsigned u at address a )
+: #@ ( a # -- n ) #NFETCH, ;                          ( fetch # least significant bytes of signed n at address a )
+: u#@ ( a # -- u ) #UFETCH, ;                         ( fetch # least significant bytes of unsigned u at address a )
 
 
 

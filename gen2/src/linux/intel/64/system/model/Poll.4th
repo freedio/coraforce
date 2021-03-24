@@ -1,10 +1,12 @@
 ( Copyright © 2020 by Coradec GmbH.  All rights reserved )
 
-****** The Linux Poll model for FORCE-linux 4.19.0-5-amd64 ******
+****** The Linux Polls model for FORCE-linux 4.19.0-5-amd64 ******
 
 package /linux/intel/64/system/model
 
-import /linux/intel/64/system/IO
+import Pollement
+import /linux/intel/64/IO
+import /forth/intel/64/core/ForthBase
 
 class: Poll
 
@@ -16,7 +18,7 @@ class: Poll
   PollEvents val Interests                            ( set of events we're interested in )
   PollEvents var Active                               ( set of active events on the observable )
   def >pollement ( -- Pollement )                     ( concert poll to a pollement )
-  def new ( IO PollEvents -- )                        ( initialize object with observable IO and interests PollEvents )
+  constructor new ( IO PollEvents -- )                ( initialize object with observable IO and interests PollEvents )
 
 
 
@@ -24,7 +26,5 @@ class: Poll
 
   : >pollement ( -- Pollement )  my Observable my Interests newPollement ;
   : new ( IO PollEvents -- )  my Interests !  my Observable ! ;
-
-
 
 class;
