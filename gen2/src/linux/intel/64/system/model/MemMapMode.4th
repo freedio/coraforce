@@ -2,7 +2,7 @@
 
 ****** The Linux MemMapMode model for FORCE-linux 4.19.0-5-amd64 ******
 
-enumset: MemMapMode
+U4 enumset: MemMapMode
   package linux/intel/64/system/model
   requires force/intel/64/core/RichForce
 

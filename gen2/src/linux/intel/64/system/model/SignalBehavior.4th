@@ -2,7 +2,7 @@
 
 ****** The Linux Signal Behavior model for FORCE-linux 4.19.0-5-amd64 ******
 
-enumset: SignalBehavior
+U4 enumset: SignalBehavior
   package linux/intel/64/system/model
   requires force/intel/64/core/RichForce
 

@@ -305,6 +305,7 @@ create YSP  YSTACK ,
 : c+>$ ( $1 c -- $1 )  over count + c!  dup c1+! ;    ( append c to $1 )
 : ?c+>$ ( $1 c -- $1 )                                ( append c to $1 if there is none at the end of $1 )
   over count + 1- c@ over = unless  c+>$  else  drop  then ;
+: u+>$ ( $1 u -- $1 )  0 <# #s #> a#+>$ ;             ( append u to S1 )
 : $$=<| ( $1 $2 -- ? )                                ( Checks if $2 and $1 end equally )
   over c@ over c@ min -rot  count + swap count +
   rot 0 do  1- dup c@  rot 1- dup c@  rot = unless  2drop false unloop exit  then  loop  2drop true ;

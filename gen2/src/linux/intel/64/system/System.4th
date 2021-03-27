@@ -2,26 +2,20 @@
 
 ****** The Linux System Module for FORCE-linux 4.19.0-5-amd64 ******
 
-package /force/intel/64/linux
-import /linux/intel/64/system/model/Polls
+package /linux/intel/64/system
+
+import SystemMacro
+import model/SignalSet
+import model/NanoTime
+import memory/Memory
 import /force/intel/64/core/Errors
 import /force/intel/64/core/ForthBase
-import SystemMacro
 
 vocabulary: System
   requires Errors
-  requires Polls
-
-
-
-=== Error Handling ===
-
-: Result0 ( 0|-errno -- -- LinuxError )               ( transform SYS-result without result value to Force result )
-  RESULT0, unlessever  >ex  then ;
-: Result1 ( x|-errno -- x -- LinuxError )             ( transform SYS-result with result value x to Force result )
-  RESULT1, unlessever  >ex  then ;
-: ?Result0 ( 0|-error -- ? )                          ( transform SYS-result into consulatory Force result: result OK? )
-  RESULT0, 0= ;
+  requires SignalSet
+  requires ForthBase
+  requires Memory
 
 
 
@@ -34,27 +28,25 @@ vocabulary: System
 
 === Various ===
 
-: poll ( Polls n|-1 -- # )  swap Polls >a#            ( wait for up to n ms for events in a list of polls¹ )
-  swap SYS-POLL, Result1 ;  fallible                  ( ¹ n=0: return instantly; n<0: wait forever )
 : SigMask@ ( -- SignalSet )                           ( return current signal mask of the current process )
-  0  newSignalSet dup >x SignalSet >bits  0 SYS-SIGPROCMASK, SystemResult0  x> reallyKO if  free  then ;  fallible
+  0 SignalSet new dup >x SignalSet value@  0 SYS-SIGPROCMASK, Result0  x> reallyKO if  free  then ;  fallible
 : SigMask! ( SignalSet -- )                           ( set SignalSet as the signal mask of the current process )
-  SignalSet >bits  0  my Number 2 ( SIG_SETMASK ) SYS-SIGPROCMASK, SystemResult0 ;  fallible
+  SignalSet value@  0  my Number 2 ( SIG_SETMASK ) SYS-SIGPROCMASK, Result0 ;  fallible
 : SigMask+! ( SignalSet -- )                          ( add SignalSet to signal mask of the current process )
-  SignalSet >bits  0  my Number 0 ( SIG_BLOCK ) SYS-SIGPROCMASK, SystemResult0 ;  fallible
+  SignalSet value@  0  my Number 0 ( SIG_BLOCK ) SYS-SIGPROCMASK, Result0 ;  fallible
 : SigMask−! ( SignalSet -- )                          ( remove SignalSet from signal mask of the current process )
-  SignalSet >bits  0  my Number 1 ( SIG_UNBLOCK ) SYS-SIGPROCMASK, SystemResult0 ;  fallible
+  SignalSet value@  0  my Number 1 ( SIG_UNBLOCK ) SYS-SIGPROCMASK, Result0 ;  fallible
 : yield ( -- )  SYS-YIELD, ;                          ( ask current thread to yield in favor of other processes )
 : pause ( -- )  SYS-PAUSE, ;                          ( wait for a signal )
 : alarm ( u -- )                                      ( set alarm to u seconds )
-  SYS-ALARM, SystemResult1 drop ;  fallible
-: nanosleep ( NanoTime -- )                           ( puts caller to sleep for the specified time; signal may awake it earlier )
-
+  SYS-ALARM, Result1 drop ;  fallible
+: nanosleep ( NanoTime -- NanoTime' )                 ( puts caller to sleep for the specified time; signal may awake it earlier )
+  0 NanoTime new tuck  SYS-NANOSLEEP, Result0  KO if drop  then ; fallible
 : setAlarm ( u -- )                                   ( set alarm to u seconds )
-  SYS-ALARM, SystemResult1 drop ;  fallible
+  SYS-ALARM, Result1 drop ;  fallible
 : cancelAlarm ( -- u )                                ( cancel alarm previously set, report number of seconds until SIGALRM )
-  0 SYS-ALARM, SystemResult1 ;  fallible
+  0 SYS-ALARM, Result1 ;  fallible
 : Name ( -- KernelInfo )                              ( return system kernel information )
-  newKernelInfo dup SYS-UNAME, SystemResult0  KO if  drop  then ;  fallible
+  newKernelInfo dup SYS-UNAME, Result0  KO if  drop  then ;  fallible
 
 vocabulary;

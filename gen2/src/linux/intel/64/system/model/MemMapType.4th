@@ -10,7 +10,7 @@ enum: MemMapType
 
   === Fields ===
 
-  1 :base
+  1 :skip
   symbol Shared               ( shared memory map, visible also to other processes: MAP_SHARED )
   symbol Private              ( private memory area )
   symbol SharedValidate       ( shared memory map validating mode: MAP_SHARED_VALIDATE )

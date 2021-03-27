@@ -5,9 +5,11 @@
 package /linux/intel/64/system/model
 
 import Poll
+import ../System
 import /forth/intel/64/core/ForthBase
 
 class: Polls
+  requires System
 
 
 
@@ -24,5 +26,7 @@ class: Polls
   : >a# ( -- @p[] #p )                                ( convert the polls into an array of poll entries @p[] and its length #p )
     Pollement my Polls Length array >x  my Polls iterate begin  next? while  next x@ add  repeat  x> count ;
   : new ( PollList -- )  my Polls ! ;
+  : poll ( n|-1 -- # )  my >a#                        ( wait for up to n ms for events in a list of polls¹ )
+    swap SYS-POLL, Result1 ;  fallible                ( ¹ n=0: return instantly; n<0: wait forever )
 
 class;

@@ -2,7 +2,7 @@
 
 ****** The Linux IPC Mode model for FORCE-linux 4.19.0-5-amd64 ******
 
-enumset: IpcMode
+U2 enumset: IpcMode
   package linux/intel/64/system/model
   requires force/intel/64/core/RichForce
 

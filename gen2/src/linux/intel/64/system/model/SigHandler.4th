@@ -2,22 +2,27 @@
 
 ****** The Linux SigHandler model for FORCE-linux 4.19.0-5-amd64 ******
 
+package /linux/intel/64/system/model
+
+import /force/intel/64/core/ForthBase
+
 structure: SigHandler
-  package linux/intel/64/system/model
-  requires force/intel/64/core/RichForce
+  requires ForthBase
 
 
 
-  === Fields ===
+  === Interface ===
 
   Cell val Address                                    ( Address of the signal handler or action )
   U8 val Mask                                         ( Signal Mask = blocked signals during handler execution )
   U4 val Flags                                        ( Signal behavior flags )
 
+  constructor new ( addr mask flags -- )              ( initialize a new instance )
 
 
-  === Methods ===
 
-construct: ( addr mask flags -- )  my Flags!  my Mask!  my Adress! ;
+  === Implementation ===
+
+  : new ( addr mask flags -- )  my Flags !  my Mask !  my Address ! ;
 
 structure;

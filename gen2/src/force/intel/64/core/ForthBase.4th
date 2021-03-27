@@ -627,11 +627,26 @@ variable UNIMPLEMENTED package-private
 : ! ( x a -- )  q! ;
 : @! ( x a -- x' )  q@! ;
 : xchg ( x a -- x' a )  qxchg ;
+: +! ( x a -- )  q+! ;
+: −! ( x a -- )  q−! ;  alias -!
+
+
+
+=== X-Stack ===
+
+create XSTACK  1024 cells allot
+variable XSP
+: >x ( x -- X: -- x )  XSP @ !  cell XSP +! ;         ( push x on the X stack )
+: x> ( -- x X: x -- )  cell XSP -!  XSP @ @ ;         ( pop x from X stack )
+: x@ ( -- x X: x -- x )  XSP @ cell - @ ;             ( copy top of X stack onto parameter stack )
+: 2x@ ( -- x X: x y - -x y )  XSP @ 2 cells - @ ;     ( copy second of X stack onto parameter stack )
+: xdrop ( -- X: x -- )  cell XSP -! ;                 ( drop top of X stack )
+: xdepth ( -- n X: -- )  XSP @ XSTACK - cellu/ ;      ( Depth of X stack in cells )
 
 
 
 === Module Initialization ===
 
-init: ( @initstr -- @initstr )  dup @PSP + q@ 8− PSP0 q!  dup @RSP + q@ 32+ RSP0 q! ;
+init: ( @initstr -- @initstr )  dup @PSP + q@ 8− PSP0 q!  dup @RSP + q@ 32+ RSP0 q!  XSTACK XSP ! ;
 
 vocabulary;

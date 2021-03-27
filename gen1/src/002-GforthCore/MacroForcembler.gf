@@ -66,9 +66,9 @@ also Forcembler
 : LIT0, ( -- )  SAVE,  EAX EAX XOR ;
 : LIT-1, ( -- )  SAVE,  STC  RAX RAX SBB ;
 : LIT1, ( b -- )  SAVE,  1 ADP-  # DL MOV  DL RAX MOVSX  1 ADP+ ;
-: ULIT1, ( c -- )  SAVE,  EAX EAX XOR  1 ADP-  # EAX ADD  1 ADP+ ;
+: ULIT1, ( c -- )  SAVE,  1 ADP-  # EAX MOV  1 ADP+ ;
 : LIT2, ( s -- )  SAVE,  1 ADP-  # DX MOV  DX RAX MOVSX  1 ADP+ ;
-: ULIT2, ( w -- )  SAVE,  EAX EAX XOR  1 ADP-  # EAX ADD  1 ADP+ ;
+: ULIT2, ( w -- )  SAVE,  1 ADP-  # EAX MOV  1 ADP+ ;
 : LIT4, ( i -- )  SAVE,  1 ADP-  # EAX MOV  CDQE  1 ADP+ ;
 : ULIT4, ( d -- )  SAVE,  1 ADP-  # EAX MOV  1 ADP+ ;
 : LIT8, ( l -- )  SAVE,  1 ADP-  dup nsize  case

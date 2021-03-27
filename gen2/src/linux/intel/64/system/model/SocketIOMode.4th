@@ -2,7 +2,7 @@
 
 ****** The Linux Socket I/O Mode model for FORCE-linux 4.19.0-5-amd64 ******
 
-enumset: SocketIOMode
+U4 enumset: SocketIOMode
   package linux/intel/64/system/model
   requires force/intel/64/core/RichForce
 

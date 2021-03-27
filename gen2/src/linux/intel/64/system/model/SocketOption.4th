@@ -2,7 +2,7 @@
 
 ****** The Linux Socket Option model for FORCE-linux 4.19.0-5-amd64 ******
 
-enum: SocketOption
+U2 enum: SocketOption
   package linux/intel/64/system/model
   requires force/intel/64/core/RichForce
 

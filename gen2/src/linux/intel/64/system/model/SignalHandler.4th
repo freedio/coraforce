@@ -20,6 +20,6 @@ class: SignalHandler
 
 public:
    : >sighandler ( -- SigHandler )                    ( transfor to structure as used by Linux )
-     my Function  my Mask SignalSet >bits  my Behavior SignalBehavior >bits  newSigHandler ;
+     my Function  my Mask SignalSet >bits  my Behavior SignalBehavior >bits  new SigHandler ;
 
 class;

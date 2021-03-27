@@ -2,7 +2,7 @@
 
 ****** The Linux SocketMode model for FORCE-linux 4.19.0-5-amd64 ******
 
-enumset: SocketMode
+U1 enumset: SocketMode
   package linux/intel/64/system/model
   requires force/intel/64/core/RichForce
 

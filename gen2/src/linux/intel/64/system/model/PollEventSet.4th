@@ -4,7 +4,7 @@
 
 package /linux/intel/64/system/model
 
-enumset: PollEventSet
+U1 enumset: PollEventSet
 
   symbol In                   ( Data ready to read: POLLIN )
   symbol Except               ( An exception has occurred: POLLPRI )

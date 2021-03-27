@@ -51,7 +51,9 @@
   r|0|-errno    Depending on selected operation, return positive result r, 0 for "nothing", or negative error code.
 )
 
-vocabulary: SystemMacro  package linux/intel/64/system
+package /linux/intel/64/system
+
+vocabulary: SystemMacro
 
 code: RESULT0, ( 0|-errno -- t | errno f )            ( transform SYS-result into FORCE result )
   RAX NEG  CY IF  RAX PUSH  THEN  CMC  RAX RAX SBB ;

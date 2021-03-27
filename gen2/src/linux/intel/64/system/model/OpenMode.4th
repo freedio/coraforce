@@ -2,7 +2,7 @@
 
 ****** The Linux Open Mode model for FORCE-linux 4.19.0-5-amd64 ******
 
-enumset: OpenMode
+U4 enumset: OpenMode
   package linux/intel/64/system/model
   requires force/intel/64/core/RichForce
 

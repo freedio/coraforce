@@ -18,7 +18,6 @@ class: PageDirectory
 
   === Implementation ===
 
-public:
   : init ( -- )  0 my Top ! ;
 
 class;

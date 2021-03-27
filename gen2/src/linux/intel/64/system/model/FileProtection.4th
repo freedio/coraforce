@@ -2,7 +2,7 @@
 
 ****** The Linux File Protection model for FORCE-linux 4.19.0-5-amd64 ******
 
-enumset: FileProtection extends Protection
+U1 enumset: FileProtection extends Protection
   package linux/intel/64/system/model
   requires force/intel/64/core/RichForce
 

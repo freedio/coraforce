@@ -2,7 +2,7 @@
 
 ****** The Linux Semaphore Operation Flags model for FORCE-linux 4.19.0-5-amd64 ******
 
-enumset: SemOpFlags
+U2 enumset: SemOpFlags
   package linux/intel/64/system/model
   requires force/intel/64/core/RichForce
 
@@ -10,7 +10,7 @@ enumset: SemOpFlags
 
   === Fields ===
 
-  2048 :base
+  11 :base
   symbol NoWait             ( fail if the operation would block )
   symbol UndoOnExit         ( undo the operation on exit )
 

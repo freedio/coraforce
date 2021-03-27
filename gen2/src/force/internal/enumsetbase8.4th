@@ -5,19 +5,21 @@
 package /force/internal
 import /force/intel/64/core/ForthBase
 
-class: enumsetbase
+class: enumsetbase8
   requires ForthBase
 
 
 
   === Interface ===
 
-  def bits                                            ( The enumset as a bitmap )
+  def value@ ( -- u8 )
+  constructor new ( u8 -- )
 
 
 
   === Implementation ===
 
-  : bits ( this -- u )  size my u#@ ;
+  U8 var value
+  : new ( u8 -- )  my value! ;
 
 class;

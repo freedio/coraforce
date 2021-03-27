@@ -2,9 +2,12 @@
 
 ****** The Linux NanoTime model for FORCE-linux 4.19.0-5-amd64 ******
 
+package linux/intel/64/system/model
+
+import /force/intel/64/core/ForthBase
+
 class: NanoTime
-  package linux/intel/64/system/model
-  requires force/intel/64/core/RichForce
+  requires ForthBase
 
 
 
@@ -13,11 +16,14 @@ class: NanoTime
   N8 val Seconds                                      ( Seconds since the epoch )
   N8 val Nanos                                        ( Nanoseconds within the second )
 
+  constructor new ( n -- )                            ( initialize nanotime with just n seconds )
+  constructor new+ ( n1 n2 -- )                       ( initialize nanotime with n1 seconds and n2 ns )
+
 
 
   === Methods ===
 
-construct: new ( n -- )  my Seconds!  0 my Nanos! ;   ( initialize NanoTime with just n seconds )
-construct: new+ ( n1 n2 -- )  my Nanos!  my Seconds! ;  ( initialize NanoTime with n1 seconds and n2 ns )
+: new+ ( n1 n2 -- )  my Nanos q!  my Seconds q! ;
+: new ( n -- )  0 swap new+ ;
 
 class;

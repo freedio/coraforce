@@ -5,9 +5,11 @@
 package /linux/intel/64/system/model
 import PollEventSet
 import /force/intel/64/core/ForthBase
+import ../IOBase
 
 structure: Pollement
   requires PollEventSet
+  requires IOBase
   requires ForthBase
 
 

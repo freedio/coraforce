@@ -9,7 +9,7 @@ import PageArray
 import PageDirectory
 
 ------
-• Memory page size is 4096 bytes — if this assumption has to be changed, the how module is obsolete.
+• Memory page size is 4096 bytes — if this assumption has to be changed, the module is 100% obsolete.
 • All ranges "x up to y" include x and exclude y (should actually go without saying)
 • There are 3 types of memory pages:
   - "Small Pages" hold homogenous entries of size 1 up to 511.
