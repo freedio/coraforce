@@ -15,6 +15,7 @@
 : dupe ( x y -- x x y )  >r dup r> ;
 : − ( n1 n2 -- n1−n2 ) - ;
 : ≤ ( n1 n2 -- ? ) <= ;
+: u≤ ( u1 u2 -- ? ) u<= ;
 : ≠ ( n1 n2 -- ? ) <> ;
 : << ( x1 n -- x2 )  lshift ;
 : u<< ( x1 n -- x2 )  lshift ;

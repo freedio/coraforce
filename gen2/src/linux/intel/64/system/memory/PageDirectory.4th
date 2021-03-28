@@ -5,14 +5,17 @@
 package /linux/intel/64/system/memory
 import /force/intel/64/core/ForthBase
 import /linux/intel/64/system/SystemMacro
+import Page
 
 class: PageDirectory
+  requires Page
+  requires ForthBase
 
 
 
   === Interface ===
 
-  Page var Top                                        ( the first page of the directory )
+  cell var Top                                        ( the first page of the directory )
 
 
 

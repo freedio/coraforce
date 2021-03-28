@@ -227,16 +227,18 @@ variable VOCAMODEL
 
 --- Vocabulary Primitives ---
 
-: addr@ ( @voc seg# -- a )  >segment !hactive haddr@ ;  ( Start address of segment seg# in vocabulary @voc )
-: vocseg ( @voc seg# -- a u )  >segment !hactive heap ; ( Start address and SIZE of segment seg# in vocabulary @voc )
-: vocuse ( @voc seg# -- # )  >segment !hactive hused@ ; ( Usage # of segment seg# in vocabulary @voc )
-: >offs ( a @voc seg# -- u )  >segment >hend - ;      ( transform address a to an offset in segment seg# of vocabulary @voc )
+: !SEGMENT ( @voc seg# -- @h )  dup §VOCA - if  >segment !hactive dup  then  drop ;
+: SEGMENT ( @voc seg# -- @h )  dup §VOCA - if  >segment dup  then  drop ;
+: addr@ ( @voc seg# -- a )  !SEGMENT haddr@ ;         ( Start address of segment seg# in vocabulary @voc )
+: vocseg ( @voc seg# -- a u )  !SEGMENT heap ;        ( Start address and SIZE of segment seg# in vocabulary @voc )
+: vocuse ( @voc seg# -- # )  !SEGMENT hused@ ;        ( Usage # of segment seg# in vocabulary @voc )
+: >offs ( a @voc seg# -- u )  !SEGMENT >hend - ;      ( transform address a to an offset in segment seg# of vocabulary @voc )
 : tvoc@ ( -- @voc )  targetVoc @                      ( Current target vocabulary )
   ?dup unless  cr ." No target vocabulary!" terminate  then ;
 : tvoc! ( @voc -- )  targetVoc ! ;                    ( make @voct the target vocabulary )
 : →target↑ ( @voc -- )  targetVoc @ >x tvoc! ;        ( push current target and make @voc the target)
 : target↓  ( -- )  x> tvoc! ;                         ( pop saved target )
-: >seg ( seg# -- @sd )  tvoc@ swap >segment  !hactive ;    ( Address of segment descripter seg# )
+: >seg ( seg# -- @sd )  tvoc@ swap !SEGMENT ;         ( Address of segment descripter seg# )
 : segaddr@ ( seg# -- a )  >seg haddr@ ;               ( Start address of segment seg# in target vocabulary )
 : segsize@ ( seg# -- u )  >seg hsize@ ;               ( Size of segment seg# in target vocabulary )
 : segused@ ( seg# -- u )  >seg hused@ ;               ( Usage of segment seg# in target vocabulary )
@@ -338,11 +340,11 @@ variable SegHeader
     cr i segname 31 over c@ - 0 max 0 udo  '.' emit  loop  space type$ ." : "
     '@' emit  i >seg dup haddr@ hex.  dup hused@ hex. '/' emit  hsize@ hex.  loop ;
 : voc. ( @voc -- )
-  cr ." Vocabulary " dup vocabulary$ dup type$  swap ."  @" hex.
+  cr ." Vocabulary " dup vocabulary$ dup type$  ."  @" over hex.
   cr ." -----------" c@ 0 udo  '-' emit  loop
   segments 0 do
     cr i segname 31 over c@ - 0 max 0 udo  '.' emit  loop  space type$ ." : "
-    '@' emit  i >seg dup haddr@ hex.  dup hused@ hex. '/' emit  hsize@ hex.  loop ;
+    '@' emit dup haddr@ hex.  dup hused@ hex. ." / "  dup hsize@ hex.  Heap# + loop  drop ;
 :noname tvoc. ; is printVoc
 create LOCALNAME  256 allot
 : >localname ( fqvoc$ -- voc$ )  count 2dup '/' cfindlast #-> dup LOCALNAME c!++ swap cmove  LOCALNAME ;
@@ -386,7 +388,7 @@ defer target&,
 : depfix ( @voc @dep -- @voc @dep )                   ( Insert absolute #VOCA at dep entry @dep in vocabulary @voc )
   dup DEPENDENCY.@NAME + @ >localName
    cr ." Depfix: vocabulary " dup type$
-  .sh findVocabulary ?dup unless  .sh cr ." Dependency " qtype$ ."  not found!" terminate then
+  findVocabulary ?dup unless  cr ." Dependency " qtype$ ."  not found!" terminate then
   vte# over DEPENDENCY.#VOCA + d! ;
 
 
@@ -639,7 +641,6 @@ create MODULE-HEADER  256 allot
 
 defer sourceModule
 defer loadDeps
-defer inputFileDescriptor
 
 create SourcePath  256 allot
 
@@ -678,7 +679,7 @@ variable file
             ."  failed (EOF)!" terminate  then  then
         cell+ loop  drop  then  then
   ." : loaded"
-  lastVoc @ dup relocDeps  dup loadDeps  ." , linked"  relocate  ." , relocated"
+  lastVoc @ dup relocDeps  dup loadDeps  ." , linked"  relocate  ." , relocated"  lastVoc @ voc.
   file @ ?dup if  close-file throw  0 file !  then  lastVoc @ addSearchVoc  ." , added to searchlist." ;
 : ?loadSource ( $1 $2 -- ? )                          ( try loading module $1 from root $2 and report if successful )
   ModulePath over 1+ c@ '~' = if  s" HOME" getenv a#>$  swap count -> a#+>$  else  swap $>$  then
@@ -710,12 +711,7 @@ variable baseClass
       MODULE-PATH2 c" /usr/force" ?loadSource unless
       MODULE-PATH2 module-not-found-in-package-tree
       then then then then  else  MODULE-PATH module-not-found-in-package-tree  then  then
-    lastVoc @ loadedModule !  targetVoc ! lastVoc !  then
-  cr ." Currently: loaded module: " loadedModule @ ?dup if  "vocabulary". else  ." nil"  then
-  ." , target: " targetVoc @ ?dup if  "vocabulary".  else ." nil" then
-  ." , last: " lastVoc @ ?dup if  "vocabulary".  else ." nil" then
-  searchlist.
-  cr ." ------------------ Reading from " inputFileDescriptor ;
+    lastVoc @ loadedModule !  targetVoc ! lastVoc !  then ;
 :noname ( @voc -- )                                       ( load depdendencies of vocabulary @voc )
   dup §DEPS vocseg ?dup if
     0 udo dup @ loadModule  DEPENDENCY# +loop  then  2drop ;  is loadDeps
@@ -1172,8 +1168,6 @@ variable @NEXTCHAR                  ( Address of appropriate nextChar routine )
 variable @FILENEXTCHAR              ( Address of the file nextChar )
 variable @CONSNEXTCHAR              ( Address of the console nextChar )
 
-:noname @FILENAME @ ?dup if  type$ ." : " @BUFFER @ CURSOR @ + LENGTH @ 160 min type  else  ." unknown"  then ; is inputFileDescriptor
-
 : closeFile ( -- )
   cr ." Closing file " FILEID @ .
   FILEID dup @ ?dup if  space '(' emit @FILENAME @ type$ ')' emit
@@ -1385,7 +1379,7 @@ variable FORC                                         ( if we are in Forcembler 
   >charClause if  execute exit  then
   >cellClause if  execute exit  then
   >stringClause if  execute exit  then
-  over 1- findVocabulary ?dup if  cr ." Vocabulary " dup vocabulary. §VOCA 0 >&  exit  then  drop
+  over 1- findVocabulary ?dup if  -rot 2drop  cr ." Vocabulary " dup vocabulary. .sh §VOCA 0 >& .sh  exit  then  drop
   cr ." Word «" type ." » not found! ⇒ quitting to FORTH." quit ;
 
 : unvoc ( @voc -- )                                   ( Remove gforth vocabulary @voc from the search list )
@@ -1451,11 +1445,13 @@ also Clauses definitions  context @ @CLAUSES !
 : #< ( x -- )  #ISLESS,  holdCondExpr ;
 : #> ( x -- )  #ISGREATER,  holdCondExpr ;
 
+
 --- Char Clauses ---
 
 --- Float Clauses ---
 
 --- String Clauses ---
+: $| ( ... $ -- $ )  $format ;
 
 --- Condition Clauses ---
 : ?if ( -- ctrl:ba )  smashCondition ?IF, ;
@@ -1595,10 +1591,15 @@ variable @codeAddr                                    ( Start address of current
 create METHODNAME  256 allot
 variable DYNAMIC#
 variable constDepth
+variable traceVoc
+
 also Forcembler
 : lvl>0  depth dup constDepth +! ADP+ ;
 : lvl>1  depth 1- dup constDepth +! ADP+ ;
 : lvl>2  depth 2- dup constDepth +! ADP+ ;
+: lvl>3  depth 3 - dup constDepth +! ADP+ ;
+: lvl>4  depth 4 - dup constDepth +! ADP+ ;
+: lvl>5  depth 5 - dup constDepth +! ADP+ ;
 : lvl>   constDepth @ ADP-  0 constDepth ! ;
 : lvl++  -1 dup constDepth +! ADP+ ;
 : lvl2+  -2 dup constDepth +! ADP+ ;
@@ -1610,19 +1611,19 @@ previous
   §CODE →tseg#↑  lvl>0  enterMethod  tvoc@ c" Size" !para@ 1+ @ « #PLUS, »
   exitMethod  lvl>  -1 wordComplete !  tseg#↓  lvl> ;
 : createDynamicVal ( # &tp|0 val$ -- )                ( create dynamic value val$ of size # and type &tp )
-  %VISIBILITY nextFlags andn!  %PRIVATE nextFlags or! dup >x  createWord  ( create basic val )  cr ." > base val"
+  %VISIBILITY nextFlags andn!  %PRIVATE nextFlags or! dup >x  createWord  ( create basic val )  cr ." > dynamic base val"
   §CODE →tseg#↑  lvl>0  enterMethod  tvoc@ c" Size" !para@ 1+ dup >x @ dup DYNAMIC# ! « #PLUS, »  over abs x> +!
   exitMethod  -1 wordComplete !  tseg#↓  lvl>
   METHODNAME x> $>$ '@' c+>$  createWord              ( create getter )  cr ." > getter"
   §CODE →tseg#↑  lvl>0  enterMethod  DYNAMIC# @ swap lvl++ « ##FETCH, »  exitMethod  -1 wordComplete !  tseg#↓  lvl> ;
 : createDynamicVar ( # &tp|0 var$ -- )                  ( create dynamic variable var$ of size # and type &tp )
-  %VISIBILITY nextFlags andn!  %PRIVATE nextFlags or! dup >x  createWord  ( create basic var )  cr ." > base var"
+  %VISIBILITY nextFlags andn!  %PRIVATE nextFlags or! dup >x  createWord  ( create basic var )  cr ." > dynamic base var"
   §CODE →tseg#↑  lvl>0  enterMethod  tvoc@ c" Size" !para@ 1+ dup >x @ dup DYNAMIC# ! « #PLUS, »  over abs x> +!
   exitMethod  -1 wordComplete !  tseg#↓  lvl>
   METHODNAME x@ $>$ '@' c+>$  createWord                ( create getter )  cr ." > getter"
-  §CODE →tseg#↑  lvl>0  enterMethod  DYNAMIC# @ 2 pick « ##FETCH, »  exitMethod  -1 wordComplete !  tseg#↓  lvl>
+  §CODE →tseg#↑  lvl>0  enterMethod  DYNAMIC# @ 2 pick .sh « ##FETCH, »  exitMethod  -1 wordComplete !  tseg#↓  lvl>
   METHODNAME x> $>$ '!' c+>$  createWord                ( create setter )  cr ." > setter"
-  §CODE →tseg#↑  lvl>0  enterMethod  DYNAMIC# @ swap lvl++ « ##STORE, »  exitMethod  -1 wordComplete !  tseg#↓  lvl> ;
+  §CODE →tseg#↑  lvl>0  enterMethod  DYNAMIC# @ rot lvl++ .sh « ##STORE, »  exitMethod  -1 wordComplete !  tseg#↓  lvl> ;
 : allotDynamic ( # -- )  cr ." Dynamic allot " dup .  tvoc@ c" Size" !para@ 1+ +! ; ( allot # bytes of any value in instance data space )
 : 0allotDynamic ( # -- )  cr ." Dynamic 0allot " dup .  tvoc@ c" Size" !para@ 1+ +! ; ( allot # bytes of value 0 in instance data space )
 : createStatic ( addr$ -- )                           ( create adress in instance data space )
@@ -1631,19 +1632,21 @@ previous
 : createStaticVal ( x # &tp|0 val$ -- )  >x           ( create static value val$ with value x, size # and type &tp )
   METHODNAME x@ $>$ '@' c+>$  createWord              ( create getter )  cr ." > getter"
   §CODE →tseg#↑  lvl>0  enterMethod  0 swap lvl>1 pseg→|& « ##FETCH, »  exitMethod  -1 wordComplete !  tseg#↓  lvl>
-  %VISIBILITY nextFlags andn!  %PRIVATE nextFlags or! x>  createWord  §CODE →tseg#↑  ( create base val )  cr ." > base val"
+  %VISIBILITY nextFlags andn!  %PRIVATE nextFlags or! x>  createWord  §CODE →tseg#↑  ( create base val )  cr ." > static base val"
   drop  lvl>1  enterMethod  exitMethod  lvl>  -1 wordComplete !  tseg#↓ ;
 : createStaticVar ( # &tp|0 var$ -- )  >x  drop       ( create static variable val$ with size # and type &tp )
   METHODNAME x@ $>$ '@' c+>$  createWord                ( create getter )  cr ." > getter"
   §CODE →tseg#↑  lvl>0  enterMethod  0 over lvl>1 pseg→|& lvl2+ « ##FETCH, »  exitMethod  -1 wordComplete !  tseg#↓  lvl>
   METHODNAME x@ $>$ '!' c+>$  createWord                ( create setter )  cr ." > setter"
   §CODE →tseg#↑  lvl>0  enterMethod  0 over lvl>1 pseg→|& lvl2+ « ##STORE, »  exitMethod  -1 wordComplete !  tseg#↓  lvl>
-  %VISIBILITY nextFlags andn!  %PRIVATE nextFlags or! x>  createWord  §CODE →tseg#↑  ( create base val )  cr ." > base val"
+  %VISIBILITY nextFlags andn!  %PRIVATE nextFlags or! x>  createWord  §CODE →tseg#↑  ( create base val )  cr ." > static base var"
   lvl>1  0 swap #pf,  enterMethod  exitMethod  lvl>  -1 wordComplete !  tseg#↓ ;
 : createStaticObject ( &tp obj$ -- )                  ( create direct static object obj$ of type &tp )
   over &>a c" Size" !para@ 1+ @ >x                      ( = size of object instance )
-  %VISIBILITY nextFlags andn!  %PRIVATE nextFlags or!  createWord  §CODE →tseg#↑  ( create base val )  cr ." > base val"
-  §DATA →tseg#↑  dup t&,  tseg#↓  lvl>1  enterMethod  exitMethod  lvl>  -1 wordComplete !  tseg#↓
+  cr ." Object size: " x@ .
+  %VISIBILITY nextFlags andn!  %PRIVATE nextFlags or!  createWord
+  §DATA →tseg#↑  dup t&,  tseg#↓
+  §CODE →tseg#↑  lvl>1  enterMethod  .sh « PUSHPFA, »  exitMethod  lvl>  -1 wordComplete !  tseg#↓
   §DATA →tseg#↑  x> tallot, tseg#↓ ;
 : allotStatic ( # -- )                                ( allot # bytes of any value in vocabulary data space )
   cr ." Static allot " dup .  §DATA >seg hallot 2drop ;
@@ -1655,7 +1658,7 @@ previous
 : compile ( $ -- )  cr ." Compiling " dup qtype$
   ?buildClause if  exit  then
   ?punchLiteral
-  findMethod if  cr .sh over voc.  punchMethod  exit  then
+  findMethod if  punchMethod  exit  then
   findWord  tempSearchVoc 0!  if  flags %CONDITION and if  holdCondition  then  punchWord  exit  then
   count
   >int if  holdInt exit  then
@@ -1719,10 +1722,10 @@ also VocabularyWords definitions  context @ VOC-WORDS !
   readName findVocabulary ?dup unless  vocabulary-not-found  then
   dup voctype@ ?dup if  0 invalid-vocabulary-type  then  insert-voc ;
 : val ( &type|# >name -- )                            ( create an unmodifiable field member of type &type or size # )
-  dup 2 cells ≤ if  ( it's a size )  &null  else  ( it's a type )  cell swap  then  readName  cr ." val " dup qtype$  createStaticVal ;
-: var ( &type|# >name -- )                            ( create a modifiable field member of type &type or size # )
+  dup 2 cells u≤ if  ( size )  &null  else  ( type )  cell swap  then  readName  cr ." val " dup qtype$  createStaticVal ;
+: var ( &type|# >name -- ) cr .sh                            ( create a modifiable field member of type &type or size # )
   cr ." vocabulary var "
-  dup 2 cells ≤ if  ( it's a size )  &null  else  ( it's a type )  cell swap  then  readName  cr ." var " dup qtype$  createStaticVar ;
+  dup 2 cells ≤ if  ( size )  &null  else  ( type )  cell swap  then  readName  cr ." var " dup qtype$  createStaticVar ;
 : object ( &type >name -- )                           ( insert a direct object of type &type )
   readName  cr ." object " dup qtype$  createStaticObject ;
 : create ( >name -- )  readName  createStatic ;       ( create a name referring to the parameter segment )
@@ -1743,10 +1746,10 @@ also ClassWords definitions  context @ CLASS-WORDS !
 : class; ( -- )                                       ( end class definition: ship class )
   createTypeCheck CLASS-WORDS @ unvoc  shipVocabulary  target↓ ;
 : val ( &type|# >name -- )                            ( create an unmodifiable field member of type &type or size # )
-  dup 2 cells ≤ if  ( it's a size )  &null  else  ( it's a type )  cell swap  then  readName  cr ." val " dup qtype$
+  dup 2 cells u≤ if  ( it's a size )  &null  else  ( it's a type )  cell swap  then  readName  cr ." val " dup qtype$
   nextFlags @ %STATIC and if  createStaticVal  else  createDynamicVal  then ;
 : var ( &type|# >name -- )                            ( create a modifiable field member of type &type or size # )
-  cr .sh dup 2 cells ≤ if  ( it's a size )  &null  else  ( it's a type )  cell swap  then  readName  cr ." var " dup qtype$
+  dup 2 cells u≤ if  ( it's a size )  &null  else  ( it's a type )  cell swap  then  readName  cr ." var " dup qtype$
   nextFlags @ %STATIC and if  createStaticVar  else  createDynamicVar  then ;
 : def ( >name -- )                                    ( add a method definition to the interface )
   readName  cr ." method " dup type$  createDef ;
@@ -1779,7 +1782,7 @@ also InterfaceWords definitions  context @ INTERFACE-WORDS !
 
 : interface; ( -- )                                   ( end interface definition: ship interface )
   createTypeCheck INTERFACE-WORDS @ unvoc  shipVocabulary  target↓ ;
-: def ( >name -- )  readName createDef ;              ( add a method definition to the interface )
+: def ( >name -- )  readName   cr ." method " dup type$  createDef ;  ( add a method definition to the interface )
 
 previous definitions
 
@@ -1795,11 +1798,11 @@ also StructWords definitions  context @ STRUCT-WORDS !
 : structure; ( -- )                                   ( end structure definition: ship structure )
   createTypeCheck STRUCT-WORDS @ unvoc  shipVocabulary  target↓ ;
 : val ( &type|# >name -- )                            ( create an unmodifiable field member of type &type or size # )
-  dup 2 cells ≤ if  ( it's a size )  &null  else  ( it's a type )  cell swap  then  readName  cr ." val " dup qtype$
+  dup 2 cells u≤ if  ( it's a size )  &null  else  ( it's a type )  cell swap  then  readName  cr ." val " dup qtype$
   createDynamicVal ;
 : var ( &type|# >name -- )                            ( create a modifiable field member of type &type or size # )
   cr ." structure var "
-  dup 2 cells ≤ if  ( it's a size )  &null  else  ( it's a type )  cell swap  then  readName  cr ." var " dup qtype$
+  dup 2 cells u≤ if  ( it's a size )  &null  else  ( it's a type )  cell swap  then  readName  cr ." var " dup qtype$
   createDynamicVar ;
 : constructor ( >name -- )                            ( create a constructor )
   readName  cr ." constructor " dup type$  createConstructor ;
@@ -1994,6 +1997,8 @@ also Interpreter definitions  context @ @INTERPRETER !
 : private: ( -- )  %VISIBILITY autoFlags andn!  %PRIVATE autoFlags or! ;      ( set default visibility to private )
 : protected: ( -- )  %VISIBILITY autoFlags andn!  %PROTECTED autoFlags or! ;  ( set default visibility to protected )
 : package: ( -- )  %VISIBILITY autoFlags andn!  %PACKAGE autoFlags or! ;      ( set default visibility to package )
+: traceIt ( -- )  loadedModule @ cr ." >>>>>>> Tracing " dup "vocabulary". traceVoc ! ;
+: trace ( -- )  cr ." >>>>>>>>> trace <<<<<<<" traceVoc @ voc. ;
 : init: ( -- )                                        ( creates the module entry point )
   cr ." init: " c" _main_" %PRIVATE nextFlags or!  createWord  doCompile  enterMethod ;
 : ( ( >...rpar -- )  c" )" comment-bracket ;          \ skips a parenthesis-comment

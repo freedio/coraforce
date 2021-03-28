@@ -147,14 +147,14 @@ code: SYS-ALARM, ( u1 -- u2|-errno )                  ( set alarm to u1 secs / c
   RDI PUSH  RAX RDI MOV  37 # CALLINUX  RDI POP ;
 code: SYS-SETITIMER, ( @tv1 @tv2 tp -- 0|-errno )     ( Arms or disarms timer of type tp using @tv1, report previous in @tv2 )
   RSI CELL [RSP] XCHG  RDX POP  RDI PUSH  RAX RDI MOV  38 # CALLINUX  RDI POP  RSI POP ;
-code: SYS-GETPID ( -- pid )                           ( Caller's process ID, cannot fail )
+code: SYS-GETPID, ( -- pid )                          ( Caller's process ID, cannot fail )
   SAVE,  39 # CALLINUX ;
-code: SYS-SENDFILE ( infd outfd @u u1 -- u2|-errno )  ( write u1 bytes from infd to outfd [mmapped]¹, report #written in u2 )
+code: SYS-SENDFILE, ( infd outfd @u u1 -- u2|-errno ) ( write u1 bytes from infd to outfd [mmapped]¹, report #written in u2 )
   ( ¹ use and update file cursor @u unless 0 instead of infd file position )
   RSI 2 CELLS [RSP] XCHG  RDI CELL [RSP] XCHG  RDX POP  R10 PUSH  RAX R10 MOV  40 # CALLINUX  R10 POP  RDI POP  RSI POP ;
-code: SYS-SOCKET ( fam tp prot -- fd|-errno )         ( create socket fd of family fam and type tp using protocol prot )
+code: SYS-SOCKET, ( fam tp prot -- fd|-errno )        ( create socket fd of family fam and type tp using protocol prot )
   RDI CELL [RSP] XCHG  RSI 0 [RSP] XCHG  RAX RDX MOV  41 # CALLINUX  RSI POP  RDI POP ;
-code: SYS-CONNECT ( a # fd -- 0|-errno )              ( connect socket fd with memory block a# )
+code: SYS-CONNECT, ( a # fd -- 0|-errno )             ( connect socket fd with memory block a# )
   RSI CELL [RSP] XCHG  RDX POP  RDI PUSH  RAX RDX MOV  42 # CALLINUX  RDI POP  RSI POP ;
 code: SYS-ACCEPT, ( a # fd1 -- fd2|-errno )           ( connect client socket fd2 for connection request on server socket fd1¹ )
   ( ¹ fills in client address in structure a# )

@@ -131,7 +131,7 @@ also Forcembler
   1 of  BYTE PTR [RAX] RAX MOVZX  endof
   2 of  WORD PTR [RAX] RAX MOVZX  endof
   4 of  [RAX] EAX MOV  endof
-  8 of  [RAX] RAX MOV  endof
+  8 of  .sh [RAX] RAX MOV  endof
   -1 of  BYTE PTR [RAX] RAX MOVSX  endof
   -2 of  WORD PTR [RAX] RAX MOVSX  endof
   -4 of  [RAX] EAX MOV  CDQE  endof

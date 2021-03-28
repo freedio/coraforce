@@ -5,8 +5,10 @@
 package /linux/intel/64/system/memory
 import /force/intel/64/core/ForthBase
 import /linux/intel/64/system/SystemMacro
+import trouble/MemoryReallocationError
 import PageArray
 import PageDirectory
+import /force/trouble/model/Severity
 
 ------
 • Memory page size is 4096 bytes — if this assumption has to be changed, the module is 100% obsolete.
@@ -57,21 +59,26 @@ import PageDirectory
 vocabulary: Memory
   requires PageArray
   requires PageDirectory
+  requires Severity
+  requires MemoryReallocationError
+
+traceIt
 
 private:
+  4096 constant Page#                                   ( Page size )
   cell var InitialBreak                                 ( Initial program break )
   cell var CurrentBreak                                 ( Current program break = top memory )
   PageArray object ObjectSpace                          ( The object space page array )
   PageArray object ChunkSpace                           ( The chunk space page array )
   PageDirectory object PageDir                          ( The page directory )
-  Page# ± constant -Page#                               ( Mask of a memory page address. )
+  -4096 constant -Page#                                 ( Mask of a memory page address. )
   12 constant Page%                                     ( Shift for page related operations, linked with Page#. )
 
   : @page ( #p -- @p )  Page% u<< ;                     ( Address @p of page number #p )
   : #page ( @p -- #p )  Page% u>> ;                     ( Number #p of page at address @p )
   : reduceRange ( a # -- a' )  over cell+ −!  dup cell+ @ @page + ;   ( reduce freed page range a by # pages; return removed range )
   : reallocRange ( a -- a )                             ( remove page range a from pagedir; return its address )
-    PageDir@ over =? if  over @ swap ! exit  then  begin dup while  2dup @ = if  over @ swap ! exit  then  @ repeat drop
+    PageDir over ?= if  over @ swap ! exit  then  begin dup while  2dup @ = if  over @ swap ! exit  then  @ repeat drop
     ABORT MemoryReallocationError new raise ;  fallible
   : reallocate ( a # -- a )                             ( realloc # pages of freed page range a¹ )
     ( ¹ if a contains more than # pages, remove last # and allocate, otherwise reuse whole page range )

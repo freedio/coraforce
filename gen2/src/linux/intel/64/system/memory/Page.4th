@@ -7,12 +7,14 @@ import /force/intel/64/core/ForthBase
 import /linux/intel/64/system/SystemMacro
 
 interface: Page
+  requires ForthBase
 
   def Successor@ ( -- Page )                          ( Next page of the same type )
   def Type@ ( -- u )                                  ( Page type: 0 = large, 511 = huge, 1..511 = large )
   def Full? ( -- ? )                                  ( check if the page is full )
   def Full+ ( -- )                                    ( declare the page full )
-  def Full− ( -- )  alias Full-                       ( declare the page not full )
+  def Full− ( -- )                                    ( declare the page not full )
+  def Full- ( -- )                                    ( declare the page not full )
   def Elements ( -- a )                               ( Address of the element [array] )
 
 interface;
