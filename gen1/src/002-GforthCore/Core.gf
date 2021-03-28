@@ -679,7 +679,7 @@ variable file
             ."  failed (EOF)!" terminate  then  then
         cell+ loop  drop  then  then
   ." : loaded"
-  lastVoc @ dup relocDeps  dup loadDeps  ." , linked"  relocate  ." , relocated"  lastVoc @ voc.
+  lastVoc @ dup relocDeps  dup loadDeps  ." , linked"  relocate  ." , relocated"
   file @ ?dup if  close-file throw  0 file !  then  lastVoc @ addSearchVoc  ." , added to searchlist." ;
 : ?loadSource ( $1 $2 -- ? )                          ( try loading module $1 from root $2 and report if successful )
   ModulePath over 1+ c@ '~' = if  s" HOME" getenv a#>$  swap count -> a#+>$  else  swap $>$  then
@@ -1379,7 +1379,7 @@ variable FORC                                         ( if we are in Forcembler 
   >charClause if  execute exit  then
   >cellClause if  execute exit  then
   >stringClause if  execute exit  then
-  over 1- findVocabulary ?dup if  -rot 2drop  cr ." Vocabulary " dup vocabulary. .sh §VOCA 0 >& .sh  exit  then  drop
+  over 1- findVocabulary ?dup if  -rot 2drop  §VOCA 0 >&  exit  then  drop
   cr ." Word «" type ." » not found! ⇒ quitting to FORTH." quit ;
 
 : unvoc ( @voc -- )                                   ( Remove gforth vocabulary @voc from the search list )
