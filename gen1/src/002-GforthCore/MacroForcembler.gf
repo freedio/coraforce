@@ -146,14 +146,23 @@ also Forcembler
   4 of  1 ADP+  RDX POP  1 ADP-  EDX swap [RAX] MOV  RESTORE,  endof
   8 of   QWORD PTR [RAX] POP  RESTORE,  endof
   cr ." Invalid operand size (expected 2ⁿ|n in ±1,±2,±4,±8): " . abort  endcase ;
-: #ADD, ( # -- )  1 ADP+ # QWORD PTR 0 [RAX] ADD  1 ADP-  RESTORE, ;
-: #SUB, ( # -- )  1 ADP+ # QWORD PTR 0 [RAX] SUB  1 ADP-  RESTORE, ;
+: #CADD, ( # -- )  1 ADP+ # BYTE PTR 0 [RAX] ADD  1 ADP-  RESTORE, ;
+: #WADD, ( # -- )  1 ADP+ # WORD PTR 0 [RAX] ADD  1 ADP-  RESTORE, ;
+: #DADD, ( # -- )  1 ADP+ # DWORD PTR 0 [RAX] ADD  1 ADP-  RESTORE, ;
+: #QADD, ( # -- )  1 ADP+ # QWORD PTR 0 [RAX] ADD  1 ADP-  RESTORE, ;
+: #CSUB, ( # -- )  1 ADP+ # BYTE PTR 0 [RAX] SUB  1 ADP-  RESTORE, ;
+: #WSUB, ( # -- )  1 ADP+ # WORD PTR 0 [RAX] SUB  1 ADP-  RESTORE, ;
+: #DSUB, ( # -- )  1 ADP+ # DWORD PTR 0 [RAX] SUB  1 ADP-  RESTORE, ;
+: #QSUB, ( # -- )  1 ADP+ # QWORD PTR 0 [RAX] SUB  1 ADP-  RESTORE, ;
 : #PLUS, ( x -- )  case
   0 of  endof
   # RAX ADD  0 endcase ;
 : #MINUS, ( x -- )  case
   0 of  exit  endof
   # RAX SUB  0 endcase ;
+: #RMINUS, ( x -- )  case
+  0 of  exit  endof
+  # RAX SUB  RAX NEG  0 endcase ;
 : #UTIMES, ( n -- )  case
   0 of  ZAP,  endof
   1 of  exit  endof
@@ -214,9 +223,7 @@ also Forcembler
   32768 of  32767 # RAX ADD  -32768 # RAX AND  endof
   65536 of  65535 # RAX ADD  -65536 # RAX AND  endof
   # RCX MOV  RCX DEC  RCX RAX ADD  CDQE  RCX INC  RCX IDIV  RCX IMUL  0 endcase ;
-: #ADV, ( u -- )  case
-  0 of  exit  endof
-  dup # QWORD PTR 0 [RSP] ADD  # RAX SUB  0 endcase ;
+: #ADV, ( u -- )  ?dup unless  exit  then  dup # QWORD PTR 0 [RSP] ADD  # RAX SUB ;
 
 --- Conditional Jumps ---
 

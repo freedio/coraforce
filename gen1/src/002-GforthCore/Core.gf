@@ -679,7 +679,7 @@ variable file
             ."  failed (EOF)!" terminate  then  then
         cell+ loop  drop  then  then
   ." : loaded"
-  lastVoc @ dup relocDeps  dup loadDeps  ." , linked"  relocate  ." , relocated"
+  lastVoc @ dup relocDeps  dup loadDeps  ." linked"  relocate  ." , relocated"
   file @ ?dup if  close-file throw  0 file !  then  lastVoc @ addSearchVoc  ." , added to searchlist." ;
 : ?loadSource ( $1 $2 -- ? )                          ( try loading module $1 from root $2 and report if successful )
   ModulePath over 1+ c@ '~' = if  s" HOME" getenv a#>$  swap count -> a#+>$  else  swap $>$  then
@@ -713,8 +713,10 @@ variable baseClass
       then then then then  else  MODULE-PATH module-not-found-in-package-tree  then  then
     lastVoc @ loadedModule !  targetVoc ! lastVoc !  then ;
 :noname ( @voc -- )                                       ( load depdendencies of vocabulary @voc )
-  dup §DEPS vocseg ?dup if
-    0 udo dup @ loadModule  DEPENDENCY# +loop  then  2drop ;  is loadDeps
+  dup voc.
+  dup §DEPS vocseg .sh ?dup if
+    0 udo dup @ loadModule  DEPENDENCY# tuck + swap +loop  swap cr ." → Vocabulary " "vocabulary". space  else
+    ." , " then  drop ;  is loadDeps
 
 
 
@@ -1429,15 +1431,18 @@ also Clauses definitions  context @ @CLAUSES !
 : #+ ( x -- )  #PLUS, ;
 : #- ( x -- )  #MINUS, ;
 : #− ( x -- )  #MINUS, ;
+: #r- ( x -- )  #RMINUS, ;
+: #r− ( x -- )  #RMINUS, ;
 : #u× ( u -- )  #UTIMES, ;
 : #u* ( u -- )  #UTIMES, ;
 : #× ( n -- )  #TIMES, ;
 : #* ( u -- )  #TIMES, ;
 : #! ( x -- )  #STORE, ;
 : #+! ( x -- )  #ADD, ;
+: #w+! ( x -- )  #WADD, ;
 : #−! ( x -- )  #SUB, ;
 : #-! ( x -- )  #SUB, ;
-: #+> ( u -- )  #ADV, ;
+: #-> ( u -- )  #ADV, ;
 : #pick ( u -- )  #PICK, ;
 : #drop ( u -- )  #DROP, ;
 
@@ -1451,6 +1456,7 @@ also Clauses definitions  context @ @CLAUSES !
 --- Float Clauses ---
 
 --- String Clauses ---
+
 : $| ( ... $ -- $ )  $format ;
 
 --- Condition Clauses ---
@@ -1607,7 +1613,7 @@ also Forcembler
 previous
 
 : createDynamic ( addr$ -- )                          ( create adress in instance data space )
-  %VISIBILITY nextFlags andn!  %PRIVATE nextFlags or!  createWord  cr ." > base val"
+  %VISIBILITY nextFlags andn!  %PRIVATE nextFlags or!  createWord  cr ." > dynamic address"
   §CODE →tseg#↑  lvl>0  enterMethod  tvoc@ c" Size" !para@ 1+ @ « #PLUS, »
   exitMethod  lvl>  -1 wordComplete !  tseg#↓  lvl> ;
 : createDynamicVal ( # &tp|0 val$ -- )                ( create dynamic value val$ of size # and type &tp )
@@ -1627,8 +1633,8 @@ previous
 : allotDynamic ( # -- )  cr ." Dynamic allot " dup .  tvoc@ c" Size" !para@ 1+ +! ; ( allot # bytes of any value in instance data space )
 : 0allotDynamic ( # -- )  cr ." Dynamic 0allot " dup .  tvoc@ c" Size" !para@ 1+ +! ; ( allot # bytes of value 0 in instance data space )
 : createStatic ( addr$ -- )                           ( create adress in instance data space )
-  %VISIBILITY nextFlags andn!  %PRIVATE nextFlags or!  createWord  cr ." > base val"
-  §CODE →tseg#↑  lvl>0  enterMethod  lvl>1 pseg→|&  exitMethod  -1 wordComplete !  tseg#↓  lvl> ;
+  %VISIBILITY nextFlags andn!  %PRIVATE nextFlags or!  createWord  cr ." > static address"
+  §CODE →tseg#↑  lvl>0  enterMethod  pseg→|&  exitMethod  -1 wordComplete !  tseg#↓  lvl> ;
 : createStaticVal ( x # &tp|0 val$ -- )  >x           ( create static value val$ with value x, size # and type &tp )
   METHODNAME x@ $>$ '@' c+>$  createWord              ( create getter )  cr ." > getter"
   §CODE →tseg#↑  lvl>0  enterMethod  0 swap lvl>1 pseg→|& « ##FETCH, »  exitMethod  -1 wordComplete !  tseg#↓  lvl>

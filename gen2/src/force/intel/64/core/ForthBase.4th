@@ -495,7 +495,27 @@ alias −−o!  alias −−v!  alias −−2!                    ( aliases with
 : bita@−! ( a # -- ? )  ABTSETAT, ;  alias bita@-!    ( atomically test and clear bit # at address a )
 : bita@×! ( a # -- ? )  ABTSETAT, ;  alias bita@*!    ( atomically test and flip bit # at address a )
 
+--- Stack Bit Scan Operations ---
 
+: 1<- ( u -- #|-1 )  BSF1, ;                          ( find position # of least significant 1-bit in u; -1 if u is 0 )
+: 1-> ( u -- #|-1 )  BSR1, ;                          ( find position # of most significant 1-bit in u; -1 if u is 0 )
+: 0<- ( u -- #|-1 )  BSF0, ;                          ( find position # of least significant 0-bit in u; -1 if u is all 1's )
+: 0-> ( u -- #|-1 )  BSR0, ;                          ( find position # of most significant 0-bit in u; -1 if u is all 1's )
+: c0<- ( c -- #|-1 )  CBSF0, ;                        ( find position # of least significant 0-bit in c; -1 if c is all 1's )
+: c0-> ( c -- #|-1 )  CBSR0, ;                        ( find position # of most significant 0-bit in c; -1 if c is all 1's )
+
+--- Memory Bit Scan Operations ---
+
+( in c...@, #1 is a byte count, whereas in ...@, #1 is a cell count )
+
+: c1<-@ ( a #1 -- #2|-1 )  CBSF1AT, ;                 ( find position #2 of least significant 1-bit in a#1; -1 if all 0's )
+: c0<-@ ( a #1 -- #2|-1 )  CBSF0AT, ;                 ( find position #2 of least significant 0-bit in a#1; -1 if all 1's )
+: c1->@ ( a #1 -- #2|-1 )  CBSR1AT, ;                 ( find position #2 of most significant 1-bit in a#1; -1 if all 0's )
+: c0->@ ( a #1 -- #2|-1 )  CBSR0AT, ;                 ( find position #2 of most significant 0-bit in a#1; -1 if all 1's )
+: 1<-@ ( a #1 -- #2|-1 )  BSF1AT, ;                   ( find position #2 of least significant 1-bit in a#1; -1 if all 0's )
+: 0<-@ ( a #1 -- #2|-1 )  BSF0AT, ;                   ( find position #2 of least significant 0-bit in a#1; -1 if all 1's )
+: 1->@ ( a #1 -- #2|-1 )  BSR1AT, ;                   ( find position #2 of most significant 1-bit in a#1; -1 if all 0's )
+: 0->@ ( a #1 -- #2|-1 )  BSR0AT, ;                   ( find position #2 of most significant 0-bit in a#1; -1 if all 1's )
 
 === Block Operations ===
 
@@ -563,6 +583,11 @@ alias −−o!  alias −−v!  alias −−2!                    ( aliases with
 : $count ( $ -- a #|-1 )  8 c$@++ nip ;               ( Address a and Length # of counted UTF-8 string $, -1 if invalid )
 : 0count ( a⁰ -- a #|-1 )
   dup -1 begin  c$@++  1 < until  ?dup -1 = if  2nip exit  then  drop 1 − over − ;
+: $++ ( a -- )                                        ( increment UTF-8 length )
+  dup b@ 0<? unless  127 = unless  1c+! exit  then  trap$++1  then  ( handle 1-byte length )
+  c0-> 7 r−
+
+
 
 === Vocabulary Operations ===
 
@@ -594,10 +619,6 @@ half+ dup constant @DBUG    private                   ( Address of the debug seg
 cell+ dup constant #DBUG    private                   ( Capacity of the debug segment in bytes )
 half+ dup constant →DBUG    private                   ( Usage of the debug segment in bytes )
 drop
-
-
-
-
 
 
 
