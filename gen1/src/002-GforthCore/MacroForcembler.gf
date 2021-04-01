@@ -97,6 +97,7 @@ also Forcembler
 : EXIT, ( -- )  CELL # RBP SUB  QWORD PTR 0 [RBP] PUSH  RET ;
 : EXXIT, ( -- Y: -- reta )  there # NEAR JMP  there >Y ;
 : CALLINUX ( # -- )  EAX MOV  SYSCALL ;
+: NOP, ( -- )  NOP ;
 
 
 
@@ -227,7 +228,11 @@ also Forcembler
 
 --- Conditional Jumps ---
 
-: _setCond ( cc -- )  inv AL swap ?SET  AL DEC  AL RAX MOVSX ;
+: ?POP ( -- )  there 1- c@ case $50 of  backup  endof  RAX POP  endcase ;
+
+: _setCond ( cc -- )  inv DL swap ?SET  1 # DL SUB  DL RAX MOVSX ;
+: _bitOp ( -- )  RESTORE, ;
+: _bitTest ( -- )  RAX RAX SBB ;
 
 : #ISEQUAL, ( x -- )  case
   0 of  RAX RAX TEST  0= _setCond  endof
@@ -239,23 +244,35 @@ also Forcembler
   0 of  RAX RAX TEST  0> _setCond  endof
   # RAX CMP  > _setCond  0 endcase ;
 
-: ?UNTIL, ( ctrl:a cc -- )  CTRL> # swap [ also ForcemblerTools ] op#1+! [ previous ] ?JMPX ;
-: ?IF, ( cc -- ctrl:a )  there # swap [ also ForcemblerTools ] op#1+! [ previous ] ?JMPF  there >CTRL ;
-: ?IFEVER, ( cc -- ctrl:a )  there # swap [ also ForcemblerTools ] op#1+! [ previous ] LIKELY ?JMPF  there >CTRL ;
-: ?UNLESS, ( cc -- ctrl:a )  inv there # swap [ also ForcemblerTools ] op#1+! [ previous ] ?JMPF  there >CTRL ;
-: ?UNLESSEVER, ( cc -- ctrl:a )  inv there # swap [ also ForcemblerTools ] op#1+! [ previous ] LIKELY ?JMPF  there >CTRL ;
+: #BSET, ( x -- )  # RAX BTS  _bitOp ;
+: #BCLR, ( x -- )  # RAX BTR  _bitOp ;
+: #BCHG, ( x -- )  # RAX BTC  _bitOp ;
+: #BTST, ( x -- )  # RAX BT  _bitTest ;
+: #BTSET, ( x -- )  # RAX BTS  RAX PUSH  _bitTest ;
+: #BTCLR, ( x -- )  # RAX BTR  RAX PUSH  _bitTest ;
+: #BTCHG, ( x -- )  # RAX BTC  RAX PUSH  _bitTest ;
+: #BTTST, ( x -- )  # RAX BT  RAX PUSH  _bitTest ;
+: #ABTSET, ( x -- )  LOCK  # RAX BTS  RAX PUSH  _bitTest ;
+: #ABTCLR, ( x -- )  LOCK  # RAX BTR  RAX PUSH  _bitTest ;
+: #ABTCHG, ( x -- )  LOCK  # RAX BTC  RAX PUSH  _bitTest ;
+
+: ?IF, ( cc -- ctrl:a )  ?POP  there # swap [ also ForcemblerTools ] op#1+! [ previous ] ?JMPF  there >CTRL ;
+: ?IFEVER, ( cc -- ctrl:a )  ?POP  there # swap [ also ForcemblerTools ] op#1+! [ previous ] LIKELY ?JMPF  there >CTRL ;
+: ?UNLESS, ( cc -- ctrl:a )  ?POP  inv there # swap [ also ForcemblerTools ] op#1+! [ previous ] ?JMPF  there >CTRL ;
+: ?UNLESSEVER, ( cc -- ctrl:a )  ?POP  inv there # swap [ also ForcemblerTools ] op#1+! [ previous ] LIKELY ?JMPF  there >CTRL ;
+: ?UNTIL, ( ctrl:a cc -- )  ?POP  CTRL> # swap [ also ForcemblerTools ] op#1+! [ previous ] ?JMPX ;
 : ?WHILE, ( ctrl:a1 cc -- ctrl:a2 ctrl:a1 )  CTRL> swap ?IF, >CTRL ;
-: IF, ( -- ctrl:a )  RAX RAX TEST  there # 0= ?JMPF  there >CTRL ;
-: IFEVER, ( -- ctrl:a )  RAX RAX TEST  there # 0= LIKELY ?JMPF  there >CTRL ;
-: UNLESS, ( -- ctrl:a )  RAX RAX TEST  there # 0≠ ?JMPF  there >CTRL ;
-: UNLESSEVER, ( -- ctrl:a )  RAX RAX TEST there # 0≠ LIKELY ?JMPF  there >CTRL ;
-: CONDUPIF, ( -- ctrl:a )  RAX RAX TEST  there # 0= ?JMPF  there >CTRL  RAX PUSH ;
-: CONDUPIFEVER, ( -- ctrl:a )  RAX RAX TEST  there # 0= LIKELY ?JMPF  there >CTRL  RAX PUSH ;
+: IF, ( -- ctrl:a )  RAX RAX TEST  RAX POP  there # 0= ?JMPF  there >CTRL ;
+: IFEVER, ( -- ctrl:a )  RAX RAX TEST  RAX POP  there # 0= LIKELY ?JMPF  there >CTRL ;
+: UNLESS, ( -- ctrl:a )  RAX RAX TEST  RAX POP  there # 0≠ ?JMPF  there >CTRL ;
+: UNLESSEVER, ( -- ctrl:a )  RAX RAX TEST  RAX POP  there # 0≠ LIKELY ?JMPF  there >CTRL ;
+: CONDUPIF, ( -- ctrl:a )  RAX RAX TEST  RAX POP  there # 0= ?JMPF  there >CTRL  RAX PUSH ;
+: CONDUPIFEVER, ( -- ctrl:a )  RAX RAX TEST  RAX POP  there # 0= LIKELY ?JMPF  there >CTRL  RAX PUSH ;
 : THEN, ( ctrl:a -- )  CTRL> there over - swap 4- d! ;
 : ELSE, ( ctrl:a1 -- ctrl:a2 )  CTRL>  0 # JMP  there >CTRL  there over - swap 4- d! ;
 : BEGIN, ( -- ctrl:a )  there >CTRL ;
 : AGAIN, ( ctrl:a -- )  CTRL> # JMP ;
-: UNTIL, ( ctrl:a -- )  RAX RAX TEST  CTRL> # 0= ?JMPX ;
+: UNTIL, ( ctrl:a -- )  RAX RAX TEST  RAX POP  CTRL> # 0= ?JMPX ;
 : WHILE, ( ctrl:a1 -- ctrl:a2 ctrl:a1 )  CTRL> IF, >CTRL ;
 : REPEAT, ( ctrl:a2 ctrl:a1 -- )  AGAIN, THEN, ;
 : DO, ( -- ctrl:a1 ctrl:a2 )  RAX 0 [RSP] CMP  there # < ?JMPF  there >CTRL
@@ -273,5 +290,7 @@ also Forcembler
   -2CELLS [RBP] RDX MOV  RAX RDX SUB  RAX POP  RDX -2CELLS [RBP] MOV  RDX -CELL [RBP] CMP  CTRL> # U< ?JMPX  THEN, ;
 : PLUS_ULOOP, ( ctrl:a1 ctrl:a2 -- )
   -2CELLS [RBP] RDX MOV  RAX RDX ADD  RAX POP  RDX -2CELLS [RBP] MOV  RDX -CELL [RBP] CMP  CTRL> # U< ?JMPX  THEN, ;
+: EXITIF, ( -- )  RAX RAX TEST  there # 0= ?JMPF  there >Y ;
+: EXITUNLESS, ( -- )  RAX RAX TEST  there # 0≠ ?JMPF  there >Y ;
 
 previous

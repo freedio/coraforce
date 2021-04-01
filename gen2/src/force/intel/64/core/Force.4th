@@ -4,7 +4,6 @@
 
 package /force/intel/64/core
 import ForthBase
-package /force/intel/64/core
 import ForthExt
 
 vocabulary: Force  extends ForthBase  extends ForthExt

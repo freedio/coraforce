@@ -10,11 +10,11 @@
   RSP:  Parameter Stack Pointer
   RBP:  Return Stack Pointer
   RAX:  Top of parameter stack [accumulator]
-  RBX:  Scratch register
+  RBX:  Current Object Address
   RCX:  Scratch register
   RDX:  Scratch register
-  RSI:  Scratch register
-  RDI:  Scratch register
+  RSI:  Parameter area address
+  RDI:  Exception stack pointer
   R08:  MY/ME/THIS (Top of object stack)
   R09:  X-Stack Pointer
   R10:  Y-Stack Pointer
@@ -84,8 +84,8 @@ code: 2SWAP, ( x2 y2 x1 y1 -- x1 y1 x2 y2 )  RDX POP  RDX CELL [RSP] XCHG  RAX 0
 code: 2NIP, ( x2 y2 x1 y1 -- x1 y1 )  RDX POP  2 CELLS # RSP ADD  RDX PUSH ;
 code: 2OVER, ( x2 y2 x1 y1 -- x2 y2 x1 y1 x2 y2 )  SAVE,  CELL PTR 3 CELLS [RSP] PUSH  3 CELLS [RSP] RAX MOV ;
 code: PICK, ( ... u -- ... uth )  0 [RSP] [RAX] *CELL RAX MOV ;
-code: ROLL, ( x1 x2 ... xu u -- x2 .. xu x1 )  EAX ECX MOV  RAX POP  EBX EBX XOR
-  BEGIN  1 # ECX SUB  0> WHILE  0 [RSP] [RBX] *CELL RAX XCHG  EBX INC  REPEAT ;
+code: ROLL, ( x1 x2 ... xu u -- x2 .. xu x1 )  EAX ECX MOV  RAX POP  EDX EDX XOR
+  BEGIN  1 # ECX SUB  0> WHILE  0 [RSP] [RDX] *CELL RAX XCHG  EDX INC  REPEAT ;
 code: ROLLR, ( x1 x2 ... xu u -- xu x1 x2 ... )  EAX ECX MOV  RAX POP
   BEGIN  1 # ECX SUB  0> WHILE  -CELL [RSP] [RCX] *CELL RAX XCHG  REPEAT ;
 code: ?DUP, ( x|0 -- x x | 0 )  RAX RAX TEST  0= UNLESSLIKELY  RAX PUSH  THEN ;
@@ -228,8 +228,10 @@ code: TIMESBY, ( n3 n2 n1 -- n3×n2÷n1 )  RAX 8 [RSP] XCHG  RCX POP  RCX IMUL  
 code: UTIMESBY, ( u3 u2 u1 -- u3×u2÷u1 )  RAX 8 [RSP] XCHG  RCX POP  RCX MUL  RCX POP  RCX DIV ;
 
 code: INCS, ( x2 x1 -- x2+1 x1 )  1 # QWORD PTR 0 [RSP] ADD ;
-code: ADV, ( a # u -- a+u #-u )  RAX 8 [RSP] ADD  RAX 0 [RSP] SUB  RESTORE, ;
-code: ADV1, ( a # -- a+1 #-1 )  1 # QWORD PTR 0 [RSP] ADD  1 # RAX SUB ;
+code: ADV, ( a # u -- a+u #−u )  RAX 8 [RSP] ADD  RAX 0 [RSP] SUB  RESTORE, ;
+code: ADV1, ( a # -- a+1 #−1 )  1 # QWORD PTR 0 [RSP] ADD  1 # RAX SUB ;
+code: GETCHAR, ( a # -- a+1 #−1 c )
+  0 [RSP] RDX MOV  RAX PUSH  1 # QWORD PTR 0 [RSP] SUB  DL RAX MOVZX  1 # QWORD PTR CELL [RSP] ADD ;
 
 code: NEG, ( n1 -- −n1 )  RAX NEG ;
 code: ABS, ( n1 -- |n1| )  RAX RAX TEST  0< IFEVER  RAX NEG  THEN ;
@@ -238,7 +240,7 @@ code: UMIN2, ( u1 u2 -- u1|u2 )  RDX POP  RAX RDX CMP  U< IF  RDX RAX MOV  THEN 
 code: MAX2, ( n1 n2 -- n1|n2 )  RDX POP  RAX RDX CMP  > IF  RDX RAX MOV  THEN ;
 code: UMAX2, ( u1 u2 -- u1|u2 )  RDX POP  RAX RDX CMP  U> IF  RDX RAX MOV  THEN ;
 code: ISWITHIN, ( n1 n2 n3 -- n2≤n1<n3 )
-  RDX POP  RCX POP  RAX RSI MOV  RAX RAX XOR  RCX RDX CMP  ≤ IFLIKELY  RCX RSI CMP  > IFLIKELY  1 # RAX SUB  THEN  THEN ;
+  RDX POP  RAX RCX MOV  RAX RAX XOR  0 [RSP] RDX CMP  ≤ IFLIKELY  0 [RSP] RCX CMP  > IFLIKELY  1 # RAX SUB  THEN  THEN ;
 code: USIZE, ( u -- # )  RDX RDX XOR  RAX RDX XCHG  RDX RDX TEST  0= UNLESS
   1 # RAX ADD  $100 # RAX CMP  U< UNLESS  1 # RAX SHL  $10000 # RAX CMP  U< UNLESS  1 # RAX SHL  $100000000 # RAX CMP  U< UNLESS
   1 # RAX SHL  THEN  THEN  THEN  THEN ;
@@ -288,7 +290,6 @@ code: BSET, ( x # -- x' )  RAX QWORD PTR 0 [RSP] BTS  RESTORE, ;
 code: BCLR, ( x # -- x' )  RAX QWORD PTR 0 [RSP] BTR  RESTORE, ;
 code: BCHG, ( x # -- x' )  RAX QWORD PTR 0 [RSP] BTC  RESTORE, ;
 code: BTST, ( x # -- ? )  RAX QWORD PTR 0 [RSP] BT  RDX POP  RAX RAX SBB ;
-code: BTSTX, ( x # -- x ? )  RAX QWORD PTR 0 [RSP] BT  RAX RAX SBB ;
 code: BTSET, ( x # -- x' ? )  RAX QWORD PTR 0 [RSP] BTS  RAX RAX SBB ;
 code: BTCLR, ( x # -- x' ? )  RAX QWORD PTR 0 [RSP] BTR  RAX RAX SBB ;
 code: BTCHG, ( x # -- x' ? )  RAX QWORD PTR 0 [RSP] BTC  RAX RAX SBB ;
@@ -345,71 +346,71 @@ code: ABTCHGAT, ( a # -- ? )  RAX RCX MOV  7 # RCX AND  CELL% # RAX SHR  RDX POP
 --- Comparison ---
 
 ------ these are more effective, but very hard to combine — abandoned in favor of the replacements below
-code: ISZERO, ( x -- ? )  1 # RAX SUB  CMC  RAX RAX SBB ;
-code: ISNOTZERO, ( x -- ? )  1 # RAX SUB  RAX RAX SBB ;
-code: ISNEGATIVE, ( x -- ? )  1 # RAX SHL  RAX RAX SBB ;
-code: ISPOSITIVE, ( x -- ? )  AL 0≤ ?SET  1 # AL SUB  AL RAX MOVSX ;
-code: ISNOTNEGATIVE, ( x -- ? )  1 # RAX SHL  CMC  RAX RAX SBB ;
-code: ISNOTPOSITIVE, ( x -- ? )  AL 0> ?SET  1 # AL SUB  AL RAX MOVSX ;
+code: 'ISZERO, ( x -- ? )  1 # RAX SUB  CMC  RAX RAX SBB ;
+code: 'ISNOTZERO, ( x -- ? )  1 # RAX SUB  RAX RAX SBB ;
+code: 'ISNEGATIVE, ( x -- ? )  1 # RAX SHL  RAX RAX SBB ;
+code: 'ISPOSITIVE, ( x -- ? )  AL 0≤ ?SET  1 # AL SUB  AL RAX MOVSX ;
+code: 'ISNOTNEGATIVE, ( x -- ? )  1 # RAX SHL  CMC  RAX RAX SBB ;
+code: 'ISNOTPOSITIVE, ( x -- ? )  AL 0> ?SET  1 # AL SUB  AL RAX MOVSX ;
 
-code: ISEQUAL, ( x y -- ? )  RDX POP  RDX RAX SUB  1 # RAX SUB  CMC  RAX RAX SBB ;
-code: ISINIQUAL, ( x y -- ? )  RDX POP  RDX RAX SUB  1 # RAX SUB  RAX RAX SBB ;
-code: ISLESS, ( n1 n2 -- ? )  RDX POP  RDX RAX SUB  1 # RAX SHL  RAX RAX SBB ;
-code: ISBELOW, ( u1 u2 -- ? )  RDX POP  RDX RAX SUB  RAX RAX SBB ;
-code: ISGREATER, ( n1 n2 -- ? )  RDX POP  RDX RAX CMP  AL ≤ ?SET  1 # AL SUB  AL RAX MOVSX ;
-code: ISABOVE, ( u1 u2 -- ? )  RDX POP  RDX RAX CMP  AL U≤ ?SET  1 # AL SUB  AL RAX MOVSX ;
-code: ISNOTGREATER, ( n1 n2 -- ? )  RDX POP  RDX RAX CMP  AL > ?SET  1 # AL SUB  AL RAX MOVSX ;
-code: ISNOTABOVE, ( u1 u2 -- ? )  RDX POP  RDX RAX CMP  AL U> ?SET  1 # AL SUB  AL RAX MOVSX ;
-code: ISNOTLESS, ( n1 n2 -- ? )  RDX POP  RDX RAX CMP  AL < ?SET  1 # AL SUB  AL RAX MOVSX ;
-code: ISNOTBELOW, ( u1 u2 -- ? )  RDX POP  RDX RAX SUB  CMC  RAX RAX SBB ;
+code: 'ISEQUAL, ( x y -- ? )  RDX POP  RDX RAX SUB  1 # RAX SUB  CMC  RAX RAX SBB ;
+code: 'ISINIQUAL, ( x y -- ? )  RDX POP  RDX RAX SUB  1 # RAX SUB  RAX RAX SBB ;
+code: 'ISLESS, ( n1 n2 -- ? )  RDX POP  RDX RAX SUB  1 # RAX SHL  RAX RAX SBB ;
+code: 'ISBELOW, ( u1 u2 -- ? )  RDX POP  RDX RAX SUB  RAX RAX SBB ;
+code: 'ISGREATER, ( n1 n2 -- ? )  RDX POP  RDX RAX CMP  AL ≤ ?SET  1 # AL SUB  AL RAX MOVSX ;
+code: 'ISABOVE, ( u1 u2 -- ? )  RDX POP  RDX RAX CMP  AL U≤ ?SET  1 # AL SUB  AL RAX MOVSX ;
+code: 'ISNOTGREATER, ( n1 n2 -- ? )  RDX POP  RDX RAX CMP  AL > ?SET  1 # AL SUB  AL RAX MOVSX ;
+code: 'ISNOTABOVE, ( u1 u2 -- ? )  RDX POP  RDX RAX CMP  AL U> ?SET  1 # AL SUB  AL RAX MOVSX ;
+code: 'ISNOTLESS, ( n1 n2 -- ? )  RDX POP  RDX RAX CMP  AL < ?SET  1 # AL SUB  AL RAX MOVSX ;
+code: 'ISNOTBELOW, ( u1 u2 -- ? )  RDX POP  RDX RAX SUB  CMC  RAX RAX SBB ;
 ------
 
-code: ISZERO, ( x -- ? )  RAX RAX TEST  AL 0≠ ?SET  1 # AL SUB  AL RAX MOVSX ;
-code: ISNOTZERO, ( x -- ? )  RAX RAX TEST  AL 0= ?SET  1 # AL SUB  AL RAX MOVSX ;
-code: ISNEGATIVE, ( x -- ? )  RAX RAX TEST  AL 0≥ ?SET  1 # AL SUB  AL RAX MOVSX ;
-code: ISNOTNEGATIVE, ( x -- ? )  RAX RAX TEST  AL 0< ?SET  1 # AL SUB  AL RAX MOVSX ;
-code: ISPOSITIVE, ( x -- ? )  RAX RAX TEST  AL 0≤ ?SET  1 # AL SUB  AL RAX MOVSX ;
-code: ISNOTPOSITIVE, ( x -- ? )  RAX RAX TEST  AL 0> ?SET  1 # AL SUB  AL RAX MOVSX ;
+code: ISZERO, ( x -- ? )  RAX RAX TEST  DL 0≠ ?SET  1 # DL SUB  DL RAX MOVSX ;
+code: ISNOTZERO, ( x -- ? )  RAX RAX TEST  DL 0= ?SET  1 # DL SUB  DL RAX MOVSX ;
+code: ISNEGATIVE, ( x -- ? )  RAX RAX TEST  DL 0≥ ?SET  1 # DL SUB  DL RAX MOVSX ;
+code: ISNOTNEGATIVE, ( x -- ? )  RAX RAX TEST  DL 0< ?SET  1 # DL SUB  DL RAX MOVSX ;
+code: ISPOSITIVE, ( x -- ? )  RAX RAX TEST  DL 0≤ ?SET  1 # DL SUB  DL RAX MOVSX ;
+code: ISNOTPOSITIVE, ( x -- ? )  RAX RAX TEST  DL 0> ?SET  1 # DL SUB  DL RAX MOVSX ;
 
-code: ISEQUAL, ( x1 x2 -- ? )  RDX POP  RDX RAX CMP  AL ≠ ?SET  1 # AL SUB  AL RAX MOVSX ;
-code: ISINIQUAL, ( x1 x2 -- ? )  RDX POP  RDX RAX CMP  AL = ?SET  1 # AL SUB  AL RAX MOVSX ;
-code: ISLESS, ( n1 n2 -- ? )  RDX POP  RDX RAX CMP  AL ≥ ?SET  1 # AL SUB  AL RAX MOVSX ;
-code: ISNOTLESS, ( n1 n2 -- ? )  RDX POP  RDX RAX CMP  AL < ?SET  1 # AL SUB  AL RAX MOVSX ;
-code: ISGREATER, ( n1 n2 -- ? )  RDX POP  RDX RAX CMP  AL ≤ ?SET  1 # AL SUB  AL RAX MOVSX ;
-code: ISNOTGREATER, ( n1 n2 -- ? )  RDX POP  RDX RAX CMP  AL > ?SET  1 # AL SUB  AL RAX MOVSX ;
-code: ISBELOW, ( u1 u2 -- ? )  RDX POP  RDX RAX CMP  AL U≥ ?SET  1 # AL SUB  AL RAX MOVSX ;
-code: ISNOTBELOW, ( u1 u2 -- ? )  RDX POP  RDX RAX CMP  AL U< ?SET  1 # AL SUB  AL RAX MOVSX ;
-code: ISABOVE, ( u1 u2 -- ? )  RDX POP  RDX RAX CMP  AL U≤ ?SET  1 # AL SUB  AL RAX MOVSX ;
-code: ISNOTABOVE, ( u1 u2 -- ? )  RDX POP  RDX RAX CMP  AL U> ?SET  1 # AL SUB  AL RAX MOVSX ;
+code: ISEQUAL, ( x1 x2 -- ? )  RDX POP  RDX RAX CMP  DL ≠ ?SET  1 # DL SUB  DL RAX MOVSX ;
+code: ISINIQUAL, ( x1 x2 -- ? )  RDX POP  RDX RAX CMP  DL = ?SET  1 # DL SUB  DL RAX MOVSX ;
+code: ISLESS, ( n1 n2 -- ? )  RDX POP  RDX RAX CMP  DL ≥ ?SET  1 # DL SUB  DL RAX MOVSX ;
+code: ISNOTLESS, ( n1 n2 -- ? )  RDX POP  RDX RAX CMP  DL < ?SET  1 # DL SUB  DL RAX MOVSX ;
+code: ISGREATER, ( n1 n2 -- ? )  RDX POP  RDX RAX CMP  DL ≤ ?SET  1 # DL SUB  DL RAX MOVSX ;
+code: ISNOTGREATER, ( n1 n2 -- ? )  RDX POP  RDX RAX CMP  DL > ?SET  1 # DL SUB  DL RAX MOVSX ;
+code: ISBELOW, ( u1 u2 -- ? )  RDX POP  RDX RAX CMP  DL U≥ ?SET  1 # DL SUB  DL RAX MOVSX ;
+code: ISNOTBELOW, ( u1 u2 -- ? )  RDX POP  RDX RAX CMP  DL U< ?SET  1 # DL SUB  DL RAX MOVSX ;
+code: ISABOVE, ( u1 u2 -- ? )  RDX POP  RDX RAX CMP  DL U≤ ?SET  1 # DL SUB  DL RAX MOVSX ;
+code: ISNOTABOVE, ( u1 u2 -- ? )  RDX POP  RDX RAX CMP  DL U> ?SET  1 # DL SUB  DL RAX MOVSX ;
 
-code: ISZERODUP, ( x -- x ? )  SAVE,  RAX RAX TEST  AL 0≠ ?SET  1 # AL SUB  AL RAX MOVSX ;
-code: ISNOTZERODUP, ( x -- x ? )  SAVE,  RAX RAX TEST  AL 0= ?SET  1 # AL SUB  AL RAX MOVSX ;
-code: ISNEGATIVEDUP, ( x -- x? )  SAVE,  RAX RAX TEST  AL 0≥ ?SET  1 # AL SUB  AL RAX MOVSX ;
-code: ISNOTNEGATIVEDUP, ( x -- x ? )  SAVE,  RAX RAX TEST  AL 0< ?SET  1 # AL SUB  AL RAX MOVSX ;
-code: ISPOSITIVEDUP, ( x -- x ? )  SAVE,  RAX RAX TEST  AL 0≤ ?SET  1 # AL SUB  AL RAX MOVSX ;
-code: ISNOTPOSITIVEDUP, ( x -- x ? )  SAVE,  RAX RAX TEST  AL 0> ?SET  1 # AL SUB  AL RAX MOVSX ;
+code: ISZERODUP, ( x -- x ? )  SAVE,  RAX RAX TEST  DL 0≠ ?SET  1 # DL SUB  DL RAX MOVSX ;
+code: ISNOTZERODUP, ( x -- x ? )  SAVE,  RAX RAX TEST  DL 0= ?SET  1 # DL SUB  DL RAX MOVSX ;
+code: ISNEGATIVEDUP, ( x -- x? )  SAVE,  RAX RAX TEST  DL 0≥ ?SET  1 # DL SUB  DL RAX MOVSX ;
+code: ISNOTNEGATIVEDUP, ( x -- x ? )  SAVE,  RAX RAX TEST  DL 0< ?SET  1 # DL SUB  DL RAX MOVSX ;
+code: ISPOSITIVEDUP, ( x -- x ? )  SAVE,  RAX RAX TEST  DL 0≤ ?SET  1 # DL SUB  DL RAX MOVSX ;
+code: ISNOTPOSITIVEDUP, ( x -- x ? )  SAVE,  RAX RAX TEST  DL 0> ?SET  1 # DL SUB  DL RAX MOVSX ;
 
-code: ISEQUALDUP, ( x1 x2 -- ? )  0 [RSP] RAX CMP  AL ≠ ?SET  1 # AL SUB  AL RAX MOVSX ;
-code: ISINIQUALDUP, ( x1 x2 -- ? )  0 [RSP] RAX CMP  AL = ?SET  1 # AL SUB  AL RAX MOVSX ;
-code: ISLESSDUP, ( n1 n2 -- ? )  0 [RSP] RAX CMP  AL ≥ ?SET  1 # AL SUB  AL RAX MOVSX ;
-code: ISNOTLESSDUP, ( n1 n2 -- ? )  0 [RSP] RAX CMP  AL < ?SET  1 # AL SUB  AL RAX MOVSX ;
-code: ISGREATERDUP, ( n1 n2 -- ? )  0 [RSP] RAX CMP  AL ≤ ?SET  1 # AL SUB  AL RAX MOVSX ;
-code: ISNOTGREATERDUP, ( n1 n2 -- ? )  0 [RSP] RAX CMP  AL > ?SET  1 # AL SUB  AL RAX MOVSX ;
-code: ISBELOWDUP, ( u1 u2 -- ? )  0 [RSP] RAX CMP  AL U≥ ?SET  1 # AL SUB  AL RAX MOVSX ;
-code: ISNOTBELOWDUP, ( u1 u2 -- ? )  0 [RSP] RAX CMP  AL U< ?SET  1 # AL SUB  AL RAX MOVSX ;
-code: ISABOVEDUP, ( u1 u2 -- ? )  0 [RSP] RAX CMP  AL U≤ ?SET  1 # AL SUB  AL RAX MOVSX ;
-code: ISNOTABOVEDUP, ( u1 u2 -- ? )  0 [RSP] RAX CMP  AL U> ?SET  1 # AL SUB  AL RAX MOVSX ;
+code: ISEQUALDUP, ( x1 x2 -- ? )  0 [RSP] RAX CMP  DL ≠ ?SET  1 # DL SUB  DL RAX MOVSX ;
+code: ISINIQUALDUP, ( x1 x2 -- ? )  0 [RSP] RAX CMP  DL = ?SET  1 # DL SUB  DL RAX MOVSX ;
+code: ISLESSDUP, ( n1 n2 -- ? )  0 [RSP] RAX CMP  DL ≥ ?SET  1 # DL SUB  DL RAX MOVSX ;
+code: ISNOTLESSDUP, ( n1 n2 -- ? )  0 [RSP] RAX CMP  DL < ?SET  1 # DL SUB  DL RAX MOVSX ;
+code: ISGREATERDUP, ( n1 n2 -- ? )  0 [RSP] RAX CMP  DL ≤ ?SET  1 # DL SUB  DL RAX MOVSX ;
+code: ISNOTGREATERDUP, ( n1 n2 -- ? )  0 [RSP] RAX CMP  DL > ?SET  1 # DL SUB  DL RAX MOVSX ;
+code: ISBELOWDUP, ( u1 u2 -- ? )  0 [RSP] RAX CMP  DL U≥ ?SET  1 # DL SUB  DL RAX MOVSX ;
+code: ISNOTBELOWDUP, ( u1 u2 -- ? )  0 [RSP] RAX CMP  DL U< ?SET  1 # DL SUB  DL RAX MOVSX ;
+code: ISABOVEDUP, ( u1 u2 -- ? )  0 [RSP] RAX CMP  DL U≤ ?SET  1 # DL SUB  DL RAX MOVSX ;
+code: ISNOTABOVEDUP, ( u1 u2 -- ? )  0 [RSP] RAX CMP  DL U> ?SET  1 # DL SUB  DL RAX MOVSX ;
 
-code: ISEQUAL2DUP, ( x1 x2 -- ? )  SAVE,  CELL [RSP] RAX CMP  AL ≠ ?SET  1 # AL SUB  AL RAX MOVSX ;
-code: ISINIQUAL2DUP, ( x1 x2 -- ? )  SAVE,  CELL [RSP] RAX CMP  AL = ?SET  1 # AL SUB  AL RAX MOVSX ;
-code: ISLESS2DUP, ( n1 n2 -- ? )  SAVE,  CELL [RSP] RAX CMP  AL ≥ ?SET  1 # AL SUB  AL RAX MOVSX ;
-code: ISNOTLESS2DUP, ( n1 n2 -- ? )  SAVE,  CELL [RSP] RAX CMP  AL < ?SET  1 # AL SUB  AL RAX MOVSX ;
-code: ISGREATER2DUP, ( n1 n2 -- ? )  SAVE,  CELL [RSP] RAX CMP  AL ≤ ?SET  1 # AL SUB  AL RAX MOVSX ;
-code: ISNOTGREATER2DUP, ( n1 n2 -- ? )  SAVE,  CELL [RSP] RAX CMP  AL > ?SET  1 # AL SUB  AL RAX MOVSX ;
-code: ISBELOW2DUP, ( u1 u2 -- ? )  SAVE,  CELL [RSP] RAX CMP  AL U≥ ?SET  1 # AL SUB  AL RAX MOVSX ;
-code: ISNOTBELOW2DUP, ( u1 u2 -- ? )  SAVE,  CELL [RSP] RAX CMP  AL U< ?SET  1 # AL SUB  AL RAX MOVSX ;
-code: ISABOVE2DUP, ( u1 u2 -- ? )  SAVE,  CELL [RSP] RAX CMP  AL U≤ ?SET  1 # AL SUB  AL RAX MOVSX ;
-code: ISNOTABOVE2DUP, ( u1 u2 -- ? )  SAVE,  CELL [RSP] RAX CMP  AL U> ?SET  1 # AL SUB  AL RAX MOVSX ;
+code: ISEQUAL2DUP, ( x1 x2 -- ? )  SAVE,  CELL [RSP] RAX CMP  DL ≠ ?SET  1 # DL SUB  DL RAX MOVSX ;
+code: ISINIQUAL2DUP, ( x1 x2 -- ? )  SAVE,  CELL [RSP] RAX CMP  DL = ?SET  1 # DL SUB  DL RAX MOVSX ;
+code: ISLESS2DUP, ( n1 n2 -- ? )  SAVE,  CELL [RSP] RAX CMP  DL ≥ ?SET  1 # DL SUB  DL RAX MOVSX ;
+code: ISNOTLESS2DUP, ( n1 n2 -- ? )  SAVE,  CELL [RSP] RAX CMP  DL < ?SET  1 # DL SUB  DL RAX MOVSX ;
+code: ISGREATER2DUP, ( n1 n2 -- ? )  SAVE,  CELL [RSP] RAX CMP  DL ≤ ?SET  1 # DL SUB  DL RAX MOVSX ;
+code: ISNOTGREATER2DUP, ( n1 n2 -- ? )  SAVE,  CELL [RSP] RAX CMP  DL > ?SET  1 # DL SUB  DL RAX MOVSX ;
+code: ISBELOW2DUP, ( u1 u2 -- ? )  SAVE,  CELL [RSP] RAX CMP  DL U≥ ?SET  1 # DL SUB  DL RAX MOVSX ;
+code: ISNOTBELOW2DUP, ( u1 u2 -- ? )  SAVE,  CELL [RSP] RAX CMP  DL U< ?SET  1 # DL SUB  DL RAX MOVSX ;
+code: ISABOVE2DUP, ( u1 u2 -- ? )  SAVE,  CELL [RSP] RAX CMP  DL U≤ ?SET  1 # DL SUB  DL RAX MOVSX ;
+code: ISNOTABOVE2DUP, ( u1 u2 -- ? )  SAVE,  CELL [RSP] RAX CMP  DL U> ?SET  1 # DL SUB  DL RAX MOVSX ;
 
 
 
@@ -417,36 +418,41 @@ code: ISNOTABOVE2DUP, ( u1 u2 -- ? )  SAVE,  CELL [RSP] RAX CMP  AL U> ?SET  1 #
 
 --- Block Fill ---
 
-code: CFILL, ( a # c -- )  RCX POP  RDI POP  CLD  REP BYTE PTR STOS  RESTORE, ;  inline
-code: WFILL, ( a # w -- )  RCX POP  RDI POP  CLD  REP WORD PTR STOS  RESTORE, ;  inline
-code: DFILL, ( a # d -- )  RCX POP  RDI POP  CLD  REP DWORD PTR STOS  RESTORE, ;  inline
-code: QFILL, ( a # q -- )  RCX POP  RDI POP  CLD  REP QWORD PTR STOS  RESTORE, ;  inline
-code: OFILL, ( a # o -- )  RDX POP  RCX POP  RDI POP  FOR  RAX 0 [RDI] MOV  RDX 8 [RDI] MOV  16 [RDI] RDI LEA  NEXT  RESTORE, ;
-  inline
+code: CFILL, ( a # c -- )  RCX POP  0 [RSP] RDI XCHG  CLD  REP BYTE PTR STOS  RDI POP  RESTORE, ;  inline
+code: WFILL, ( a # w -- )  RCX POP  0 [RSP] RDI XCHG  CLD  REP WORD PTR STOS  RDI POP  RESTORE, ;  inline
+code: DFILL, ( a # d -- )  RCX POP  0 [RSP] RDI XCHG  CLD  REP DWORD PTR STOS  RDI POP  RESTORE, ;  inline
+code: QFILL, ( a # q -- )  RCX POP  0 [RSP] RDI XCHG  CLD  REP QWORD PTR STOS  RDI POP  RESTORE, ;  inline
+code: OFILL, ( a # o -- )  RDX POP  RCX POP  0 [RSP] RDI XCHG
+  FOR  RAX 0 [RDI] MOV  RDX 8 [RDI] MOV  16 [RDI] RDI LEA  NEXT  RDI POP  RESTORE, ;  inline
 
 --- Block Search ---
 
-code: CFIND, ( a # c -- u )
-  RCX POP  RSI POP  RCX RDX MOV  FOR  1 [RSI] RSI LEA  AL -1 [RSI] CMP  ≠ ?NEXT  RDX RCX ≠ ?MOV  RCX RDX SUB  RDX RAX MOV ;
-code: WFIND, ( a # w -- u )
-  RCX POP  RSI POP  RCX RDX MOV  FOR  2 [RSI] RSI LEA  AX -2 [RSI] CMP  ≠ ?NEXT  RDX RCX ≠ ?MOV  RCX RDX SUB  RDX RAX MOV ;
-code: DFIND, ( a # d -- u )
-  RCX POP  RSI POP  RCX RDX MOV  FOR  4 [RSI] RSI LEA  EAX -4 [RSI] CMP  ≠ ?NEXT  RDX RCX ≠ ?MOV  RCX RDX SUB  RDX RAX MOV ;
-code: QFIND, ( a # q -- u )
-  RCX POP  RSI POP  RCX RDX MOV  FOR  8 [RSI] RSI LEA  RAX -8 [RSI] CMP  ≠ ?NEXT  RDX RCX ≠ ?MOV  RCX RDX SUB  RDX RAX MOV ;
-code: OFIND, ( a # o -- u )  RDI POP  RCX POP  RSI POP  RCX RDX MOV  FOR
-    16 [RSI] RSI LEA  RAX -16 [RSI] CMP  = IF  RDI -8 [RSI] CMP  THEN  ≠ ?NEXT  RDX RCX ≠ ?MOV  RCX RDX SUB  RDX RAX MOV ;
+code: CFIND, ( a # c -- u )  RCX POP  0 [RSP] RSI XCHG  RCX RDX MOV
+  FOR  AL 0 [RSI] CMP  1 [RSI] RSI LEA  ≠ ?NEXT  RDX RCX ≠ ?MOV  RCX RDX SUB  RSI POP  RDX RAX MOV ;
+code: WFIND, ( a # w -- u )  RCX POP  0 [RSP] RSI XCHG  RCX RDX MOV
+  FOR  AX 0 [RSI] CMP  2 [RSI] RSI LEA  ≠ ?NEXT  RDX RCX ≠ ?MOV  RCX RDX SUB  RSI POP  RDX RAX MOV ;
+code: DFIND, ( a # d -- u )  RCX POP  0 [RSP] RSI XCHG  RCX RDX MOV
+  FOR  EAX 0 [RSI] CMP  4 [RSI] RSI LEA  ≠ ?NEXT  RDX RCX ≠ ?MOV  RCX RDX SUB  RSI POP  RDX RAX MOV ;
+code: QFIND, ( a # q -- u )  RCX POP  0 [RSP] RSI XCHG  RCX RDX MOV
+  FOR  RAX 0 [RSI] CMP  8 [RSI] RSI LEA  ≠ ?NEXT  RDX RCX ≠ ?MOV  RCX RDX SUB  RDX RAX MOV ;
+code: OFIND, ( a # o -- u )  2 CELLS [RSP] RDI XCHG  CELL [RSP] RCX XCHG  0 [RSP] RSI XCHG  RCX RDX MOV
+  FOR  RAX 0 [RSI] CMP  16 [RSI] RSI LEA  = IF  RDI 8 [RSI] CMP  THEN  ≠ ?NEXT  RDX RCX ≠ ?MOV  RSI POP  RCX RDX SUB
+  RCX POP  RDX RAX MOV  RDI POP ;
 
 --- Block Move ---
 
-code: CMOVE, ( sa ta # -- )  RAX RCX MOV  RDI POP  RSI POP  CLD
-  RSI RDI CMP  U> IFEVER  -1 [RSI] [RCX] RSI LEA  -1 [RDI] [RCX] RDI LEA  STD  THEN  REP BYTE PTR MOVS  RESTORE, ;
-code: WMOVE, ( sa ta # -- )  RAX RCX MOV  RDI POP  RSI POP  CLD
-  RSI RDI CMP  U> IFEVER  -2 [RSI] [RCX] RSI LEA  -2 [RDI] [RCX] RDI LEA  STD  THEN  REP WORD PTR MOVS  RESTORE, ;
-code: DMOVE, ( sa ta # -- )  RAX RCX MOV  RDI POP  RSI POP  CLD
-  RSI RDI CMP  U> IFEVER  -4 [RSI] [RCX] RSI LEA  -4 [RDI] [RCX] RDI LEA  STD  THEN  REP DWORD PTR MOVS  RESTORE, ;
-code: QMOVE, ( sa ta # -- )  RAX RCX MOV  RDI POP  RSI POP  CLD
-  RSI RDI CMP  U> IFEVER  -8 [RSI] [RCX] RSI LEA  -8 [RDI] [RCX] RDI LEA  STD  THEN  REP QWORD PTR MOVS  RESTORE, ;
+code: CMOVE, ( sa ta # -- )  RAX RCX MOV  CELL [RSP] RDI XCHG  0 [RSP] RSI XCHG  CLD
+  RSI RDI CMP  U> IFEVER  -1 [RSI] [RCX] RSI LEA  -1 [RDI] [RCX] RDI LEA  STD  THEN  REP BYTE PTR MOVS
+  RSI POP  RDI POP  RESTORE, ;
+code: WMOVE, ( sa ta # -- )  RAX RCX MOV  CELL [RSP] RDI XCHG  0 [RSP] RSI XCHG  CLD
+  RSI RDI CMP  U> IFEVER  -2 [RSI] [RCX] RSI LEA  -2 [RDI] [RCX] RDI LEA  STD  THEN  REP WORD PTR MOVS
+  RSI POP  RDI POP  RESTORE, ;
+code: DMOVE, ( sa ta # -- )  RAX RCX MOV  CELL [RSP] RDI XCHG  0 [RSP] RSI XCHG  CLD
+  RSI RDI CMP  U> IFEVER  -4 [RSI] [RCX] RSI LEA  -4 [RDI] [RCX] RDI LEA  STD  THEN  REP DWORD PTR MOVS
+  RSI POP  RDI POP  RESTORE, ;
+code: QMOVE, ( sa ta # -- )  RAX RCX MOV  CELL [RSP] RDI XCHG  0 [RSP] RSI XCHG  CLD
+  RSI RDI CMP  U> IFEVER  -8 [RSI] [RCX] RSI LEA  -8 [RDI] [RCX] RDI LEA  STD  THEN  REP QWORD PTR MOVS
+  RSI POP  RDI POP  RESTORE, ;
 
 
 
@@ -454,12 +460,12 @@ code: QMOVE, ( sa ta # -- )  RAX RCX MOV  RDI POP  RSI POP  CLD
 
 code: GETUC, ( a # -- a' #' uc|-1 )                   ( Next UTF-8 character uc from buffer, or -1 on error or end-of-buffer )
   ( RSI = a', RDX = #', RBX = c, RCX = shift, AH, NC = valid? )
-  RAX RDX MOV  RSI POP  RAX RAX TEST  STC  0≠ IF
-    BYTE PTR LODS  1 # RDX SUB  AL RAX MOVSX  7 # RAX BT  CY IF
+  RAX RDX MOV  0 [RSP] RSI XCHG  RBX PUSH  RAX RAX TEST  STC  0≠ IF
+    0 [RSI] AL MOV  1 # RDX SUB  1 # RSI ADD  AL RAX MOVSX  7 # RAX BT  CY IF
       RAX RBX MOV  RAX NOT  RAX RCX BSR  ( valid RCX: 3, 4, 5 )  STC  0= UNLESS
         3 # RCX CMP  U< UNLESS
           6 # RCX CMP  U< IF
-            AH AH XOR  BL AL MOV  RCX NEG  8 # RCX ADD  CL AL SHL  CL AL SHR  AL BL MOV  2 # RCX SUB  BEGIN
+            AH AH XOR  RCX NEG  BL AL MOV  8 # RCX ADD  CL AL SHL  CL AL SHR  AL BL MOV  2 # RCX SUB  BEGIN
               RDX RDX TEST  0≠ IF
                 0 [RSI] AL MOV  1 # RSI ADD  1 # RDX SUB  7 # RAX BTC
                 %1000000 # AL CMP  U> IFEVER  1 # AH MOV  ELSE  6 # RBX SHL  RAX RBX ADD  THEN  THEN
@@ -469,30 +475,17 @@ code: GETUC, ( a # -- a' #' uc|-1 )                   ( Next UTF-8 character uc 
         THEN
       THEN
     THEN
-  RSI PUSH  RDX PUSH  RBX RAX MOV  CY IF  RAX RAX SBB  THEN ;
+  RSI 0 [RSP] XCHG  RBX RAX MOV  RBX POP  RDX PUSH  CY IF  RAX RAX SBB  THEN ;
 
+code: INCUC, ( a -- ? )                               ( increment length indicator, report if failed due to overflow )
+;
 
 
 === Execution ===
 
 code: EXECUTE, ( cfa -- )  RAX RDX MOV  RAX POP  RDX CALL ;
-code: EXECUTEWORD, ( @w -- ? )  RAX RDI MOV  RAX POP  WORD PTR 0 [RDI] RCX MOVZX
-  3 # RCX TEST  0= IFLIKELY                           ( Inlined code: )
-    BYTE PTR 2 [RDI] RDX MOVZX   2 [RDI] [RDX] RDI LEA  ( Skip name )
-    %INDIRECT # RCX TEST  0= IFLIKELY                   ( If not alias, skip code field length )
-      1 # RDI ADD  -2 # RDI AND  2 # RDI ADD  ELSE      ( else load indirect address )
-      7 # RDI ADD  -8 # RDI AND  0 [RDI] RDI MOV  THEN
-    RDI CALL  ELSE
-  1 # RCX SUB  0= IFLIKELY                            ( Direct threaded code: )
-    UD2  ELSE                                           ( currently unsupported )
-  1 # RCX SUB  0= IFLIKELY                            ( Indirect threaded code: )
-    UD2  ELSE                                           ( currently unsupported )
-  1 # RCX SUB  0= IFLIKELY                            ( Token threaded code: )
-    UD2  ELSE                                           ( currently unsupported )
-  UD2  THEN  THEN  THEN  THEN ;
+code: INVOKEMETHOD, ( m# @v this -- ) ;
+code: NOP, ( -- )  NOP ;
 
-code: INVOKEMETHOD, ( m# @v this -- )
-  RAX RBX MOV  RSI POP  RCX POP  RCX RDX MOV  16 # EDX SHR  $FFFF # ECX AND  RAX POP
-  -4 [RBX] EDI MOV  0 [RSI] [RDI] *CELL RDI MOV ;
 
 vocabulary;

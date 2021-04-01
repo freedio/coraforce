@@ -353,6 +353,7 @@ alias −−o!  alias −−v!  alias −−2!                    ( aliases with
 : nxt ( x2 x1 -- x2+1 x1 )  INCS, ;                   ( increment second of stack )
 : -> ( a # -- a+1 #-1 )  ADV1, ;  alias −>            ( advance cursor in buffer with address a and length # by 1 )
 : #-> ( a # u -- a+u #-u )  ADV, ;  alias #−>         ( advance cursor in buffer with address a and length # by u )
+: ->c ( a # -- a+1 #-1 c )  GETCHAR, ;                ( get next character from buffer a# and advance )
 : →| ( n2|0 n1 -- n3|0 )  tuck 1− + over / * ;  alias >|    ( round n2 up to the next multiple of n1, leaving 0 as it is )
 : u→| ( u2|0 u1 -- u3|0 )  tuck 1− + over u/ u* ;  alias >|    ( round u2 up to the next multiple of u1, leaving 0 as it is )
 : |← ( n2|0 n1 -- n3|0 )  over r% − ;  alias |<       ( round n2 down to the next smaller multiple of n1, leaving 0 as it is )
@@ -469,15 +470,14 @@ alias −−o!  alias −−v!  alias −−2!                    ( aliases with
 : bit+ ( x # -- x' )  BSET, ;                         ( set bit # in x )
 : bit− ( x # -- x' )  BCLR, ;  alias bit-             ( clear bit # in x )
 : bit× ( x # -- x' )  BCHG, ;  alias bit*             ( flip bit # in x )
-: bit? ( x # -- ? )  BTST, ;                          ( test if bit # in x is set )
-: ?bit? ( x # -- x ? )  BTSTX, ;                      ( test if bit # in x is set )
-: bit?+ ( x # -- x' ? )  BTSET, ;                     ( non-atomically test and set bit # in x )
-: bit?− ( x # -- x' ? )  BTCLR, ;  alias bit?-        ( non-atomically test and clear bit # in x )
-: bit?× ( x # -- x' ? )  BTCHG, ;  alias bit?*        ( non-atomically test and flip bit # in x )
-: bit?? ( x # -- x ? )  BTTST, ;                      ( test if bit # in x is set )
-: bita?+ ( x # -- x' ? )  ABTSET, ;                   ( atomically test and set bit # in x )
-: bita?− ( x # -- x' ? )  ABTCLR, ;  alias bita?-     ( atomically test and clear bit # in x )
-: bita?× ( x # -- x' ? )  ABTCHG, ;  alias bita?*     ( atomically test and flip bit # in x )
+: bit? ( x # -- ? )  BTST, ;  condition               ( test if bit # in x is set )
+: bit?+ ( x # -- x' ? )  BTSET, ;  condition          ( non-atomically test and set bit # in x )
+: bit?− ( x # -- x' ? )  BTCLR, ;  condition  alias bit?-       ( non-atomically test and clear bit # in x )
+: bit?× ( x # -- x' ? )  BTCHG, ;  condition  alias bit?*       ( non-atomically test and flip bit # in x )
+: bit?? ( x # -- x ? )  BTTST, ;  condition           ( test if bit # in x is set )
+: bita?+ ( x # -- x' ? )  ABTSET, ;  condition        ( atomically test and set bit # in x )
+: bita?− ( x # -- x' ? )  ABTCLR, ;  condition  alias bita?-    ( atomically test and clear bit # in x )
+: bita?× ( x # -- x' ? )  ABTCHG, ;  condition  alias bita?*    ( atomically test and flip bit # in x )
 
 --- Memory Bit Operations ---
 
@@ -487,13 +487,13 @@ alias −−o!  alias −−v!  alias −−2!                    ( aliases with
 : bit+! ( a # -- )  BSETAT, ;                         ( set bit # at address a )
 : bit−! ( a # -- )  BCLRAT, ;  alias bit-!            ( clear bit # at address a )
 : bit×! ( a # -- )  BCHGAT, ;  alias bit*!            ( flip bit # at address a )
-: bit@ ( a # -- ? )  BTSTAT, ;                        ( test if bit # at address a is set )
-: bit@+! ( a # -- ? )  BTSETAT, ;                     ( non-atomically test and set bit # at address a )
-: bit@−! ( a # -- ? )  BTSETAT, ;  alias bit@-!       ( non-atomically test and clear bit # at address a )
-: bit@×! ( a # -- ? )  BTSETAT, ;  alias bit@*!       ( non-atomically test and flip bit # at address a )
-: bita@+! ( a # -- ? )  ABTSETAT, ;                   ( atomically test and set bit # at address a )
-: bita@−! ( a # -- ? )  ABTSETAT, ;  alias bita@-!    ( atomically test and clear bit # at address a )
-: bita@×! ( a # -- ? )  ABTSETAT, ;  alias bita@*!    ( atomically test and flip bit # at address a )
+: bit@ ( a # -- ? )  BTSTAT, ;  condition             ( test if bit # at address a is set )
+: bit@+! ( a # -- ? )  BTSETAT, ;  condition          ( non-atomically test and set bit # at address a )
+: bit@−! ( a # -- ? )  BTSETAT, ;  condition  alias bit@-!      ( non-atomically test and clear bit # at address a )
+: bit@×! ( a # -- ? )  BTSETAT, ;  condition  alias bit@*!      ( non-atomically test and flip bit # at address a )
+: bita@+! ( a # -- ? )  ABTSETAT, ;  condition        ( atomically test and set bit # at address a )
+: bita@−! ( a # -- ? )  ABTSETAT, ;  condition  alias bita@-!   ( atomically test and clear bit # at address a )
+: bita@×! ( a # -- ? )  ABTSETAT, ;  condition  alias bita@*!   ( atomically test and flip bit # at address a )
 
 --- Stack Bit Scan Operations ---
 
@@ -557,36 +557,6 @@ alias −−o!  alias −−v!  alias −−2!                    ( aliases with
 
 === String Operations ===
 
---- UTF-8 Operations ---
-
-( In UTF-8 operations, "length" measures the string in UTF-8 characters, not bytes.
-  The typical error condition — trying to read past the end of the buffer, or invalid UTF-8 character — is signaled with -1
-  instead of a uc, since -1 is not valid in UTF-8, whereas 0 is.
-)
-
-------
-: c$@++ ( a -- a' uc|-1 )  FETCHUC$INC, ;             ( read next UTF-8 character uc from buffer at address a, and increment )
-: $# ( a -- # )  c$@++ nip ;                          ( Length # of UTF-8 string at address a )
-: $count ( a$ -- a # )  FETCHUC$INC, ;                ( Address and Length of counted UTF-8 string )
-: 0count ( aº -- a # )  dup begin c$++ 0= until  1 − over − ;          ( Address and Length of zero-terminated UTF-8 string )
-: $= ( $1 $2 -- ? )                                   ( check if two UTF-8 strings are equal )
-  c$@++ rot c$@++ rot over = if
-    0 udo  c$@++ rot c$@++ rot = unlessever  2 #drop false exitloop  then  loop
-    2 #drop true exit  then
-  3 #drop false ;        
-: c$>> ( a # -- a' #−1 uc|-1 || a 0 -1 )              ( read next UFT-8 character from buffer a/#, or return -1 if not OK )
-  dup unlessever  dup 1 −  else  swap c$@++ rot 1 − swap  then ;        
-------
-
-: c$@++ ( a # -- a' #' uc|-1 )  GETUC, ;              ( read next UTF-8 char uc from buffer at a with length #, and advance )
-: $# ( $ -- #|-1 )  8 c$@++ -rot 2drop ;  alias count ( Length of UTF-8 string $, or -1 if the length is invalid )
-: $count ( $ -- a #|-1 )  8 c$@++ nip ;               ( Address a and Length # of counted UTF-8 string $, -1 if invalid )
-: 0count ( a⁰ -- a #|-1 )
-  dup -1 begin  c$@++  1 < until  ?dup -1 = if  2nip exit  then  drop 1 − over − ;
-: $++ ( a -- )                                        ( increment UTF-8 length )
-  dup b@ 0<? unless  127 = unless  1c+! exit  then  trap$++1  then  ( handle 1-byte length )
-  c0-> 7 r−
-
 
 
 === Vocabulary Operations ===
@@ -609,6 +579,9 @@ half+ dup constant →TEXT    private                   ( Usage of the text segm
 half+ dup constant @PARA    private                   ( Address of the parameter table )
 cell+ dup constant #PARA    private                   ( Capacity of the parameter table in bytes )
 half+ dup constant →PARA    private                   ( Usage of the parameter table in bytes )
+half+ dup constant @VMAT    private                   ( Address of the virtual method address table )
+cell+ dup constant #VMAT    private                   ( Capacity of the virtual method address table in bytes )
+half+ dup constant →VMAT    private                   ( Usage of the virtual method address table in bytes )
 half+ dup constant @RELS    private                   ( Address of the relocation table )
 cell+ dup constant #RELS    private                   ( Capacity of the relocation table in bytes )
 half+ dup constant →RELS    private                   ( Usage of the relocation table in bytes )
@@ -618,6 +591,10 @@ half+ dup constant →DEPS    private                   ( Usage of the dependenc
 half+ dup constant @DBUG    private                   ( Address of the debug segment )
 cell+ dup constant #DBUG    private                   ( Capacity of the debug segment in bytes )
 half+ dup constant →DBUG    private                   ( Usage of the debug segment in bytes )
+half+ dup constant @SYMS    private                   ( Address of the symbol table )
+cell+ dup constant #SYMS    private                   ( Capacity of the symbol table in bytes )
+half+ dup constant →SYMS    private                   ( Usage of the symbol table in bytes )
+half+ dup constant #VOCABULARY                        ( Size of the vocabulary definition )
 drop
 
 
@@ -626,8 +603,8 @@ drop
 
 --- Code execution ---
 
+: nop ( -- )  NOP, ;                                  ( no operation )
 : execute ( cfa -- )  EXECUTE, ;                      ( execute the code at the specified cfa )
-: execWord ( @w -- )  EXECUTEWORD, ;                  ( execute code of word @w )
 : invoke ( m# this -- )  VOCABULARIES swap INVOKEMETHOD, ;
 
 --- Type check ---

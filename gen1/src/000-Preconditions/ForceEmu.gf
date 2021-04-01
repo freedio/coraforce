@@ -189,6 +189,12 @@
       1+ SWAP 1+ LOOP
     2DROP TRUE ;
 
+: $$> ( $1 $2 -- ? )  \ Check if $1 starts with $2
+  COUNT ROT COUNT  2SWAP  ROT OVER  <= IF  2DROP DROP FALSE EXIT  THEN
+  0 ?DO  2DUP C@ SWAP C@ - IF  UNLOOP 2DROP FALSE EXIT  THEN
+     1+ SWAP 1+ LOOP
+  2DROP TRUE ;
+
 : commentbracket ( a -- )
     \ Skip words until word a is encountered.
     BEGIN

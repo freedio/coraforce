@@ -285,6 +285,7 @@ variable VOCAMODEL
 ( Forcembler locations: )
 : there  tseg→| ;
 : toff  there ;
+: backup  1 §CODE >seg hused−! ;
 
 --- Vocabulary Operations ---
 
@@ -1397,8 +1398,9 @@ variable FORC                                         ( if we are in Forcembler 
   LAST_COMP @ ?dup if  flags %LINK and if  %LINK currentWord@ flags+!  then  drop  then
   CTRLDEPTH if  unbalanced-definition  then ;
 : smashCondition ( -- cc )                            ( remove condition buildup from the code segment, to replace with ?JMP )
-  §CODE >seg >hend 8 - c@ $F and $4000000 ( ← Forcembler Condition Code ) or
-  9 §CODE >seg hused−! ;
+  §CODE >seg >hend 9 - c@ $F and $4000000 ( ← Forcembler Condition Code ) or
+  10 §CODE >seg hused−! ;
+: smashBitTest ( -- cc )  3 §CODE >seg hused−!  $4000003 ;  ( remove bit test buildup from the code segment )
 
 --- Holding ---
 
@@ -1414,13 +1416,16 @@ variable Held2
 3 constant CharHeld
 4 constant StringHeld
 5 constant ConditionHeld
+6 constant BitTestHeld
 
 : holdInt ( n -- )  IntValue !  IntHeld Held ! ;
 : holdFloat ( -- F: r -- )  FloatValue f!  FloatHeld Held ! ;
 : holdChar ( uc -- )  CharValue !  CharHeld Held ! ;
 : holdString ( $ -- )  @StringValue !  StringHeld Held ! ;
 : holdCondition ( -- )  ConditionHeld Held ! ;
+: holdBitTest ( -- )  BitTestHeld Held ! ;
 : holdCondExpr ( -- )  ConditionHeld Held2 ! ;
+: holdBTExpr ( -- )  BitTestHeld Held2 ! ;
 
 --- Clause Vocabulary ---
 
@@ -1438,10 +1443,10 @@ also Clauses definitions  context @ @CLAUSES !
 : #× ( n -- )  #TIMES, ;
 : #* ( u -- )  #TIMES, ;
 : #! ( x -- )  #STORE, ;
-: #+! ( x -- )  #ADD, ;
+: #+! ( x -- )  #QADD, ;
 : #w+! ( x -- )  #WADD, ;
-: #−! ( x -- )  #SUB, ;
-: #-! ( x -- )  #SUB, ;
+: #−! ( x -- )  #QSUB, ;
+: #-! ( x -- )  #QSUB, ;
 : #-> ( u -- )  #ADV, ;
 : #pick ( u -- )  #PICK, ;
 : #drop ( u -- )  #DROP, ;
@@ -1450,6 +1455,23 @@ also Clauses definitions  context @ @CLAUSES !
 : #< ( x -- )  #ISLESS,  holdCondExpr ;
 : #> ( x -- )  #ISGREATER,  holdCondExpr ;
 
+: #bit+ ( x -- x' )  #BSET, ;
+: #bit− ( x -- x' )  #BCLR, ;
+: #bit- ( x -- x' )  #BCLR,  holdBTExpr ;
+: #bit× ( x -- x' )  #BCHG,  holdBTExpr ;
+: #bit* ( x -- x' )  #BCHG,  holdBTExpr ;
+: #bit? ( x -- ? )  #BTST,  holdBTExpr ;
+: #bit?+ ( x # -- x' ? )  #BTSET,  holdBTExpr ;
+: #bit?− ( x # -- x' ? )  #BTCLR,  holdBTExpr ;
+: #bit?- ( x # -- x' ? )  #BTCLR,  holdBTExpr ;
+: #bit?× ( x # -- x' ? )  #BTCHG,  holdBTExpr ;
+: #bit?* ( x # -- x' ? )  #BTCHG,  holdBTExpr ;
+: #bit?? ( x # -- x ? )  #BTTST,  holdBTExpr ;
+: #bita?+ ( x # -- x' ? )  #ABTSET,  holdBTExpr ;
+: #bita?− ( x # -- x' ? )  #ABTCLR,  holdBTExpr ;
+: #bita?- ( x # -- x' ? )  #ABTCLR,  holdBTExpr ;
+: #bita?× ( x # -- x' ? )  #ABTCHG,  holdBTExpr ;
+: #bita?* ( x # -- x' ? )  #ABTCHG,  holdBTExpr ;
 
 --- Char Clauses ---
 
@@ -1457,7 +1479,9 @@ also Clauses definitions  context @ @CLAUSES !
 
 --- String Clauses ---
 
+------
 : $| ( ... $ -- $ )  $format ;
+------
 
 --- Condition Clauses ---
 : ?if ( -- ctrl:ba )  smashCondition ?IF, ;
@@ -1466,6 +1490,14 @@ also Clauses definitions  context @ @CLAUSES !
 : ?unlessever ( -- ctrl:ba )  smashCondition ?UNLESSEVER, ;
 : ?until ( ctrl:ba -- )  smashCondition ?UNTIL, ;
 : ?while ( ctrl:ba1 -- ctrl:ba2 ctrl:ba1 )  smashCondition ?WHILE, ;
+
+--- Bit Test Clauses ---
+: ^if ( -- ctrl:ba )  smashBitTest ?IF, ;
+: ^ifever ( -- ctrl:ba )  smashBitTest ?IFEVER, ;
+: ^unless ( -- ctrl:ba )  smashBitTest ?UNLESS, ;
+: ^unlessever ( -- ctrl:ba )  smashBitTest ?UNLESSEVER, ;
+: ^until ( ctrl:ba -- )  smashBitTest ?UNTIL, ;
+: ^while ( ctrl:ba1 -- ctrl:ba2 ctrl:ba1 )  smashBitTest ?WHILE, ;
 
 previous definitions
 
@@ -1533,6 +1565,7 @@ previous definitions
       CharHeld of  CharValue @ char,  endof
       StringHeld of  @StringValue @ string,  endof
       ConditionHeld of  endof
+      BitTestHeld of  endof
       dup if  cr ." Invalid holding type: " dup . terminate  then  endcase ;
 
 --- Loose Clauses ---
@@ -1544,6 +1577,7 @@ previous definitions
     CharHeld of  CharValue @ '*'  endof
     StringHeld of  @StringValue @ '$'  endof
     ConditionHeld of  '?'  endof
+    BitTestHeld of  '^'  endof
     x> false  endcase
   dup if
     x@ c@ 1+ CLAUSE-BUILDER c!++ c!++ x@ count slide cmove
@@ -1661,11 +1695,15 @@ previous
 
 --- Main ---
 
+create bit$ ," bit"
 : compile ( $ -- )  cr ." Compiling " dup qtype$
   ?buildClause if  exit  then
   ?punchLiteral
   findMethod if  punchMethod  exit  then
-  findWord  tempSearchVoc 0!  if  flags %CONDITION and if  holdCondition  then  punchWord  exit  then
+  findWord  tempSearchVoc 0! if
+    flags %CONDITION and if
+      dup 2+ bit$ $$> if  cr ." Holding bit test." holdBitTest  else  cr ." Holding condition." holdCondition  then  then
+    punchWord  exit  then
   count
   >int if  holdInt exit  then
   >float if  holdFloat exit  then
@@ -1881,6 +1919,8 @@ also compiler definitions  context @ @COMP-WORDS !
 : vocabulary ( @voc -- )  cr ." Adding " dup "vocabulary". ."  to search list."  dup addSearchVoc tempSearchVoc ! ;
 : size ( -- u ) tvoc@ c" Size" !para@ holdInt ;
 : raise ( -- )  « EXPUSH, »  LAST_COMP0! ;
+: exitif ( -- )  « EXITIF, »  LAST_COMP0! ;
+: exitunless ( -- )  « EXITUNLESS, »  LAST_COMP0! ;
 : begin ( -- ctrl:ba )  « BEGIN, »  LAST_COMP0! ;
 : again ( ctrl:ba -- )  « AGAIN, »  LAST_COMP0! ;
 : until ( ctrl:ba -- )  « UNTIL, »  LAST_COMP0! ;
@@ -2013,5 +2053,11 @@ also Interpreter definitions  context @ @INTERPRETER !
   readName  cr ." : " dup type$  createWord  doCompile  enterMethod ;
 
 pervious definitions
+
+------
+when calling a method, distinguish:
+- object is invocation class or a subclass -> straightforward
+- object is an implementation of invocation class -> extract virtual table part
+------
 
 REPL
