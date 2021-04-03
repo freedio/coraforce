@@ -344,3 +344,7 @@ variable utf8-char
 : !uword ( x -- x )  dup 0 65536 within unless  cr ." Not an unsigned word: " . abort  then ;
 : !u4 ( x -- x )  dup 32 u>> if  cr ." Expected unsigned 32-bit value, but got " . abort  then ;
 : !n4 ( x -- x )  dup abs 32 u>> if  cr ." Expected signed 32-bit value, but got " . abort  then ;
+
+: $>hex ( $ -- u )  dup >r 0 swap count 0 ?do  dup c@ '0' - dup 9 > 7 and -
+  dup 0 16 within unless  cr ." Not a hex number: " unloop r> qtype$ abort  then  rot 4 << + swap  1 + loop  r> 2drop ;
+: hex2. ( c -- )  dup 4 u>> dup 9 > 7 and + '0' + emit  $f and dup 9 > 7 and + '0' + emit ;

@@ -451,7 +451,7 @@ it possible to distinguish several different locator types (substructures of str
 defer reloc,
 : &. ( & -- )  dup >>@voc vocabulary. '.' emit  dup >>segment segment. '#' emit >>offset addr. ;  ( print locator & )
 : >& ( @voc seg# offs -- & )                          ( create locator from @voc, seg# and offs )
-  cr ." >&: Voc=" 2 pick dup hex. "vocabulary". ." , segment=" over . ." , offset=" dup hex.
+(  cr ." >&: Voc=" 2 pick dup hex. "vocabulary". ." , segment=" over . ." , offset=" dup hex. )
   dup 32 >> 0- if  cr ." Offset too big: " hex. abort  then
   swap !seg#  LOCATOR.SEGMENT u<< +  swap voc#  LOCATOR.VOCABULARY u<< + ;
 : >T& ( seg# offs -- & )  !u4                         ( create locator from target vocabulary, seg# and offs )
@@ -763,7 +763,7 @@ cell+ constant sWORD#
 %0000000000000100 constant %PROTECTED                 ( Visibility: protected )
 %0000000000001000 constant %PACKAGE                   ( Visibility: package private )
 %0000000000001100 constant %PUBLIC                    ( Visibility: public )
-%0000000000110000 constant %CODETYPE                  ( Code type: 0 = method, 1 = destructor, 2 = constructor, 3 = cascaded cstr. )
+%0000000000110000 constant %CODETYPE                  ( Code type: 0 = definition, 1 = method, 2 = constructor, 3 = destructor )
 %0000000000000000 constant %DEFINITION                ( Code type: [colon] definition )
 %0000000000010000 constant %METHOD                    ( Code type: regular method )
 %0000000000100000 constant %CONSTRUCTOR               ( Code type: constructor )
@@ -788,6 +788,18 @@ cell+ constant sWORD#
   - if a joiner follows a linker immediately, the SAVE / RESTORE pair "between them" can be dropped.
   - This condition appears quite frequently and may therefore save a lot of space and time.
 )
+
+: isFlag ( flags $ -- flags -? )
+  dup c" inline" $$= if  smash %EXECTYPE and 0 = exit  then
+  dup c" direct-threaded" $$= if  smash %EXECTYPE and 1 = exit  then
+  dup c" indirect-threaded" $$= if  smash %EXECTYPE and 2 = exit  then
+  dup c" token-threaded" $$= if  smash %EXECTYPE and 3 = exit  then
+  dup c" private" $$= if  smash %VISIBILITY and %PRIVATE = exit  then
+  dup c" protected" $$= if  smash %VISIBILITY and %PROTECTED = exit  then
+  dup c" package-private" $$= if  smash %VISIBILITY and %PACKAGE = exit  then
+  dup c" public" $$= if  smash %VISIBILITY and %PUBLIC = exit  then
+  dup c" method" $$= if  smash %CODETYPE and %METHOD = exit  then
+  ;
 
 variable autoFlags                                    ( Flags that get set on creating each word )
 variable nextFlags                                    ( Flags that get set on creating the next word )
@@ -1154,6 +1166,20 @@ variable @COMP-WORDS                                  ( Compiler wordlist / voca
 : resolveExxit ( ae a -- ae )  2dup - swap 4- d! ;  ( Resolves EXXIT at address a to actual exit at ae )
 : resolveExxits ( -- )              ( Resolves all the unresolved EXXITs on the X stack; without reloc, as inside same method )
   §CODE seg→|  YDEPTH 0 ?do  Y> resolveExxit  loop  drop ;
+
+
+
+=== Output Control ===
+
+create RESET  4 c, 27 c, '[' c, '0' c, 'm' c,
+create RED  7 c, 27 c, '[' c, '0' c, ';' c, '9' c, '1' c, 'm' c,
+create YELLOW  7 c, 27 c, '[' c, '0' c, ';' c, '9' c, '3' c, 'm' c,
+create GRAY  7 c, 27 c, '[' c, '0' c, ';' c, '9' c, '0' c, 'm' c,
+
+: normal ( -- )  RESET type$ ;
+: red ( -- )  RED type$ ;
+: yellow ( -- )  YELLOW type$ ;
+: gray ( -- )  GRAY type$ ;
 
 
 
@@ -1741,7 +1767,7 @@ create BUFFER  256 allot    ( input buffer for words from various sources )
   begin  nextChar dup delimiter? 0= while  !c++  BUFFER c1+!  repeat
   drop  quoted? if  $22 !c++  BUFFER c1+!  then
   drop  BUFFER ;
-: readName ( -- a$ )  readWord dup c@ unless  cr ." End of input: definition terminateed!" exit  then ;
+: readName ( -- a$ )  readWord dup c@ unless  cr ." End of input: definition terminated!" exit  then ;
 : readString ( c -- a$ )  buffer0!  >>bl    ( Read c-delimited token or empty )
   begin  nextChar  rot 2dup ≠ while  rev c!++  BUFFER c1+!  repeat
   2drop drop  BUFFER ;
@@ -1966,6 +1992,9 @@ previous definitions
 
 : pervious previous ;
 : als0 also ;
+variable codecomp
+
+variable currentVoc
 
 vocabulary Interpreter
 also Interpreter definitions  context @ @INTERPRETER !
@@ -2047,6 +2076,34 @@ also Interpreter definitions  context @ @INTERPRETER !
 : trace ( -- )  cr ." >>>>>>>>> trace <<<<<<<" traceVoc @ voc. ;
 : init: ( -- )                                        ( creates the module entry point )
   cr ." init: " c" _main_" %PRIVATE nextFlags or!  createWord  doCompile  enterMethod ;
+( Testing: )
+: !voc ( >name -- )                                   ( check presence of vocabulary )
+  readName  cr ." Check presence of vocabulary " dup qtype$ space
+  findVocabulary ?dup unless  red ." failed: fatal!" normal drop quit  else  ." successful: @" hex.  then ;
+: voc: ( >name -- )                                   ( make vocabulary current )
+  readName  cr ." Make vocabulary " dup qtype$ ."  current ... "
+  findVocabulary ?dup unless  ." failed: fatal!" quit  else  dup currentVoc ! targetVoc ! ." successful."  then ;
+: !def ( >name -- )                                   ( check presence of definition in current vocabulary )
+  readName  cr ." Check presence of definition " dup qtype$ space
+  currentVoc @ findLocalWord if
+    ." successful: @" dup hex. ."  (Code#" currentVoc @ §CODE addr@ - hex. ')' emit  else
+    yellow ." failed." normal drop  then ;
+: !method ( >name -- )                                ( check presence of method in current vocabulary )
+  readName  cr ." Check presence of method " dup qtype$ space
+  currentVoc @ findLocalMethod if  ." successful: #" cellu/ .  else  yellow ." failed" normal drop  then ;
+: !code ( >name >... >";" -- )                        ( validate code )
+  readName  cr ." Verify code of word " dup qtype$ space
+  currentVoc @ findLocalWord unless  yellow ." : word not found!" normal else  currentVoc @ over word.
+    cr ." Code: "
+    currentVoc @ swap &CFA &>a  begin  readName dup c@ over c" ;" $$= invert and while
+      dup c" <<" $$= if  drop -1 codecomp !  else  dup c" >>" $$= if  drop 0 codecomp !  else
+      codecomp @ if  gray  then  $>hex over c@ over = unless  codecomp @ unless  red  then  then  hex2. normal  1+  space
+      then  then  repeat  drop  then ;
+: !isonly ( >name >... >";" -- )
+  readName cr ." Verify flags of word " dup qtype$ space
+  currentVoc @ findLocalWord unless  yellow ." : word not found!" normal else  currentVoc @ over word.
+    flags >r  begin  readName dup c@ over c" ;" $$= invert and while
+      dup c" private" $$=
 : ( ( >...rpar -- )  c" )" comment-bracket ;          \ skips a parenthesis-comment
 : : \ >name -- \                                      \ create a code word with name from input stream \
   cr ." Entering definition with depth " depth . ."  (should be 0)"
