@@ -456,6 +456,21 @@ code: QMOVE, ( sa ta # -- )  RAX RCX MOV  CELL [RSP] RDI XCHG  0 [RSP] RSI XCHG 
 
 
 
+=== Real (or rather floating point) Numbers ===
+
+--- Constants ---
+
+code: 0.0, ( -- F: -- 0.0 )  FLD0 ;
+code: 1.0, ( -- F: -- 1.0 )  FLD1 ;
+code: M1.0, ( -- F: -- −1.0 )  FLD1 FCHS ;
+code: PI, ( -- F: -- π )  FLDPI ;
+
+--- Memory Operations ---
+
+code: FSTORE, ( a -- F: r -- )  QWORD PTR 0 [RAX] FSTP  RESTORE, ;
+code: FFETCH, ( a -- F: -- r )  QWORD PTR 0 [RAX] FLD  RESTORE, ;
+
+
 === UTF8 ===
 
 code: GETUC, ( a # -- a' #' uc|-1 )                   ( Next UTF-8 character uc from buffer, or -1 on error or end-of-buffer )

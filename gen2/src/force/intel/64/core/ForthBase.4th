@@ -120,7 +120,7 @@ variable ZSS  private                                 ( Z-stack size in cells )
 : tuck ( x2 x1 -- x1 x2 x1 )  TUCK, ;                 ( tuck top of stack under second )
 : nip ( x2 x1 -- x1 )  NIP, ;                         ( drop second of stack )
 : nip2 ( x3 x2 x1 -- x1 )  NIP2, ;                    ( drop second and third of stack )
-: smash ( x2 x1 -- x2 x2 )  SMASH, ;                  ( replace top of stack with second )
+: smash ( x2 x1 -- x2 x2 )  SMASH, ;                  ( replace second of stack with top )
 : rot ( x3 x2 x1 -- x2 x1 x3 )  ROT, ;                ( rotate top stack triple )
 : -rot ( x3 x2 x1 -- x1 x3 x2 )  ROTR, ;              ( reverse rotate top stack triple )
 : slide ( x3 x2 x1 -- x2 x3 x1 )  SLIDE, ;            ( exchange 2nd and 3rd of stack )
@@ -381,6 +381,20 @@ alias −−o!  alias −−v!  alias −−2!                    ( aliases with
 : q−! ( q a -- )  QSUB, ;  alias q-!  alias l−!  alias l-!    ( subtract q from quad word at address a )
 : o−! ( o a -- )  OSUB, ;  alias o-!  alias v−!  alias v-!    ( subtract o from oct word at address a )
 
+
+
+=== Floating Point Arithmetics ===
+
+--- Constants ---
+
+: 0.0 ( -- F: -- 0.0 )  0.0, ;                        ( Real 0.0 )
+: 1.0 ( -- F: -- 1.0 )  1.0, ;                        ( Real 1.0 )
+: −1.0 ( -- F: -- −1.0 )  M1.0, ;  alias -1.0         ( Real −1.0 )
+: π ( -- F: -- π )  PI, ;  alias pi                   ( pi, the "circle constant" )
+
+--- Memory Operations ---
+
+: f! ( a -- F: f -- )  FSTORE, ;                      ( Store floating point value )
 
 
 === Condition Tests ===

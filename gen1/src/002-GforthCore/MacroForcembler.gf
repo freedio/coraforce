@@ -119,34 +119,43 @@ also Forcembler
 : #PICK, ( ... # -- x )  SAVE,  cells [RSP] [RAX] *8 RAX MOV ;
 : #DROP, ( # -- )  1- dup 0> if  dup cells # RSP ADD  then  drop  RAX POP ;
 : #FETCH, ( # -- )  case
-  1 of  BYTE PTR 0 [RAX] RAX MOVZX  endof
-  2 of  WORD PTR 0 [RAX] RAX MOVZX  endof
-  4 of  0 [RAX] EAX MOV  endof
-  8 of  0 [RAX] RAX MOV  endof
+  1 of   BYTE PTR 0 [RAX] RAX MOVZX  endof
+  2 of   WORD PTR 0 [RAX] RAX MOVZX  endof
+  4 of   0 [RAX] EAX MOV  endof
+  8 of   0 [RAX] RAX MOV  endof
+  16 of  QWORD PTR CELL [RAX] PUSH  0 [RAX] RAX MOV  endof
   -1 of  BYTE PTR 0 [RAX] RAX MOVSX  endof
   -2 of  WORD PTR 0 [RAX] RAX MOVSX  endof
   -4 of  0 [RAX] EAX MOV  CDQE  endof
   -8 of  0 [RAX] RAX MOV  endof
-  cr ." Invalid operand size (expected 2ⁿ|n in ±1,±2,±4,±8): " . abort  endcase ;
+  -16 of QWORD PTR CELL [RAX] PUSH  0 [RAX] RAX MOV  endof
+  10 of  QWORD PTR 0 [RAX] FLD  endof
+  cr ." #FETCH: Invalid operand size (expected 2ⁿ|n in ±1,±2,±4,±8): " . abort  endcase ;
 : ##FETCH, ( offs # -- )  case
-  1 of  BYTE PTR [RAX] RAX MOVZX  endof
-  2 of  WORD PTR [RAX] RAX MOVZX  endof
-  4 of  [RAX] EAX MOV  endof
-  8 of  [RAX] RAX MOV  endof
+  1 of   BYTE PTR [RAX] RAX MOVZX  endof
+  2 of   WORD PTR [RAX] RAX MOVZX  endof
+  4 of   [RAX] EAX MOV  endof
+  8 of   [RAX] RAX MOV  endof
+  16 of  dup cell+ QWORD PTR [RAX] PUSH  [RAX] RAX MOV  endof
   -1 of  BYTE PTR [RAX] RAX MOVSX  endof
   -2 of  WORD PTR [RAX] RAX MOVSX  endof
   -4 of  [RAX] EAX MOV  CDQE  endof
   -8 of  [RAX] RAX MOV  endof
-  cr ." Invalid operand size (expected 2ⁿ|n in ±1,±2,±4,±8): " . abort  endcase ;
+  -16 of  dup cell+ QWORD PTR [RAX] PUSH  [RAX] RAX MOV  endof
+  10 of  QWORD PTR [RAX] FLD  endof
+  cr ." ##FETCH: Invalid operand size (expected 2ⁿ|n in ±1,±2,±4,±8): " . abort  endcase ;
 : #STORE, ( # -- )  dup nsize  case
   8 of  # RDX MOV  RDX 0 [RAX] MOV  endof
+  10 of  QWORD PTR 0 [RAX] FSTP  endof
   swap  1 ADP+ # QWORD PTR 0 [RAX] MOV  1 ADP-  RESTORE, endcase ;
 : ##STORE, ( offs # -- )  abs case
   1 of  1 ADP+  RDX POP  1 ADP-  DL swap [RAX] MOV  RESTORE,  endof
   2 of  1 ADP+  RDX POP  1 ADP-  DX swap [RAX] MOV  RESTORE,  endof
   4 of  1 ADP+  RDX POP  1 ADP-  EDX swap [RAX] MOV  RESTORE,  endof
-  8 of   QWORD PTR [RAX] POP  RESTORE,  endof
-  cr ." Invalid operand size (expected 2ⁿ|n in ±1,±2,±4,±8): " . abort  endcase ;
+  8 of  QWORD PTR [RAX] POP  RESTORE,  endof
+  16 of dup QWORD PTR [RAX] POP  cell+ QWORD PTR [RAX] POP  RESTORE,  endof
+  10 of  DWORD PTR [RAX] FSTP  endof
+  cr ." ##STORE: Invalid operand size (expected 2ⁿ|n in ±1,±2,±4,±8): " . abort  endcase ;
 : #CADD, ( # -- )  1 ADP+ # BYTE PTR 0 [RAX] ADD  1 ADP-  RESTORE, ;
 : #WADD, ( # -- )  1 ADP+ # WORD PTR 0 [RAX] ADD  1 ADP-  RESTORE, ;
 : #DADD, ( # -- )  1 ADP+ # DWORD PTR 0 [RAX] ADD  1 ADP-  RESTORE, ;

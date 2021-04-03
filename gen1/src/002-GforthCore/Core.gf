@@ -524,7 +524,7 @@ variable relocs
   dup §DEPS vocseg 0 udo  depfix  DEPENDENCY# + DEPENDENCY# +loop  drop
   dup §RELS vocseg 0 udo  dup reloc  RelocEntry# tuck +  swap +loop  2drop ;
 : relocDeps ( @voc -- )                               ( relocate dependency table of vocabulary @voc )
-  dup §RELS vocseg 0 udo  dup RELOC.SOURCE + @ >>segment §DEPS = if  dup reloc  then  RelocEntry# tuck +  swap +loop  2drop ;
+  dup §RELS vocseg 0 udo  dup RELOC.SOURCE + @ >>segment §DEPS = if  dup reloc  then  RelocEntry# tuck +  swap +loop 2drop ;
 
 variable DATASEG#
 variable CODESEG#
@@ -673,7 +673,7 @@ variable file
   ModulePath cr ." Loading module "  dup qtype$  count r/o open-file ifever  ."  failed (to open)." exit  then  file !
   MODULE-HEADER 128 tuck file @ read-file throw = unlessever  ."  failed (to read header)" 0 else
     MODULE-HEADER Headline$ 16 tuck compare ifever  ."  failed: incompatible headers" 0 else
-      MODULE-HEADER 16 + cr ." → vocabulary " dup qtype$  createVocabulary xdepth
+      MODULE-HEADER 16 + cr ." → vocabulary " dup qtype$  createVocabulary
       MODULE-HEADER Headline# + segments 0 do           ( read segments )
         ." , "  i segname type$ dup @ ?dup if  ."  (" dup . ." B)"
           dup lastVoc @ i >segment hset over 16 ->| file @ read-file throw swap 16 ->| - ifever
@@ -681,7 +681,7 @@ variable file
         cell+ loop  drop  then  then
   ." : loaded"
   lastVoc @ dup relocDeps  dup loadDeps  ." linked"  relocate  ." , relocated"
-  file @ ?dup if  close-file throw  0 file !  then  lastVoc @ addSearchVoc  ." , added to searchlist." ;
+  file @ ?dup if  close-file throw  0 file !  then  lastVoc @ addSearchVoc  ." , added to searchlist." true ;
 : ?loadSource ( $1 $2 -- ? )                          ( try loading module $1 from root $2 and report if successful )
   ModulePath over 1+ c@ '~' = if  s" HOME" getenv a#>$  swap count -> a#+>$  else  swap $>$  then
   '/' ?c+>$  c" src" $+>$  swap $+>$  c" .4th" $+>$  cr ." Reading source file "  dup qtype$
@@ -715,9 +715,9 @@ variable baseClass
     lastVoc @ loadedModule !  targetVoc ! lastVoc !  then ;
 :noname ( @voc -- )                                       ( load depdendencies of vocabulary @voc )
   dup voc.
-  dup §DEPS vocseg .sh ?dup if
-    0 udo dup @ loadModule  DEPENDENCY# tuck + swap +loop  swap cr ." → Vocabulary " "vocabulary". space  else
-    ." , " then  drop ;  is loadDeps
+  dup §DEPS vocseg ?dup if
+    0 udo dup @ loadModule  DEPENDENCY# tuck + swap +loop drop  cr ." → Vocabulary " dup "vocabulary". space dup  else
+    ." , " then  2drop ;  is loadDeps
 
 
 
@@ -757,7 +757,7 @@ cell+ constant sWORD#
 
 --- Word Flags ---
 
-%0000000000000011 constant %EXECTYPE                  ( Execution type: 0 = inline, 1 = direct, 2 = indirect, 3 = token )
+%0000000000000011 constant %EXECTYPE                  ( Execution type: 0 = code, 1 = direct, 2 = indirect, 3 = token )
 %0000000000001100 constant %VISIBILITY                ( Visibility: 0 = private, 1 = protected, 2 = package, 3 = public )
 %0000000000000000 constant %PRIVATE                   ( Visibility: private )
 %0000000000000100 constant %PROTECTED                 ( Visibility: protected )
@@ -790,16 +790,31 @@ cell+ constant sWORD#
 )
 
 : isFlag ( flags $ -- flags -? )
-  dup c" inline" $$= if  smash %EXECTYPE and 0 = exit  then
-  dup c" direct-threaded" $$= if  smash %EXECTYPE and 1 = exit  then
-  dup c" indirect-threaded" $$= if  smash %EXECTYPE and 2 = exit  then
-  dup c" token-threaded" $$= if  smash %EXECTYPE and 3 = exit  then
-  dup c" private" $$= if  smash %VISIBILITY and %PRIVATE = exit  then
-  dup c" protected" $$= if  smash %VISIBILITY and %PROTECTED = exit  then
-  dup c" package-private" $$= if  smash %VISIBILITY and %PACKAGE = exit  then
-  dup c" public" $$= if  smash %VISIBILITY and %PUBLIC = exit  then
-  dup c" method" $$= if  smash %CODETYPE and %METHOD = exit  then
-  ;
+  dup c" code-threaded" $$= if  smash $10000 andn swap %EXECTYPE and 0 = exit  then
+  dup c" direct-threaded" $$= if  smash $10000 andn swap %EXECTYPE and 1 = exit  then
+  dup c" indirect-threaded" $$= if  smash $10000 andn swap %EXECTYPE and 2 = exit  then
+  dup c" token-threaded" $$= if  smash $10000 andn swap %EXECTYPE and 3 = exit  then
+  dup c" private" $$= if  smash $20000 andn swap %VISIBILITY and %PRIVATE = exit  then
+  dup c" protected" $$= if  smash $20000 andn swap %VISIBILITY and %PROTECTED = exit  then
+  dup c" package-private" $$= if  smash $20000 andn swap %VISIBILITY and %PACKAGE = exit  then
+  dup c" public" $$= if  smash $20000 andn swap %VISIBILITY and %PUBLIC = exit  then
+  dup c" definition" $$= if  smash $40000 andn swap %CODETYPE and %DEFINITION = exit  then
+  dup c" method" $$= if  smash $40000 andn swap %CODETYPE and %METHOD = exit  then
+  dup c" constructor" $$= if  smash $40000 andn swap %CODETYPE and %CONSTRUCTOR = exit  then
+  dup c" destructor" $$= if  smash $40000 andn swap %CODETYPE and %DESTRUCTOR = exit  then
+  dup c" relocs" $$= if  smash %RELOCS andn swap %RELOCS and exit  then
+  dup c" main" $$= if  smash %MAIN andn swap %MAIN and exit  then
+  dup c" static" $$= if  smash %STATIC andn swap %STATIC and exit  then
+  dup c" indirect" $$= if  smash %INDIRECT andn swap %INDIRECT and exit  then
+  dup c" abstract" $$= if  smash %ABSTRACT andn swap %ABSTRACT and exit  then
+  dup c" condition" $$= if  smash %CONDITION andn swap %CONDITION and exit  then
+  dup c" inline" $$= if  smash %RELOCS andn swap %RELOCS and exit  then
+  dup c" joiner" $$= if  smash %JOIN andn swap %JOIN and exit  then
+  dup c" linker" $$= if  smash %LINK andn swap %LINK and exit  then
+  dup c" fallible" $$= if  smash %FALLIBLE andn swap %FALLIBLE and exit  then
+  dup c" prefix" $$= if  smash %PREFIX andn swap %PREFIX and exit  then
+  cr ." Unrecognized attribute: " dup qtype$
+  false ;
 
 variable autoFlags                                    ( Flags that get set on creating each word )
 variable nextFlags                                    ( Flags that get set on creating the next word )
@@ -914,13 +929,12 @@ variable LAST_COMP                                    ( Last word compiled into 
     dup @ 2 pick over findLocalWord if  2swap 2drop true unloop exit  then  2drop  loop
   drop false ;
 : findLocalMethod ( $ @voc -- # t | $ f )             ( look up method $ in vocabulary @voc, returning its index # if found )
-  cr ." Looking up method " over qtype$ ."  in vocabulary " dup "vocabulary".
+  cr ." Looking up method " over qtype$ ."  in vocabulary " dup "vocabulary". space
   §VMAT >segment heap 2 cells u/ ?dup if  0 do
     dup @ 2 pick $$= if  2drop i true unloop exit  then  2 cells +  loop  then  drop false ;
 : findMethod ( $ -- @voc # t | $ f )                  ( find method $ in search order, returning its voc and method index # )
   SearchOrder -heap cellu/ 0 do
-    cell- ( cr ." Looking up method in " dup @ "vocabulary". )
-    dup @ 2 pick over findLocalMethod if  2swap 2drop true unloop exit  then  2drop  loop
+    cell-  dup @ 2 pick over findLocalMethod if  2swap 2drop true unloop exit  then  2drop  loop
   drop false ;
 
 ( create definition: )
@@ -1332,12 +1346,12 @@ create DIGITS  ," 0123456789ABCDEFabcdef"
 : >digit ( c -- u|-1 )  DIGITS count rot cfind dup 16 > if  6 -  then  1- ;
 : eatDigits ( a # -- a' #' )  Tfail on  IntValue 0!  IntValue# 0!
   begin  2dup  while
-    c@ >digit dup 0 Tradix @ within unless  drop exit  then
-    Tfail off  IntValue# 1+!  IntValue @ Tradix @ * + IntValue !  ->  repeat  drop ;
+    c@ dup ',' = unless  >digit dup 0 Tradix @ within unless  drop exit  then
+    Tfail off  IntValue# 1+!  IntValue @ Tradix @ * + IntValue ! else drop then  ->  repeat  drop ;
 : eatDigits? ( a # -- a' #' )  IntValue 0!  IntValue# 0!
   begin  2dup  while
-    c@ >digit dup 0 Tradix @ within unless  drop exit  then
-    IntValue# 1+!  IntValue @ Tradix @ * + IntValue !  ->  repeat  drop ;
+    c@ dup ',' = unless  >digit dup 0 Tradix @ within unless  drop exit  then
+    IntValue# 1+!  IntValue @ Tradix @ * + IntValue ! else drop then  ->  repeat  drop ;
 : eatChar ( a # -- a' #' )  eatUC dup '\' = if  drop eatEsc  then  IntValue ! ;
 : eatChars ( a # -- a' #' )  Tfail @ unless  @T$ @ c0!  ( read characters until closing double-quote )
   begin  2dup  while  c@ $22 = if  exit  then  eatChar  IntValue @  @T$ @ count + c!  @T$ @ c1+!  repeat  drop  then ;
@@ -1676,20 +1690,22 @@ previous
   %VISIBILITY nextFlags andn!  %PRIVATE nextFlags or!  createWord  cr ." > dynamic address"
   §CODE →tseg#↑  lvl>0  enterMethod  tvoc@ c" Size" !para@ 1+ @ « #PLUS, »
   exitMethod  lvl>  -1 wordComplete !  tseg#↓  lvl> ;
-: createDynamicVal ( # &tp|0 val$ -- )                ( create dynamic value val$ of size # and type &tp )
+: createDynamicVal ( # &tp|&null val$ -- )            ( create dynamic value val$ of size # and type &tp )
   %VISIBILITY nextFlags andn!  %PRIVATE nextFlags or! dup >x  createWord  ( create basic val )  cr ." > dynamic base val"
-  §CODE →tseg#↑  lvl>0  enterMethod  tvoc@ c" Size" !para@ 1+ dup >x @ dup DYNAMIC# ! « #PLUS, »  over abs x> +!
+  drop ( until we store the type somewhere )
+  §CODE →tseg#↑  lvl>0  enterMethod  tvoc@ c" Size" !para@ 1+ dup >x @ dup DYNAMIC# ! « #PLUS, »  dup abs x> +!
   exitMethod  -1 wordComplete !  tseg#↓  lvl>
   METHODNAME x> $>$ '@' c+>$  createWord              ( create getter )  cr ." > getter"
   §CODE →tseg#↑  lvl>0  enterMethod  DYNAMIC# @ swap lvl++ « ##FETCH, »  exitMethod  -1 wordComplete !  tseg#↓  lvl> ;
 : createDynamicVar ( # &tp|0 var$ -- )                  ( create dynamic variable var$ of size # and type &tp )
   %VISIBILITY nextFlags andn!  %PRIVATE nextFlags or! dup >x  createWord  ( create basic var )  cr ." > dynamic base var"
-  §CODE →tseg#↑  lvl>0  enterMethod  tvoc@ c" Size" !para@ 1+ dup >x @ dup DYNAMIC# ! « #PLUS, »  over abs x> +!
+  drop ( until we store the type somewhere )
+  §CODE →tseg#↑  lvl>0  enterMethod  tvoc@ c" Size" !para@ 1+ dup >x @ dup DYNAMIC# ! « #PLUS, »  dup abs x> +!
   exitMethod  -1 wordComplete !  tseg#↓  lvl>
   METHODNAME x@ $>$ '@' c+>$  createWord                ( create getter )  cr ." > getter"
-  §CODE →tseg#↑  lvl>0  enterMethod  DYNAMIC# @ 2 pick .sh « ##FETCH, »  exitMethod  -1 wordComplete !  tseg#↓  lvl>
+  §CODE →tseg#↑  lvl>0  enterMethod  DYNAMIC# @ over « ##FETCH, »  exitMethod  -1 wordComplete !  tseg#↓  lvl>
   METHODNAME x> $>$ '!' c+>$  createWord                ( create setter )  cr ." > setter"
-  §CODE →tseg#↑  lvl>0  enterMethod  DYNAMIC# @ rot lvl++ .sh « ##STORE, »  exitMethod  -1 wordComplete !  tseg#↓  lvl> ;
+  §CODE →tseg#↑  lvl>0  enterMethod  DYNAMIC# @ swap lvl++ « ##STORE, »  exitMethod  -1 wordComplete !  tseg#↓  lvl> ;
 : allotDynamic ( # -- )  cr ." Dynamic allot " dup .  tvoc@ c" Size" !para@ 1+ +! ; ( allot # bytes of any value in instance data space )
 : 0allotDynamic ( # -- )  cr ." Dynamic 0allot " dup .  tvoc@ c" Size" !para@ 1+ +! ; ( allot # bytes of value 0 in instance data space )
 : createStatic ( addr$ -- )                           ( create adress in instance data space )
@@ -1712,7 +1728,7 @@ previous
   cr ." Object size: " x@ .
   %VISIBILITY nextFlags andn!  %PRIVATE nextFlags or!  createWord
   §DATA →tseg#↑  dup t&,  tseg#↓
-  §CODE →tseg#↑  lvl>1  enterMethod  .sh « PUSHPFA, »  exitMethod  lvl>  -1 wordComplete !  tseg#↓
+  §CODE →tseg#↑  lvl>1  enterMethod  « PUSHPFA, »  exitMethod  lvl>  -1 wordComplete !  tseg#↓
   §DATA →tseg#↑  x> tallot, tseg#↓ ;
 : allotStatic ( # -- )                                ( allot # bytes of any value in vocabulary data space )
   cr ." Static allot " dup .  §DATA >seg hallot 2drop ;
@@ -1741,7 +1757,7 @@ create bit$ ," bit"
   >stringClause if  execute exit  then
   2dup @COMP-WORDS @ search-wordlist if
     -rot 2drop [ also Forcembler ] depth 1- 0 max dup >B ADP+ execute B> ADP- [ previous ] exit  then
-  over 1- findVocabulary  ?dup if  vocabulary, exit  then  drop
+  over 1- findVocabulary  ?dup if  -rot 2drop cr ." Punching vocabulary " dup "vocabulary". vocabulary, exit  then  drop
   word-not-found ;
 :noname ( $ -- )  compile ; is compile,
 
@@ -1793,7 +1809,7 @@ also VocabularyWords definitions  context @ VOC-WORDS !
   dup voctype@ ?dup if  0 invalid-vocabulary-type  then  insert-voc ;
 : val ( &type|# >name -- )                            ( create an unmodifiable field member of type &type or size # )
   dup 2 cells u≤ if  ( size )  &null  else  ( type )  cell swap  then  readName  cr ." val " dup qtype$  createStaticVal ;
-: var ( &type|# >name -- ) cr .sh                            ( create a modifiable field member of type &type or size # )
+: var ( &type|# >name -- )                            ( create a modifiable field member of type &type or size # )
   cr ." vocabulary var "
   dup 2 cells ≤ if  ( size )  &null  else  ( type )  cell swap  then  readName  cr ." var " dup qtype$  createStaticVar ;
 : object ( &type >name -- )                           ( insert a direct object of type &type )
@@ -1895,7 +1911,7 @@ also EnumWords definitions  context @ ENUM-WORDS !
 : symbol ( >name -- )                                 ( add a symbol to the enum )
   readName  cr ." constant " dup qtype$  createWord  §CODE →tseg#↑
   tvoc@ c" Next" !para@ 1+ dup @ lvl>1  enterMethod  int,  exitMethod  lvl>  -1 wordComplete !  tseg#↓
-  .sh 1+!  tvoc@ c" Count" !para@ 1+ 1+! ;
+  1+!  tvoc@ c" Count" !para@ 1+ 1+! ;
 
 previous definitions
 
@@ -1940,7 +1956,7 @@ also compiler definitions  context @ @COMP-WORDS !
 : litf ( &r -- ) « LITF, »  LAST_COMP0! ;
 : lit$ ( &$ -- )  « LIT$, »  LAST_COMP0! ;
 : invoke ( &methref -- )  cr ." > invoke: method reference " dup hex.
-  $FFFFFFFF and « ULIT4, » c" invoke" findWord unlessever word-not-found$ else .sh punchWord then  LAST_COMP0! ;
+  $FFFFFFFF and « ULIT4, » c" invoke" findWord unlessever word-not-found$ else punchWord then  LAST_COMP0! ;
 : my ( -- a )  « THIS, »  LAST_COMP0! ;  alias me  alias I'm  alias this  alias self   ( push the current instance )
 : vocabulary ( @voc -- )  cr ." Adding " dup "vocabulary". ."  to search list."  dup addSearchVoc tempSearchVoc ! ;
 : size ( -- u ) tvoc@ c" Size" !para@ holdInt ;
@@ -1968,6 +1984,7 @@ also compiler definitions  context @ @COMP-WORDS !
 : ?dupifever ( -- ctrl:ba )  « CONDUPIFEVER, »  LAST_COMP0! ;
 : else ( ctrl:ba1 -- ctrl:ba2 )  « ELSE, »  LAST_COMP0! ;
 : then ( ctrl:ba -- )  « THEN, »  LAST_COMP0! ;
+: ?? ( >tag -- )  readName cr 27 emit ." [1;106m" type$ .sh 27 emit ." [0m" ;
 : ( ( >...rpar -- )  c" )" comment-bracket ;          \ skips a parenthesis-comment
 : ;  finishDef  exitMethod  -1 wordComplete !  LASTCONTRIB 0!  LAST_COMP0!  doInterpret ;     \ finish definition
 
@@ -2003,10 +2020,13 @@ also Interpreter definitions  context @ @INTERPRETER !
 2 constant U2
 4 constant U4
 8 constant U8
+16 constant U16
 -1 constant N1
 -2 constant N2
 -4 constant N4
 -8 constant N8
+-16 constant N16
+10 constant Real
 
 : vocabulary ( >name -- )                             ( create a vocabulary with name from input stream )
   readName  cr ." vocabulary " dup qtype$  createVocabulary  §PARA →tseg#↑  c" Package" t$, currentPackage t$,  tseg#↓ ;
@@ -2074,9 +2094,15 @@ also Interpreter definitions  context @ @INTERPRETER !
 : package: ( -- )  %VISIBILITY autoFlags andn!  %PACKAGE autoFlags or! ;      ( set default visibility to package )
 : traceIt ( -- )  loadedModule @ cr ." >>>>>>> Tracing " dup "vocabulary". traceVoc ! ;
 : trace ( -- )  cr ." >>>>>>>>> trace <<<<<<<" traceVoc @ voc. ;
+: print" ( >..." -- )  '"' readString qtype$ ;
+: ?? ( >tag -- )  readName cr 27 emit ." [1;106m" type$ .sh 27 emit ." [0m" ;
 : init: ( -- )                                        ( creates the module entry point )
   cr ." init: " c" _main_" %PRIVATE nextFlags or!  createWord  doCompile  enterMethod ;
 ( Testing: )
+: tests: ( -- )                                                   ( start tests )
+    depth ?dup if  cr ." Depth is " . ." before tests start -> fix this!" quit  then ;
+: tests; ( -- )                                                   ( end tests )
+    depth ?dup if  cr ." Depth is " . ." after tests finished -> fix this!" quit  then ;
 : !voc ( >name -- )                                   ( check presence of vocabulary )
   readName  cr ." Check presence of vocabulary " dup qtype$ space
   findVocabulary ?dup unless  red ." failed: fatal!" normal drop quit  else  ." successful: @" hex.  then ;
@@ -2088,9 +2114,10 @@ also Interpreter definitions  context @ @INTERPRETER !
   currentVoc @ findLocalWord if
     ." successful: @" dup hex. ."  (Code#" currentVoc @ §CODE addr@ - hex. ')' emit  else
     yellow ." failed." normal drop  then ;
-: !method ( >name -- )                                ( check presence of method in current vocabulary )
+: !method ( >name -- )                                ( check presence of not-abstract method in current vocabulary )
   readName  cr ." Check presence of method " dup qtype$ space
-  currentVoc @ findLocalMethod if  ." successful: #" cellu/ .  else  yellow ." failed" normal drop  then ;
+  currentVoc @ findLocalMethod if  dup ." found: #" .  currentVoc @ swap method@
+    else  yellow ." failed" normal drop  then ;
 : !code ( >name >... >";" -- )                        ( validate code )
   readName  cr ." Verify code of word " dup qtype$ space
   currentVoc @ findLocalWord unless  yellow ." : word not found!" normal else  currentVoc @ over word.
@@ -2099,11 +2126,45 @@ also Interpreter definitions  context @ @INTERPRETER !
       dup c" <<" $$= if  drop -1 codecomp !  else  dup c" >>" $$= if  drop 0 codecomp !  else
       codecomp @ if  gray  then  $>hex over c@ over = unless  codecomp @ unless  red  then  then  hex2. normal  1+  space
       then  then  repeat  drop  then ;
+: !is ( >name >... >";" -- )
+  readName cr ." Verify flags of word " dup qtype$ ."  (red: wrong, yellow: missing): "
+  currentVoc @ findLocalWord unless  yellow ." : word not found!" normal else
+    flags  begin  readName dup c@ over c" ;" $$= invert and while
+      tuck isFlag unless  red  then  swap type$  normal space  repeat  drop  then ;
 : !isonly ( >name >... >";" -- )
-  readName cr ." Verify flags of word " dup qtype$ space
-  currentVoc @ findLocalWord unless  yellow ." : word not found!" normal else  currentVoc @ over word.
-    flags >r  begin  readName dup c@ over c" ;" $$= invert and while
-      dup c" private" $$=
+  readName cr ." Verify flags of word " dup qtype$ ."  (red: wrong, yellow: missing): "
+  currentVoc @ findLocalWord unless  yellow ." : word not found!" normal else
+    flags $70000 or  begin  readName dup c@ over c" ;" $$= invert and while
+      tuck isFlag unless  red  then  swap type$  normal space  repeat
+  drop yellow
+  dup $10000 and if  dup %EXECTYPE and case
+    0 of  ." code-threaded "  endof
+    1 of  ." direct-threaded "  endof
+    2 of  ." indirect-threaded "  endof
+    3 of  ." token-threaded "  endof  endcase  then
+  dup $20000 and if  dup %VISIBILITY and case
+    %PRIVATE of  ." private "  endof
+    %PROTECTED of  ." protected "  endof
+    %PACKAGE of  ." package-private "  endof
+    %PUBLIC of  ." public "  endof  endcase  then
+  dup $40000 and if  dup %CODETYPE and case
+    %DEFINITION of  ." definition "  endof
+    %METHOD of  ." method "  endof
+    %CONSTRUCTOR of  ." constructor "  endof
+    %DESTRUCTOR of  ." destructor "  endof  endcase  then
+  dup %RELOCS and if  ." relocs "  then
+  dup %MAIN and if  ." main "   then
+  dup %STATIC and if  ." static "   then
+  dup %INDIRECT and if  ." indirect "   then
+  dup %ABSTRACT and if  ." abstract "   then
+  dup %CONDITION and if  ." condition "   then
+  dup %RELOCS and if  ." inline "   then
+  dup %JOIN and if  ." joiner "   then
+  dup %LINK and if  ." linker "   then
+  dup %FALLIBLE and if  ." fallible "   then
+  dup %PREFIX and if  ." prefix "   then
+  drop  normal  then  drop ;
+
 : ( ( >...rpar -- )  c" )" comment-bracket ;          \ skips a parenthesis-comment
 : : \ >name -- \                                      \ create a code word with name from input stream \
   cr ." Entering definition with depth " depth . ."  (should be 0)"

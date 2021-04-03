@@ -2,9 +2,9 @@
 
 ****** The scratch test vocabulary of FORCE-linux 4.19.0-5-amd64 ******
 
-package /force/intel/64/core
+package /force/intel/64/test
 
-import ForthBase
+import /force/intel/64/core/ForthBase
 
 vocabulary: TestCondBits
 
@@ -20,6 +20,8 @@ variable a
 : flipbit ( -- )  a @ dup bit× if  nop  then ;
 
 vocabulary;
+
+tests:
 
 !voc TestCondBits
 voc: TestCondBits
@@ -57,7 +59,7 @@ voc: TestCondBits
   8F 45 00 48 83 C5 08 50 48 B8 << 20 2B F4 DB 17 56 00 00 >> 48 8B 00 50 48 0F BB 04 24 58 48 85 C0 58 0F 84 01 00 00 00 90
   48 83 ED 08 FF 75 00 C3 ;
 
-!isonly test15  private static code-threaded joiner definition ;
+!isonly test15  static code-threaded definition linker ;
 !isonly testequal  private static code-threaded joiner definition ;
 !isonly testequal5 private static code-threaded joiner definition ;
 !isonly testbit6 private static code-threaded joiner definition ;
@@ -65,3 +67,5 @@ voc: TestCondBits
 !isonly testbit private static code-threaded joiner definition ;
 !isonly testclearbit private static code-threaded definition ;
 !isonly flipbit private static code-threaded joiner definition ;
+
+tests;

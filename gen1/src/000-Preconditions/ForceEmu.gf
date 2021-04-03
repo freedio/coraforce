@@ -166,6 +166,12 @@
     REPEAT
   2DROP ;
 
+: .sh  base @ >r hex .s r> base ! ;
+: <?> ( tag -- )  cr 27 emit ." [1;101m" type .sh 27 emit ." [0m" ;
+: <? cr 27 emit ." [1;101m" ;
+: ?> .sh 27 emit ." [0m" ;
+: ?? ( >tag -- )  name <?> ;
+: ??" ( > tag -- )  postpone <? postpone ." postpone ?> ; immediate
 
 
 : $$#= ( a1 a2 # -- ? )
@@ -260,7 +266,6 @@
 : >mask ( n -- %n )
   -128 128 within if  $FF  else  -65536 65536 within if $FFFF else $FFFFFFFF  then  then ;
 : sp/ ( ... -- )  depth 0 ?do drop loop ;
-: .sh  base @ >r hex .s r> base ! ;
 
 create ASTACK 1024 allot
 create ASP  ASTACK ,
