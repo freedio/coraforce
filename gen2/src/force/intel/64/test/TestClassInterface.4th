@@ -10,7 +10,7 @@ import model/TestClass
 vocabulary: TestClassInterface
   requires TestClass
   requires ForthBase
-: testClass ( -- )  ?? A TestClass ?? B new ?? C drop ;
+: testClass ( -- )  TestClass new drop ;
 vocabulary;
 
 tests:

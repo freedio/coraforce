@@ -937,7 +937,7 @@ variable LAST_COMP                                    ( Last word compiled into 
     cell-  dup @ 2 pick over findLocalMethod if  2swap 2drop true unloop exit  then  2drop  loop
   drop false ;
 
-( create definition: )
+( create method: )
 : createCompactDef ( a$ -- )                          ( create compact definition )
   §TEXT →tseg#↑ &there swap t$, tseg#↓
   §VMAT →tseg#↑ t&,  c" unimplemented" findWord unless  word-not-found$  then  &CFA t&,  tseg#↓ ;
@@ -962,6 +962,22 @@ variable LAST_COMP                                    ( Last word compiled into 
     STRUCTURED-VOC of  createStructuredDestr  endof
     unknown-vocabulary-model  endcase
   autoFlags @ nextFlags ! ;
+
+( find method: )
+: @compactMethod ( @voc # -- @method )
+  swap §VMAT vocseg 2 cells u/ 2 pick < if  2drop cr ." Invalid method index: " . terminate  then swap 2 cells u* + ;
+: @structuredMethod ( @voc # -- @method )  ***TODO*** ;
+: method@ ( @voc # -- @method )  over vocmodel case   ( get address of method # in vocabulary @voc )
+    COMPACT-VOC of  @compactMethod  endof
+    STRUCTURED-VOC of  @structuredMethod  endof
+    unknown-vocabulary-model  endcase ;
+: code@ ( @method -- @code )  cell + @ ;              ( given method @method, return its code field address )
+: name@ ( @code -- @name )  dup 2 − w@ + dup w@ swap 2+ r- 2+ ; ( given code field address @code, return definition name @name )
+
+( link method: )
+: linkMethod ( -- )                                   ( link last word in target code seg to homonymous local method, if present )
+  tvoc@ currentWord@ 2+ over findLocalMethod unless  2drop exit  then
+
 
 ( get word locator: )
 : @cw>& ( @voc @word -- &w )  §CODE vt& ;
@@ -1187,11 +1203,13 @@ variable @COMP-WORDS                                  ( Compiler wordlist / voca
 
 create RESET  4 c, 27 c, '[' c, '0' c, 'm' c,
 create RED  7 c, 27 c, '[' c, '0' c, ';' c, '9' c, '1' c, 'm' c,
+create REDFLASH  15 c, 27 c, '[' c, '0' c, ';' c, '1' c, ';' c, '5' c, ';' c, '9' c, '1' c, ';' c, '1' c, '0' c, '3' c, 'm' c,
 create YELLOW  7 c, 27 c, '[' c, '0' c, ';' c, '9' c, '3' c, 'm' c,
 create GRAY  7 c, 27 c, '[' c, '0' c, ';' c, '9' c, '0' c, 'm' c,
 
 : normal ( -- )  RESET type$ ;
 : red ( -- )  RED type$ ;
+: redflash ( -- )  REDFLASH type$ ;
 : yellow ( -- )  YELLOW type$ ;
 : gray ( -- )  GRAY type$ ;
 
@@ -1986,7 +2004,7 @@ also compiler definitions  context @ @COMP-WORDS !
 : then ( ctrl:ba -- )  « THEN, »  LAST_COMP0! ;
 : ?? ( >tag -- )  readName cr 27 emit ." [1;106m" type$ .sh 27 emit ." [0m" ;
 : ( ( >...rpar -- )  c" )" comment-bracket ;          \ skips a parenthesis-comment
-: ;  finishDef  exitMethod  -1 wordComplete !  LASTCONTRIB 0!  LAST_COMP0!  doInterpret ;     \ finish definition
+: ;  finishDef  exitMethod  -1 wordComplete !  LASTCONTRIB 0!  LAST_COMP0!  linkMethod  doInterpret ;     \ finish definition
 
 previous definitions
 
@@ -2012,6 +2030,7 @@ previous definitions
 variable codecomp
 
 variable currentVoc
+variable testErrors
 
 vocabulary Interpreter
 also Interpreter definitions  context @ @INTERPRETER !
@@ -2099,28 +2118,31 @@ also Interpreter definitions  context @ @INTERPRETER !
 : init: ( -- )                                        ( creates the module entry point )
   cr ." init: " c" _main_" %PRIVATE nextFlags or!  createWord  doCompile  enterMethod ;
 ( Testing: )
-: tests: ( -- )                                                   ( start tests )
-    depth ?dup if  cr ." Depth is " . ." before tests start -> fix this!" quit  then ;
+: tests: ( -- )  testErrors 0!                                    ( start tests )
+    depth ?dup if  cr red ." Depth is " . ." before tests start -> fix this!" normal  testErrors 1+!  then ;
 : tests; ( -- )                                                   ( end tests )
-    depth ?dup if  cr ." Depth is " . ." after tests finished -> fix this!" quit  then ;
+    depth ?dup if  cr red ." Depth is " . ." after tests finished -> fix this!" normal  testErrors 1+!  then
+    testErrors @ ?dup if
+      cr redflash ." There were " . ." errors in the tests!" normal terminate  else cr ." Tests successful."  then ;
 : !voc ( >name -- )                                   ( check presence of vocabulary )
   readName  cr ." Check presence of vocabulary " dup qtype$ space
-  findVocabulary ?dup unless  red ." failed: fatal!" normal drop quit  else  ." successful: @" hex.  then ;
+  findVocabulary ?dup unless  redflash ." failed: fatal!" normal drop quit  else  ." successful: @" hex.  then ;
 : voc: ( >name -- )                                   ( make vocabulary current )
   readName  cr ." Make vocabulary " dup qtype$ ."  current ... "
-  findVocabulary ?dup unless  ." failed: fatal!" quit  else  dup currentVoc ! targetVoc ! ." successful."  then ;
+  findVocabulary ?dup unless  redflash ." failed: fatal!" normal quit  else  dup currentVoc ! targetVoc ! ." successful."  then ;
 : !def ( >name -- )                                   ( check presence of definition in current vocabulary )
   readName  cr ." Check presence of definition " dup qtype$ space
   currentVoc @ findLocalWord if
     ." successful: @" dup hex. ."  (Code#" currentVoc @ §CODE addr@ - hex. ')' emit  else
-    yellow ." failed." normal drop  then ;
+    yellow ." failed." normal drop  testErrors 1+!  then ;
 : !method ( >name -- )                                ( check presence of not-abstract method in current vocabulary )
   readName  cr ." Check presence of method " dup qtype$ space
-  currentVoc @ findLocalMethod if  dup ." found: #" .  currentVoc @ swap method@
-    else  yellow ." failed" normal drop  then ;
+  currentVoc @ findLocalMethod if  dup ." found: #" .
+    currentVoc @ swap method@ code@ name@ c" unimplemented" $$= if  red ." but unimplemented"  testErrors 1+!  then
+    else  yellow ." failed" drop  testErrors 1+!  then  normal ;
 : !code ( >name >... >";" -- )                        ( validate code )
   readName  cr ." Verify code of word " dup qtype$ space
-  currentVoc @ findLocalWord unless  yellow ." : word not found!" normal else  currentVoc @ over word.
+  currentVoc @ findLocalWord unless  yellow ." : word not found!" normal  testErrors 1+!  else  currentVoc @ over word.
     cr ." Code: "
     currentVoc @ swap &CFA &>a  begin  readName dup c@ over c" ;" $$= invert and while
       dup c" <<" $$= if  drop -1 codecomp !  else  dup c" >>" $$= if  drop 0 codecomp !  else
@@ -2128,41 +2150,41 @@ also Interpreter definitions  context @ @INTERPRETER !
       then  then  repeat  drop  then ;
 : !is ( >name >... >";" -- )
   readName cr ." Verify flags of word " dup qtype$ ."  (red: wrong, yellow: missing): "
-  currentVoc @ findLocalWord unless  yellow ." : word not found!" normal else
+  currentVoc @ findLocalWord unless  yellow ." : word not found!" normal  testErrors 1+!  else
     flags  begin  readName dup c@ over c" ;" $$= invert and while
-      tuck isFlag unless  red  then  swap type$  normal space  repeat  drop  then ;
+      tuck isFlag unless  red  testErrors 1+!  then  swap type$  normal space  repeat  drop  then ;
 : !isonly ( >name >... >";" -- )
   readName cr ." Verify flags of word " dup qtype$ ."  (red: wrong, yellow: missing): "
   currentVoc @ findLocalWord unless  yellow ." : word not found!" normal else
     flags $70000 or  begin  readName dup c@ over c" ;" $$= invert and while
-      tuck isFlag unless  red  then  swap type$  normal space  repeat
+      tuck isFlag unless  red  testErrors 1+!  then  swap type$  normal space  repeat
   drop yellow
   dup $10000 and if  dup %EXECTYPE and case
     0 of  ." code-threaded "  endof
     1 of  ." direct-threaded "  endof
     2 of  ." indirect-threaded "  endof
-    3 of  ." token-threaded "  endof  endcase  then
+    3 of  ." token-threaded "  endof  endcase  testErrors 1+!  then
   dup $20000 and if  dup %VISIBILITY and case
     %PRIVATE of  ." private "  endof
     %PROTECTED of  ." protected "  endof
     %PACKAGE of  ." package-private "  endof
-    %PUBLIC of  ." public "  endof  endcase  then
+    %PUBLIC of  ." public "  endof  endcase  testErrors 1+!  then
   dup $40000 and if  dup %CODETYPE and case
     %DEFINITION of  ." definition "  endof
     %METHOD of  ." method "  endof
     %CONSTRUCTOR of  ." constructor "  endof
-    %DESTRUCTOR of  ." destructor "  endof  endcase  then
-  dup %RELOCS and if  ." relocs "  then
-  dup %MAIN and if  ." main "   then
-  dup %STATIC and if  ." static "   then
-  dup %INDIRECT and if  ." indirect "   then
-  dup %ABSTRACT and if  ." abstract "   then
-  dup %CONDITION and if  ." condition "   then
-  dup %RELOCS and if  ." inline "   then
-  dup %JOIN and if  ." joiner "   then
-  dup %LINK and if  ." linker "   then
-  dup %FALLIBLE and if  ." fallible "   then
-  dup %PREFIX and if  ." prefix "   then
+    %DESTRUCTOR of  ." destructor "  endof  endcase  testErrors 1+!  then
+  dup %RELOCS and if  ." relocs "  testErrors 1+!  then
+  dup %MAIN and if  ." main "   testErrors 1+!  then
+  dup %STATIC and if  ." static "   testErrors 1+!  then
+  dup %INDIRECT and if  ." indirect "   testErrors 1+!  then
+  dup %ABSTRACT and if  ." abstract "   testErrors 1+!  then
+  dup %CONDITION and if  ." condition "   testErrors 1+!  then
+  dup %RELOCS and if  ." inline "   testErrors 1+!  then
+  dup %JOIN and if  ." joiner "   testErrors 1+!  then
+  dup %LINK and if  ." linker "   testErrors 1+!  then
+  dup %FALLIBLE and if  ." fallible "   testErrors 1+!  then
+  dup %PREFIX and if  ." prefix "   testErrors 1+!  then
   drop  normal  then  drop ;
 
 : ( ( >...rpar -- )  c" )" comment-bracket ;          \ skips a parenthesis-comment
