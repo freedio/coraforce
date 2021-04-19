@@ -34,6 +34,24 @@ vocabulary: ForthExt
 
 
 
+=== Method invocation ====
+
+: invokeMethod ( @inst mref -- )                      ( invoke methpd mref on instance @inst )
+  swap class over 16 u>> FFFFH and  ( mref class dep# )
+  over dup @DEPS + @ swap →DEPS + d@ ( mref class dep# @deps deps# ) 0 udo
+    ( mref class dep# @deps ) 2dup cell+ d@ = if
+      cell+ 4+ w@ ( mref class dep# vmbase ) nip rot FFFFH and + ( class vm# ) %cell 1+ u<< swap VMAT@ + @ + cell+ @
+      unloop ( a ) execute exit  then
+    ( mref class dep# @deps dep# )
+    Dependency Size + loop  2drop drop
+  Class name swap 10000H u%÷ "Method %d in dependency %d of class %s not found!"| MethodNotFoundException raise ; fallible
+: invokeConstructor ( @class mref -- )                ( create instance of @class and invoke constructor mref )
+  over Class size  unimplemented ;
+: invokeDestructor ( @inst mref -- )                  ( invoke destructor mref on instance @inst and destroy @inst )
+  unimplemented ;
+
+
+
 === Arithmetic Extensions ===
 
 --- Limiters ---

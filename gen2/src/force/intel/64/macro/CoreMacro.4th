@@ -7,22 +7,22 @@
 )
 
 ( Register Usage:
-  RSP:  Parameter Stack Pointer
-  RBP:  Return Stack Pointer
+  SS:RSP:  Parameter Stack Pointer
+  SS:RBP:  Return Stack Pointer
   RAX:  Top of parameter stack [accumulator]
-  RBX:  Current Object Address
+  DS:RBX:  Current Object Address
   RCX:  Scratch register
   RDX:  Scratch register
-  RSI:  Parameter area address
-  RDI:  Exception stack pointer
-  R08:  MY/ME/THIS (Top of object stack)
-  R09:  X-Stack Pointer
-  R10:  Y-Stack Pointer
-  R11:  Z-Stack Pointer
-  R12:  Address of Return Stack Descriptor
-  R13:  Address of X-Stack Descriptor
-  R14:  Address of Y-Stack Descriptor
-  R15:  Address of Z-Stack Descriptor
+  DS:RSI:  Parameter area address
+  DS:RDI:  Exception stack pointer
+  DS:R08:  Address of class array
+  R09:  Scratch register
+  R10:  Scratch register
+  R11:  Scratch register
+  R12:  Scratch register
+  DS:R13:  Address of X-Stack Descriptor
+  DS:R14:  Address of Y-Stack Descriptor
+  DS:R15:  Address of Z-Stack Descriptor
 )
 
 package //force/intel/64/macro
@@ -53,6 +53,8 @@ code: HALFTIMES, ( u -- u×half# )  HALF% # RAX SHL ;
 code: HALFUBY, ( u×half# -- u )  HALF% # RAX SHR ;
 
 code: BLANK, ( -- ␣ )  SAVE,  EAX EAX XOR  $20 # EAX ADD ;
+
+
 
 
 
@@ -499,7 +501,6 @@ code: INCUC, ( a -- ? )                               ( increment length indicat
 === Execution ===
 
 code: EXECUTE, ( cfa -- )  RAX RDX MOV  RAX POP  RDX CALL ;
-code: INVOKEMETHOD, ( m# @v this -- ) ;
 code: NOP, ( -- )  NOP ;
 
 

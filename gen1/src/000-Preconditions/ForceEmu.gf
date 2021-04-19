@@ -30,6 +30,7 @@
 : umod ( u1 u2 -- u1%u2 ) mod ;
 : ± ( n -- -n )  negate ;
 : !and ( u1 u2 -- u3 )  over and 2dup ≠ if  cr ." Warning: Range exceeded!"  then  nip ;
+: w2 ( x -- w )  16 u>> $FFFF and ;
 : bit? ( x n -- ? )  1 swap << and 0- ;
 : bit- ( x n -- x' )  1 swap << invert and ;
 : bit+ ( x n -- x' )  1 swap << or ;

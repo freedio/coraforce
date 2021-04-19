@@ -30,13 +30,23 @@ vocabulary: ForthBase
     r ("real")      for floating point number (10 bytes on x87, otherwise usually 8 bytes)
 ---
 
---- On I64 registers: we use
-    SS:RSP    for PSP (parameter stack pointer)
-    SS:RBP    for RSP (return stack pointer)
-    RAX       for TOS (top of stack)
-    DS:RBX    for COA (current object address)
-    DS:RSI    for PAA (parameter area address)
-    DS:RDI    for ESP (exception stack pointer)
+--- In terms of I64 registers: we use
+  SS:RSP:  Parameter Stack Pointer
+  SS:RBP:  Return Stack Pointer
+  RAX:  Top of parameter stack [accumulator]
+  DS:RBX:  Current Object Address
+  RCX:  Scratch register
+  RDX:  Scratch register
+  DS:RSI:  Parameter area address
+  DS:RDI:  Exception stack pointer
+  DS:R08:  Address of class array
+  R09:  Scratch register
+  R10:  Scratch register
+  R11:  Scratch register
+  R12:  Scratch register
+  DS:R13:  Address of X-Stack Descriptor
+  DS:R14:  Address of Y-Stack Descriptor
+  DS:R15:  Address of Z-Stack Descriptor
 ---
 
 public:
@@ -120,7 +130,7 @@ variable ZSS  private                                 ( Z-stack size in cells )
 : tuck ( x2 x1 -- x1 x2 x1 )  TUCK, ;                 ( tuck top of stack under second )
 : nip ( x2 x1 -- x1 )  NIP, ;                         ( drop second of stack )
 : nip2 ( x3 x2 x1 -- x1 )  NIP2, ;                    ( drop second and third of stack )
-: smash ( x2 x1 -- x2 x2 )  SMASH, ;                  ( replace second of stack with top )
+: smash ( x2 x1 -- x2 x2 )  SMASH, ;                  ( replace top of stack with second )
 : rot ( x3 x2 x1 -- x2 x1 x3 )  ROT, ;                ( rotate top stack triple )
 : -rot ( x3 x2 x1 -- x1 x3 x2 )  ROTR, ;              ( reverse rotate top stack triple )
 : slide ( x3 x2 x1 -- x2 x3 x1 )  SLIDE, ;            ( exchange 2nd and 3rd of stack )
@@ -558,8 +568,7 @@ alias −−o!  alias −−v!  alias −−2!                    ( aliases with
 --- Block Move ---
 
 ( Block moves automatically determine, in which direction the move has to occur so as to not overwrite elements that have not
-  yet been moved.
-)
+  yet been moved. )
 
 : cmove ( sa ta # -- )  CMOVE, ;                      ( move # bytes from block at sa to block at ta )
 : wmove ( sa ta # -- )  WMOVE, ;                      ( move # words from block at sa to block at ta )
@@ -619,7 +628,6 @@ drop
 
 : nop ( -- )  NOP, ;                                  ( no operation )
 : execute ( cfa -- )  EXECUTE, ;                      ( execute the code at the specified cfa )
-: invoke ( m# this -- )  VOCABULARIES swap INVOKEMETHOD, ;
 
 --- Type check ---
 
