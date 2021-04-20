@@ -382,6 +382,7 @@ defer target&,
 : @dep ( # -- @voc )  ?dup unless  tvoc@ exit  then   ( #th dependency of the target vocabulary )
   1- §DEPS segment rot DEPENDENCY# u* #-> DEPENDENCY# u< if  abort" Invalid dependency index"  then
   DEPENDENCY.#VOCA + d@ @vte ;
+: >voc# ( dep# -- voc# )  @dep vte# ;                 ( Absolute vocabulary number voc# of dep# in current target vocabulary )
 : @vocdep ( @voc # -- @voc' )  ?dup if                ( #th dependency of vocabulary @voc )
   1- >r §DEPS vocseg r> DEPENDENCY# u* #-> DEPENDENCY# u< if  abort" Invalid dependency index"  then
   DEPENDENCY.#VOCA + d@ dup . @vte  then ;
@@ -440,7 +441,7 @@ it possible to distinguish several different locator types (substructures of str
 : <<extra ( & %u -- &' )                              ( set the extra field or locator & to %u )
   %LOCATOR.EXTRA and LOCATOR.EXTRA u<< swap %LOCATOR.EXTRA LOCATOR.EXTRA u<< andn or ;
 : >methodAddr ( & @voc -- & @method )  ??" A1"
-  over w2 ***fixdep*** over §DEPS vocseg 0 do       ( extract function address from method ref & of @voc )  ??" A"
+  over w2 >voc# over §DEPS vocseg 0 do       ( extract function address from method ref & of @voc )  ??" A"
     dup DEPENDENCY.#VOCA + d@ ( & @voc dep# @deps dep# ) 2 pick ??" Q" = if  ??" B"
       nip DEPENDENCY.VMAT# + w@ ( & @voc vmb ) 2 pick $FFFF and + ( & @voc v# ) 2 cells u* swap §VMAT addr@ + cell+ unloop exit then
     ( & @voc dep# @deps )  DEPENDENCY# tuck + swap +loop  2drop drop  ??" C"
