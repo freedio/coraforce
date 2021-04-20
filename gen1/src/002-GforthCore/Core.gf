@@ -442,9 +442,9 @@ it possible to distinguish several different locator types (substructures of str
   %LOCATOR.EXTRA and LOCATOR.EXTRA u<< swap %LOCATOR.EXTRA LOCATOR.EXTRA u<< andn or ;
 : >methodAddr ( & @voc -- & @method )  ??" A1"
   over w2 >voc# over §DEPS vocseg 0 do       ( extract function address from method ref & of @voc )  ??" A"
-    dup DEPENDENCY.#VOCA + d@ ( & @voc dep# @deps dep# ) 2 pick ??" Q" = if  ??" B"
+    dup DEPENDENCY.#VOCA + d@ ( & @voc dep# @deps dep# ) 2 pick ??" AQ" = if  ??" B"
       nip DEPENDENCY.VMAT# + w@ ( & @voc vmb ) 2 pick $FFFF and + ( & @voc v# ) 2 cells u* swap §VMAT addr@ + cell+ unloop exit then
-    ( & @voc dep# @deps )  DEPENDENCY# tuck + swap +loop  2drop drop  ??" C"
+    ( & @voc dep# @deps )  DEPENDENCY# tuck + swap +loop  2drop  ??" !!"
   cr ." Vocabulary " "vocabulary". ."  does not provide method " dup $FFFF and . ." for vocabulary #" 16 u>> $FFFF and .
   terminate ;
 : !seg# ( seg# -- #seg# )                             ( validate segment number )
@@ -2111,7 +2111,7 @@ also Interpreter definitions  context @ @INTERPRETER !
   lastVoc @ addSearchVoc  definitions  als0 VocabularyWords  resetFlags %STATIC %PUBLIC or dup autoFlags or! nextFlags or! ;
 : class: ( >name -- )  vocabulary  1 >voctype         ( create class and set up for its body )
   lastVoc @ addSearchVoc  definitions  als0 ClassWords  §PARA →tseg#↑  c" Size" t$, cell tc, 0 t, tseg#↓
-  resetFlags %PRIVATE or dup autoFlags or! nextFlags or! ;
+  resetFlags %PRIVATE dup autoFlags or! nextFlags or! ;
 : interface: ( >name -- )  vocabulary  2 >voctype     ( create interface and set up for its body )
   resetFlags %PUBLIC or dup autoFlags or! nextFlags or!
   lastVoc @ addSearchVoc  definitions  als0 InterfaceWords ;
