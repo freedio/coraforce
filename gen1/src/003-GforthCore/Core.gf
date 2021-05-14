@@ -7,6 +7,8 @@
 
 
 
+require ../000-Preconditions/ForceEmu.gf
+
 === Preliminary stuff ===
 
 ------
@@ -21,23 +23,25 @@ defer closeAll
 
 --- Exception Handling ---
 
-: indirect-threading-not-supported ( -- )  cr ." Indirect threading not yet supported!"  terminate ;
-: token-threading-not-supported ( -- )  cr ." Token-threading not yet supported!"  terminate ;
-: word-not-found ( a # -- )  cr ." Word not found: " qtype '!' emit  terminate ;
-: word-not-found$ ( a$ -- )  count  word-not-found ;
-: unknown-vocabulary-model ( u -- )  cr ." Unknown vocabulary model: " . '!' emit  terminate ;
-: unknown-code-model ( u -- )  cr ." Unknown code model: " . '!' emit  terminate ;
-: vocabulary-not-found ( $ -- )  cr ." Vocabulary «" type$  ." » not found!" terminate ;
-: not-implemented ( -- )  cr ." Method not implemented!" terminate ;
-: unbalanced-definition ( -- )  cr ." Unbalanced definition!" terminate ;
-: invalid-secondary-held ( u -- )  cr ." Invalid secondary held: type=" . '!' emit  terminate ;
-: condition-unknown ( $ -- )  cr ." Condition «" type$ ." » unknown!"  terminate ;
-: has-multiple-results ( # $ -- )  cr qtype$ ."  has " . ." results — narrow the search!"  terminate ;
-: module-not-found ( $ -- )  cr ." Module " qtype$ ."  not found!"  terminate ;
-: vocabulary-has-no-name ( -- )  cr ." Vocabulary has no name!"  abort ;
-: parameter-not-found ( $ -- )  cr ." Vocabulary parameter «" type$ ." » not found!"  terminate ;
-: invalid-vocabulary-type ( act exp -- )  cr ." Invalid vocabulary type: expected " . ." but got " .  terminate ;
-: module-not-found-in-package-tree ( $ -- )  cr ." Module " qtype$ ."  not found in package tree!" terminate ;
+: indirect-threading-not-supported! ( -- )  cr ." Indirect threading not yet supported!"  terminate ;
+: token-threading-not-supported! ( -- )  cr ." Token-threading not yet supported!"  terminate ;
+: word-not-found! ( a # -- )  cr ." Word not found: " qtype '!' emit  terminate ;
+: word-not-found$! ( a$ -- )  count  word-not-found! ;
+: unknown-vocabulary-model! ( u -- )  cr ." Unknown vocabulary model: " . '!' emit  terminate ;
+: unknown-code-model! ( u -- )  cr ." Unknown code model: " . '!' emit  terminate ;
+: vocabulary-not-found! ( $ -- )  cr ." Vocabulary «" type$  ." » not found!" terminate ;
+: not-implemented! ( -- )  cr ." Method not implemented!" terminate ;
+: unbalanced-definition! ( -- )  cr ." Unbalanced definition!" terminate ;
+: invalid-secondary-held! ( u -- )  cr ." Invalid secondary held: type=" . '!' emit  terminate ;
+: condition-unknown! ( $ -- )  cr ." Condition «" type$ ." » unknown!"  terminate ;
+: has-multiple-results! ( # $ -- )  cr qtype$ ."  has " . ." results — narrow the search!"  terminate ;
+: module-not-found! ( $ -- )  cr ." Module " qtype$ ."  not found!"  terminate ;
+: vocabulary-has-no-name! ( -- )  cr ." Vocabulary has no name!"  abort ;
+: parameter-not-found! ( $ -- )  cr ." Vocabulary parameter «" type$ ." » not found!"  terminate ;
+: invalid-vocabulary-type! ( act exp -- )  cr ." Invalid vocabulary type: expected " . ." but got " .  terminate ;
+: module-not-found-in-package-tree! ( $ -- )  cr ." Module " qtype$ ."  not found in package tree!" terminate ;
+: no-target-vocabulary! ( -- )  cr ." No target vocabulary!" abort ;
+: ambiguous-word! ( w$ -- )  cr ." Name «" type$  ." » ambiguous across vocabularies! Specify voc or use global name."  terminate ;
 
 
 
@@ -58,8 +62,8 @@ create SEGSP  SEGSTACK ,
 ------
 The compiler juggles a lot of heaps.  Every heap is described by 3 parameters:
   • ADDR: Start address of the heap
-  • SIZE: Capacity of the heap in bytes.
-  • USED: Amount of bytes already used.
+  • CAPACITY: Capacity of the heap in bytes.
+  • SIZE: Amount of bytes already used.
 These properties are captured in an object called HeapDescriptor.
 
 ‹@hd› stands for "address of heap descriptor"
@@ -72,52 +76,53 @@ A heap is active if it has been allocated, in other words if both ADDR and SIZE 
 --- Heap Descriptor ---
 
 0000  dup constant ADDR
+cell+ dup constant CAPACITY
 cell+ dup constant SIZE
-cell+ dup constant USED
 cell+     constant Heap#
 
 --- Heap Primitives ---
 
-: haddr ( @hd -- @addr )  ADDR + ;  inline            ( Address of ADDR field )
-: hsize ( @hd -- @size )  SIZE + ;  inline            ( Address of SIZE field )
-: hused ( @hd -- @used )  USED + ;  inline            ( Address of USED field )
-: haddr@ ( @hd -- a )  haddr @ ;  inline              ( Start address of the heap )
-: hsize@ ( @hd -- u )  hsize @ ;  inline              ( Size of the heap )
-: hused@ ( @hd -- u )  hused @ ;  inline              ( Usage of the heap )
-: haddr! ( a @hd -- )  haddr ! ;  inline              ( set start address of heap at a )
-: hsize! ( u @hd -- )  hsize ! ;  inline              ( set heap size to u )
-: hused! ( u @hd -- )  hused ! ;  inline              ( set heap usage to u )
-: hsize+! ( u @hd -- )  hsize +! ;  inline            ( Increase heap size by u )
-: hused+! ( u @hd -- )  hused +! ;  inline            ( Increase heap usage by u )
-: hused−! ( u @hd -- )  dup hused@ rot min swap hused −! ;    ( Decrease heap usage by u )
-: hfree@ ( @hd -- u )  dup hsize@ swap hused@ - ;  inline    ( Remaining space on the heap )
-: heap ( @hd -- addr used )  dup haddr@ swap hused@ ;  inline  ( Address and usage of heap )
-: -heap ( @hd -- addr+used used )  dup haddr@ swap hused@ tuck + swap ;  ( End address and usage of heap )
-: >hend ( @hd -- a )  heap + ;  inline                ( Address of first byte after heap )
-: hempty? ( @hd -- ? )  hused@ 0= ;                   ( check if heap @hd is empty )
-: hset ( u @hd -- a )  over PAGESIZE ->| tuck allocate throw    ( allocate the heap for usage u and return heap address )
-  dup >r over haddr!  tuck hsize!  hused! r> ;
+: haddr ( @hd -- @addr )  ADDR + ;                    ( Address of ADDR field )
+: hcapa ( @hd -- @capa )  CAPACITY + ;                ( Address of CAPACITY field )
+: hsize ( @hd -- @size )  SIZE + ;                    ( Address of SIZE field )
+: haddr@ ( @hd -- a )  haddr @ ;                      ( Start address of the heap )
+: hcapa@ ( @hd -- u )  hcapa @ ;                      ( Capacity of the heap )
+: hsize@ ( @hd -- u )  hsize @ ;                      ( Size of the heap )
+: haddr! ( a @hd -- )  haddr ! ;                      ( set start address of heap at a )
+: hcapa! ( u @hd -- )  hcapa ! ;                      ( set heap capacity to u )
+: hsize! ( u @hd -- )  hsize ! ;                      ( set heap size to u )
+: hcapa+! ( u @hd -- )  hcapa +! ;                    ( Increase heap capacity by u )
+: hsize+! ( u @hd -- )  hsize +! ;                    ( Increase heap size by u )
+: hsize−! ( u @hd -- )  dup hsize@ rot min swap hsize −! ;      ( Decrease heap size by u )
+: hfree@ ( @hd -- u )  dup hcapa@ swap hsize@ - ;     ( Remaining space on the heap )
+: heap ( @hd -- addr size )  dup haddr@ swap hsize@ ; ( Address and size of heap )
+: |heap| ( @hd -- addr capa )  dup haddr@ swap hcapa@ ;         ( Address and capacity of heap )
+: -heap ( @hd -- addr+used used )  dup haddr@ swap hsize@ tuck + swap ;  ( End address and size of heap )
+: >hend ( @hd -- a )  heap + ;                        ( Address of first byte after heap )
+: hempty? ( @hd -- ? )  hsize@ 0= ;                   ( check if heap @hd is empty )
+: hset ( u @hd -- a )  over PAGESIZE ->| tuck allocate throw    ( allocate the heap for size u and return heap address )
+  dup >r over haddr!  tuck hcapa!  hsize! r> ;
 
 --- Heap Operations ---
 
 : newHeap ( >name -- )  create 0 , 0 , 0 , ;          ( create named heap )
 : _hallocate ( @hd -- )                               ( allocate the initial heap )
-  PAGESIZE dup allocate throw rot tuck haddr!  tuck hsize!  0 swap hused! ;
+  PAGESIZE dup allocate throw rot tuck haddr!  tuck hcapa!  0 swap hsize! ;
 defer printVoc
 : #hgrow ( @hd u -- @hd )                             ( grow segment by at least u )
-  over hsize@ + PAGESIZE ->| over haddr@ over resize throw 2 pick haddr! over hsize! ;
+  over hcapa@ + PAGESIZE ->| over haddr@ over resize throw 2 pick haddr! over hcapa! ;
 : !hfree ( @hd u -- @hd )  over hfree@ over u< if  #hgrow dup  then drop ;  ( make sure at least u bytes are available on heap @hd )
 : !hactive ( @hd -- @hd )  dup haddr@ unless  dup _hallocate  then ;    ( make sure the heap is active )
-: hallot ( # @hd -- a # )  2dup >hend 2swap  !hactive  over !hfree  hused+!  swap ;    ( allot # bytes on heap @hd → @allotted )
+: hallot ( # @hd -- a # )  2dup >hend 2swap  !hactive  over !hfree  hsize+!  swap ;    ( allot # bytes on heap @hd → @allotted )
 : 0hallot ( # @hd -- a # )  hallot  2dup 0 cfill ;
-: h#, ( x # @hd -- )  !hactive  cell !hfree  rot over >hend ! hused+! ;    ( append # bytes of x to heap @hd )
+: h#, ( x # @hd -- )  !hactive  cell !hfree  rot over >hend ! hsize+! ;    ( append # bytes of x to heap @hd )
 : h, ( x @hd -- )  cell swap h#, ;                    ( append cell x to heap @hd )
 : hd, ( d @hd -- )  4 swap h#, ;                      ( append unsigned double word w to heap @hd )
 : hw, ( w @hd -- )  2 swap h#, ;                      ( append unsigned word w to heap @hd )
 : hc, ( c @hd -- )  1 swap h#, ;                      ( append unsigned byte c to heap @hd )
-: hf, ( @hd -- F: r -- )  !hactive  10 !hfree  dup >hend f!  10 swap hused+! ;    ( append 10byte float r to heap @hd )
-: h$, ( $ @hd -- )  !hactive  over c@ 1+ tuck !hfree  dup >hend -rot  hused+!  over c@ 1+ cmove ;    ( append $ to heap @hd )
-: ha#, ( a # @hd -- )  !hactive  over !hfree  dup >hend -rot  2dup hused+! drop cmove ;    ( append buffer a# to heap @hd )
+: hf, ( @hd -- F: r -- )  !hactive  10 !hfree  dup >hend f!  10 swap hsize+! ;    ( append 10byte float r to heap @hd )
+: h$, ( $ @hd -- )  !hactive  over c@ 1+ tuck !hfree  dup >hend -rot  hsize+!  over c@ 1+ cmove ;    ( append $ to heap @hd )
+: ha#, ( a # @hd -- )  !hactive  over !hfree  dup >hend -rot  2dup hsize+! drop cmove ;    ( append buffer a# to heap @hd )
 
 --- Table Operations ---
 
@@ -132,36 +137,25 @@ A table is a list of heaps (called segments), as typically used in a vocabulary.
 
 === Vocabulary Table ===
 
-------
-‹VTE› stands for «vocabulary table entry».
-------
-
 newHeap Vocabularies
 
 --- Vocabulary Table Operations ---
 
 defer printVocabularyName
-: addVTE ( @voc -- )  Vocabularies h, ;               ( append vocabulary @voc to the vocabulary table )
+: addVocabulary ( @voc -- )  Vocabularies h, ;        ( append vocabulary @voc to the vocabulary table )
 : vocabularies. ( -- )  cr ." List of vocabularies:"  ( Lists the vocabulary table )
-  Vocabularies heap cellu/ 0 ?do  dup @ cr ." • " printVocabularyName  cell+  loop  drop ;
-: vte# ( @voc -- # )                                  ( Absolute index # of vocabulary @voc )
-  Vocabularies heap cellu/ 0 ?do  2dup @ = if  2drop i unloop exit  then  cell+  loop
+  Vocabularies heap cell/ 0 ?do  dup @ cr ." • " printVocabularyName  cell+  loop  drop ;
+: @voc# ( @voc -- # )                                 ( Index # of vocabulary @voc )
+  Vocabularies heap cell/ 0 ?do  2dup @ = if  2drop i unloop exit  then  cell+  loop
   drop cr printVocabularyName ."  not found!" abort ;
-: @vte ( # -- @voc )                                  ( Lookup vocabulary @voc by absolute index # )
-  Vocabularies heap cellu/ 2 pick u< if  cr ." Vocabulary number out of range: " drop . abort  then  swap cells+ @ ;
+: #voc@ ( # -- @voc )                                 ( Lookup vocabulary @voc by index # )
+  Vocabularies heap cell/ 2 pick u< if  cr ." Vocabulary number out of range: " drop . abort  then  swap cells+ @ ;
 
 
 
 === Vocabulary ===
 
 ------
-Vocabularies come in two flavours, choice up to the developer:
-  • Structured: Words are defined in a dictionary, each word has pointers to its name [TEXT], code [CODE], constants [TEXT]
-    and variables [DATA].  Using so may pointers inflates the model (particularly on 64-bit machines where every pointer is
-    8 bytes), but makes vocabulary searches easier, possibly faster and allows a transparent approach to deferring definitions.
-  • Compact: Words are compressed into the code segment.  Compact vocabularies are considerably smaller but require
-    more effort (by the Core, not the developer) to get searching and particularly deferring definitions right and effective.
-
 The term ‹variables› is used here in the general sense of «mutable data», as opposed to ‹constants›.
 
 A vocabulary is the following list of heaps:
@@ -173,7 +167,8 @@ A vocabulary is the following list of heaps:
   • RELS  the relocation table contains address fixups for code loading.
   • DEPS  the dependency table contains references to other vocabularies needed to execute this one.
   • DBUG  the debug segment contains debug information.
-  • DDLT  the dynamic definition lookup table is a hash table containing method references.
+  • VMLT  the virtual method lookup table.
+  • LWLT  the local word lookup table is a hash table containing word references.
 
 Stack effect comment:
   • seg# denotes a segment number
@@ -192,8 +187,9 @@ Stack effect comment:
 1+ dup constant §RELS
 1+ dup constant §DEPS
 1+ dup constant §DBUG
-1+ dup constant segments
-       constant §DDLT
+1+ dup constant §VMLT
+1+ dup constant §LWLT
+    1+ constant segments
     15 constant §VOCA
 
 ( Segment Names [segment$] )
@@ -205,8 +201,9 @@ create PARA$ ," parameter table"
 create RELS$ ," relocation table"
 create DEPS$ ," dependency table"
 create DBUG$ ," debug segment"
-create DDLT$ ," def lookup table"
-create SEGNAMES DICT$ , CODE$ , DATA$ , TEXT$ , PARA$ , RELS$ , DEPS$ , DBUG$ , DDLT$ ,
+create VMLT$ ," virtual method lookup table"
+create LWLT$ ," local word lookup table"
+create SEGNAMES DICT$ , CODE$ , DATA$ , TEXT$ , PARA$ , RELS$ , DEPS$ , DBUG$ , VMLT$ , LWLT$ ,
 
 --- Static state ---
 
@@ -225,128 +222,103 @@ variable VOCAMODEL
 
 --- Vocabulary Primitives ---
 
-: !SEGMENT ( @voc seg# -- @h )  dup §VOCA - if  >segment !hactive dup  then  drop ;
-: SEGMENT ( @voc seg# -- @h )  dup §VOCA - if  >segment dup  then  drop ;
-: addr@ ( @voc seg# -- a )  !SEGMENT haddr@ ;         ( Start address of segment seg# in vocabulary @voc )
-: vocseg ( @voc seg# -- a u )  !SEGMENT heap ;        ( Start address and SIZE of segment seg# in vocabulary @voc )
-: vocuse ( @voc seg# -- # )  !SEGMENT hused@ ;        ( Usage # of segment seg# in vocabulary @voc )
-: >offs ( a @voc seg# -- u )  !SEGMENT >hend - ;      ( transform address a to an offset in segment seg# of vocabulary @voc )
-: tvoc@ ( -- @voc )  targetVoc @                      ( Current target vocabulary )
-  ?dup unless  cr ." No target vocabulary!" terminate  then ;
-: tvoc! ( @voc -- )  targetVoc ! ;                    ( make @voct the target vocabulary )
-: →target↑ ( @voc -- )  targetVoc @ >x tvoc! ;        ( push current target and make @voc the target)
-: target↓  ( -- )  x> tvoc! ;                         ( pop saved target )
-: >seg ( seg# -- @sd )  tvoc@ swap !SEGMENT ;         ( Address of segment descripter seg# )
-: segaddr@ ( seg# -- a )  >seg haddr@ ;               ( Start address of segment seg# in target vocabulary )
-: segsize@ ( seg# -- u )  >seg hsize@ ;               ( Size of segment seg# in target vocabulary )
-: segused@ ( seg# -- u )  >seg hused@ ;               ( Usage of segment seg# in target vocabulary )
-: !segfree ( seg# u -- )  >seg !hfree ;               ( Make sure at least u bytes are available in target segment seg# )
-: segment ( seg# -- a u )  >seg heap ;                ( Address and length of segment seg# )
-: seg→| ( seg# -- a )  >seg >hend ;                   ( Address of the next available byte in segment seg# of target vocabulary )
-: >segoffs ( a seg# -- u )  >seg >hend - ;            ( transform address a to an offset in segment seg# of vocabulary @voc )
+: !@segdescr ( @voc seg# -- @h )                      ( Address @h of descr of segment seg# in vocabulary @voc, asserting alloc )
+  dup §VOCA - if  >segment !hactive dup  then  drop ;
+: @segdescr ( @voc seg# -- @h )                       ( Address @h of descr of segment seg# in vocabulary @voc, NOT allocating )
+  dup §VOCA - if  >segment dup  then  drop ;
+: @segaddr ( @voc seg# -- a )  !@segdescr haddr@ ;    ( Address a of segment seg# in vocabulary @voc )
+: segrange ( @voc seg# -- a u )  !@segdescr heap ;    ( Address a and length u of segment seg# in vocabulary @voc )
+: segcapacity ( @voc seg# -- u )  !@segdescr hcapa@ ; ( Capacity u of segment seg# in vocabulary @voc )
+: segsize ( @voc seg# -- u )  !@segdescr hsize@ ;     ( Size u of segment seg# in vocabulary @voc )
+: tvoc@ ( -- @voc )  targetVoc @                      ( Current target vocabulary @voc )
+  ?dup unless  no-target-vocabulary!  then ;
+: tvoc! ( @voc -- )  targetVoc ! ;                    ( make @voc the new target vocabulary )
+: >target ( @voc -- )  targetVoc @ >x tvoc! ;         ( push current target vocabulary and make @voc the new one )
+: target> ( -- )  x> tvoc! ;                          ( pop current target vocabulary )
+: @tsegdescr ( seg# -- @sd )  tvoc@ swap !@segdescr ; ( Address of descriptor of target segment seg# )
+: @tsegaddr ( seg# -- a )  @tsegdescr haddr@ ;        ( Address a of target segment seg# )
+: tsegcapacity ( seg# -- u )  @tsegdescr hcapa@ ;     ( Capacity u of target segment seg# )
+: tsegsize ( seg# -- u )  @tsegdescr hsize@ ;         ( Size u of target segment seg# )
+: !tsegfree ( u seg# -- )  @tsegdescr swap !hfree drop ;  ( make supre at least u bytes are available in target segment seg# )
+: tsegrange ( seg# -- a u )  @tsegdescr heap ;        ( Address a and size u of target segment seg# )
+: tseg→| ( seg# -- a )  @tsegdescr >hend ;            ( Address a of next available byte in target segment seg# )
 : tseg#@ ( -- seg# )  targetSegment @ ;               ( Current target segment )
-: tseg#! ( seg# -- )  targetSegment ! ;               ( sets the current target segment to seg# )
-: target@ ( -- @voc seg# )  tvoc@ tseg#@ ;            ( Current target [vocabulary and segment] )
-: >tseg ( -- @sd )  tseg#@ >seg ;                     ( Address of current target segment descriptor )
-: tsegaddr@ ( -- a )  >tseg haddr@ ;                  ( Start address of the current target segment )
-: tsegsize@ ( -- u )  >tseg hsize@ ;                  ( Size of the current target segment )
-: tsegused@ ( -- u )  >tseg hused@ ;                  ( Usage of the current target segment )
-: !tfree ( u -- )  >tseg swap !hfree drop ;           ( Make sure at least u bytes are available in the current target segment )
-: tseg→| ( -- a )  >tseg >hend ;                      ( Address of the next available byte in the current target segment )
-: tseg#↑ ( -- )  tseg#@ >segs ;                       ( save target segment number on segment-stack )
-: tseg#↓ ( -- )  segs> tseg#! ;                       ( restore target segment number from segment-stack )
-: →tseg#↑ ( seg# -- )  tseg#↑ tseg#! ;                ( save target segment number on segment-stack and switch to seg# )
-: tallot, ( # -- )  >tseg  hallot 2drop ;             ( allot # bytes in current target segment )
-: 0tallot, ( # -- )  ?dup if  >tseg  0hallot 2drop  then ;    ( allot # bytes of 0 in current target segment )
+: tseg#! ( seg# -- )  targetSegment ! ;               ( set target segment to seg# )
+: @tdescr ( -- @sd )  tseg#@ @tsegdescr ;             ( Address @sd of current target segment descriptor )
+: @taddr ( -- a )  tseg#@ @tsegaddr ;                 ( Address a of current target segment )
+: tcapacity ( -- u )  tseg#@ tsegcapacity ;           ( Capacity u of current target segment )
+: tsize ( -- u )  tseg#@ tsegsize ;                   ( Size u of current target segment )
+: !tfree ( u -- )  tseg#@ !tsegfree ;                 ( make sure at least u bytes are available in the current target segment )
+: t→| ( -- a )  tseg#@ tseg→| ;                       ( Address of the next available byte in the current target segment )
+: ↑tseg ( -- )  tseg#@ >segs ;                        ( push current target segment )
+: ↓tseg ( -- )  segs> tseg#! ;                        ( pop current target segment )
+: ↑tseg! ( seg# -- )  ↑tseg tseg#! ;                  ( push current target segment and set seg# as new target segment )
+
+: tallot, ( # -- )  @tdescr hallot 2drop ;            ( allot # bytes in current target segment )
+: 0tallot, ( # -- )  ?dup if  @tdescr 0hallot 2drop  then ; ( allot # bytes of 0 in current target segment )
 : talign, ( # -- )                                    ( align current target segment to an even #, typically cell, 4 or 2 )
-  tsegused@ over mod dup 0= if  smash  then  − 0tallot, ;
-: t, ( x -- )  >tseg h, ;                             ( punch cell x into the current target segment )
-: tc, ( c -- )  >tseg hc, ;                           ( punch unsigned byte c into the current target segment )
-: tw, ( w -- )  >tseg hw, ;                           ( punch unsigned word w into the current target segment )
-: td, ( d -- )  >tseg hd, ;                           ( punch unsigned double word w into the current target segment )
-: tf, ( -- F: r -- )  >tseg hf, ;                     ( punch 10byte real number into the current target segment )
-: t$, ( $ -- )  >tseg h$, ;                           ( punch $ into the current target segment )
-: ta#, ( a # -- )  >tseg ha#, ;                       ( punch byte array at a with length # into the current target segment )
-: t#, ( x # -- )  >tseg h#, ;                         ( punch cell x into the current target segment )
-: pf, ( x -- )  §DATA →tseg#↑  t,  tseg#↓ ;           ( punch x into parameter field [data segment] )
-: #pf, ( x # -- )  §DATA →tseg#↑  t#,  tseg#↓ ;       ( punch # bytes of x into parameter field [data segment] )
-: segname ( seg# -- $ )  cells SEGNAMES + @ ;         ( Name of segment seg# )
-: segment. ( seg# -- )  segname type$ ;               ( print the name of segment seg# )
+  tsize over mod dup 0= if  smash  then  - 0tallot, ;
+: t, ( x -- )  @tdescr h, ;                           ( punch cell x into the current target segment )
+: tc, ( c -- )  @tdescr hc, ;                         ( punch byte c into the current target segment )
+: tw, ( w -- )  @tdescr hw, ;                         ( punch word w into the current target segment )
+: td, ( d -- )  @tdescr hd, ;                         ( punch double-word d into the current target segment )
+: tf, ( -- F: r -- )  @tdescr hf, ;                   ( punch real number r into the current target segment )
+: t$, ( $ -- )  @tdescr h$, ;                         ( punch counted string $ into the current target segment )
+: ta#, ( a # -- )  @tdescr ha#, ;                     ( punch buffer a with length # into the current target segment )
+: t#, ( x # -- ) @tdescr h#, ;                        ( punch # lowest bytes of cell x into the current target segment )
+: tseg, ( x seg# )  @tsegdescr h, ;                   ( punch cell x into segment seg# of target vocabulary )
+: t#seg, ( x # seg# )  @tsegdescr h#, ;               ( punch # lowest bytes of cell x into segment seg# of target vocabulary )
+: pf, ( x -- )  §DATA tseg, ;                         ( punch x into parameter field [data segment] )
+: #pf, ( x # -- )  §DATA t#seg, ;                     ( punch # bytes of x into parameter field [data segment] )
+
+: seg$ ( seg# -- )  cells SEGNAMES + @ ;              ( Name of segment seg# )
+: seg$. ( seg# -- )  seg$ type$ ;                     ( print the name of segment seg# )
 
 : para@ ( @voc n$ -- p$|0 )                           ( look up name n$ in parameter table, return value p$, or 0 if not found )
-  swap §PARA !SEGMENT heap over +  begin  2dup - while  >r  2dup $$= if  rdrop count + nip exit  then  count + count +  r> repeat
+  swap §PARA segrange over +  begin  2dup - while  >r  2dup $$= if  rdrop count + nip exit  then  count + count +  r> repeat
   2drop  drop 0 ;
 : !para@ ( @voc n$ -- p$ )                            ( get parameter named n$ and return its value p$, or fail )
-  swap §PARA !SEGMENT heap over +  begin  2dup - while  >r  2dup $$= if  rdrop count + nip exit  then  count + count +  r> repeat
-  2drop  parameter-not-found ;
+  swap §PARA segrange over +  begin  2dup - while  >r  2dup $$= if  rdrop count + nip exit  then  count + count +  r> repeat
+  2drop  parameter-not-found! ;
 
 ( Forcembler locations: )
-: there  tseg→| ;
+: there  t→| ;
 : toff  there ;
-: backup  1 §CODE >seg hused−! ;
+: backup  1 §CODE @tsegdescr hsize−! ;
 
 --- Vocabulary Operations ---
 
 : createVocabulary ( $ -- )                           ( create vocabulary with name $ )
-  segments createTable  dup addVTE  dup lastVoc ! →target↑
-  §PARA →tseg#↑  c" Name" t$, t$,  c" Model" t$,  1 tc, VOCAMODEL @ tc, tseg#↓ ;
-: vocabulary$ ( @voc -- voc$|0 )  c" Name" para@ ;    ( Name voc$ of vocabulary @voc, if defined )
-: >voctype ( t -- )  §PARA →tseg#↑  c" Type" t$, 1 tc, tc,  tseg#↓ ;  ( set vocabulary type to t )
+  segments createTable  dup addVocabulary  dup lastVoc ! >target
+  §PARA ↑tseg!  c" Name" t$, t$,  c" Model" t$,  1 tc, VOCAMODEL @ tc, ↓tseg ;
+: vocabulary$ ( @voc -- voc$ )  c" Name" !para@ ;    ( Name voc$ of vocabulary @voc )
+: >voctype ( t -- )  §PARA ↑tseg!  c" Type" t$, 1 tc, tc,  ↓tseg ;  ( set vocabulary type to t )
 : voctype@ ( @voc -- t )  c" Type" !para@ 1+ c@ ;
+
 create FQVOC$  256 allot
 : fqvoc$ ( @voc -- fqvoc$ )  FQVOC$ $/                ( Fully qualified name voc$ of vocabulary @voc )
-  over c" Package" para@ ?dup if  $>$ '/' ?c+>$  then
-  swap c" Name" para@ ?dup unless  vocabulary-has-no-name  then  $+>$ ;
+  over c" Package" para@ ?dup if  $>$ '/' ?c+>$  then  swap c" Name" !para@  $+>$ ;
 : vocabulary. ( @voc -- )  vocabulary$ type$ ;        ( prints the vocabulary name )
 : "vocabulary". ( @voc -- )  vocabulary$ qtype$ ;     ( prints the vocabulary name in double quotes )
 :noname vocabulary. ; is printVocabularyName
 : findVocabulary ( $ -- @voc | $ 0 )                  ( Vocabulary @voc with name $, or 0 if not found )
-  Vocabularies heap cellu/ 0 ?do  dup @ vocabulary$ 2 pick $$= if  nip @ unloop exit  then  cell+ loop  zap ;
-: vocabulary# ( @voc -- voc# )                        ( Index voc# of vocabulary @voc )
-  Vocabularies heap cellu/ 0 ?do  2dup @ = if  2drop i unloop exit  then  cell+ loop  drop
-  cr ." Vocabulary «" vocabulary. ." » not found!" terminate ;
-: vocmodel ( @voc -- u )  c" Model" !para@ 1+ c@ ;    ( Vocabulary model of vocabulary @voc )
-create ModulePath  256 allot
-create BaseDir$  ," /home/dio/.force/lib" \ 256 allot  s" HOME" getenv dup BaseDir$ c!  BaseDir$ 1+ swap cmove
-create Headline$  19621112 d,  version d,  segments d,  0 d,  32 allot  here Headline$ - constant Headline#
-variable SegHeader
-: moddir ( @voc -- p$ )  ModulePath dup c0!           ( Parent directory p$ of module path )
-  BaseDir$ $+>$  '/' ?c+>$  over c" Package" !para@ $+>$ ;
-: modpath ( @voc -- p$ )  ModulePath dup c0!          ( Module path p$ of vocabulary @voc )
-  BaseDir$ $+>$  '/' ?c+>$  over c" Package" !para@ $+>$  '/' ?c+>$  swap c" Name" !para@ $+>$  c" .4ce" $+>$ ;
-: writeSegmentHeader ( @voc #file u -- @voc #file )   ( write the segment usage u )
-  >x 2dup swap x> vocuse SegHeader !  SegHeader cell rot write-file throw ;
-: writeHeader ( @voc #file -- @voc #file )            ( write the module header for vocabulary @voc to file #file )
-  over vocabulary$ count 31 min Headline$ 16 + 2dup c! 1+ swap cmove
-  dup Headline$ Headline# rot write-file throw          ( write headline with magic number and version )
-  segments 0 do  i writeSegmentHeader  loop             ( write usage and size of each segment )
-  segments 1 and if  SegHeader 0!  SegHeader cell 2 pick write-file throw  then ;
-: writeSegment ( @voc #file u -- @voc #file )         ( write segment u of vocabulary @voc to file #file )
-  >x 2dup swap x> vocseg 16 ->| rot write-file throw ;
-: shipVoc ( @voc -- )                                 ( ship vocabulary @voc )
-  cr ." Shipping vocabulary " dup "vocabulary". space
-  ModulePath over c" Package" !para@ $>$  '/' ?c+>$  over c" Name" !para@ $+>$  drop
-  dup moddir count 511 mkdir-parents drop               ( create the intermediate directories )
-  dup modpath count w/o create-file throw               ( open a new file with path derived from vocabulary path )
-  writeHeader  segments 0 do  i writeSegment  loop      ( write header and all segments )
-  ." to " ModulePath qtype$
-  close-file throw  2drop ;                             ( close file )
-: shipVocabulary ( -- )  targetVoc @ shipVoc ;        ( ship the current target vocabulary )
-: tvoc. ( -- )
-  cr ." Target Vocabulary: " tvoc@ dup vocabulary$ dup type$  swap ."  @" hex.
-  cr ." -------------------" c@ 0 udo  '-' emit  loop
-  segments 0 do
-    cr i segname 31 over c@ - 0 max 0 udo  '.' emit  loop  space type$ ." : "
-    '@' emit  i >seg dup haddr@ hex.  dup hused@ hex. '/' emit  hsize@ hex.  loop ;
+  Vocabularies heap cell/ 0 ?do  dup @ vocabulary$ 2 pick $$= if  nip @ unloop exit  then  cell+ loop  zap ;
 : voc. ( @voc -- )
   cr ." Vocabulary " dup vocabulary$ dup type$  ."  @" over hex.
   cr ." -----------" c@ 0 udo  '-' emit  loop
   segments 0 do
-    cr i segname 31 over c@ - 0 max 0 udo  '.' emit  loop  space type$ ." : "
-    '@' emit dup haddr@ hex.  dup hused@ hex. ." / "  dup hsize@ hex.  Heap# + loop  drop ;
-:noname tvoc. ; is printVoc
+    cr i seg$ 31 over c@ - 0 max 0 udo  '.' emit  loop  space type$ ." : "
+    '@' emit dup haddr@ hex.  dup hsize@ hex. ." / "  dup hcapa@ hex.  Heap# + loop  drop ;
 create LOCALNAME  256 allot
 : >localname ( fqvoc$ -- voc$ )  count 2dup '/' cfindlast #-> dup LOCALNAME c!++ swap cmove  LOCALNAME ;
+: tvoc. ( -- )
+  cr ." Target Vocabulary: " tvoc@ dup vocabulary$ dup type$  swap ."  @" hex.
+  cr ." -------------------" c@ 0 udo  '-' emit  loop
+  segments 0 do
+    cr i seg$ 31 over c@ - 0 max 0 udo  '.' emit  loop  space type$ ." : "
+    '@' emit  i @tsegdescr dup haddr@ hex.  dup hsize@ hex. '/' emit  hcapa@ hex.  loop ;
+:noname tvoc. ; is printVoc
+
 
 
 === Dependencies ===
@@ -365,26 +337,27 @@ defer target&,
 : depend ( -- )  DEPENDENCY-NAME  loadedModule @ >x   ( make the current target vocabulary depend on the last loaded module )
   x@ c" Package" para@ ?dup unless cr ." Dependency " x> "vocabulary". ."  has no package name!" terminate then $>$ '/' ?c+>$
   x@ c" Name" para@ ?dup unless  cr ." Dependency " x> "vocabulary". ."  has no name property!" terminate then  $+>$
-  cr ." Adding dependency " x@ "vocabulary". space ." to " tvoc@ "vocabulary". ." : " x@ vte# .
-  §TEXT →tseg#↑  &there swap t$,  tseg#↓
-  §DEPS →tseg#↑  target&,  x@ vte# t,  tseg#↓ ;
+  cr ." Adding dependency " x@ "vocabulary". space ." to " tvoc@ "vocabulary". ." : " x@ @voc# .
+  §TEXT ↑tseg!  &there swap t$,  ↓tseg
+  §DEPS ↑tseg!  target&,  x@ @voc# t,  ↓tseg ;
 : dep# ( $ @voc -- #voc t | $ f )                     ( get dependency index # of vocabulary fqpath $ in vocabulary @voc, if found )
   2dup vocabulary$ $$= if  2drop 0 true exit  then      ( $ is the own vocabulary name → index 0 )
-  §DEPS vocseg 1 >x begin dup while  -rot 2dup @ $$= if  2drop drop x> true exit  then  rot DEPENDENCY# #->  x> 1+ >x  repeat
+  §DEPS segrange 1 >x begin dup while  -rot 2dup @ $$= if  2drop drop x> true exit  then  rot DEPENDENCY# #->  x> 1+ >x  repeat
   2drop x> drop false ;
 : voc# ( @voc -- #voc )                               ( Dependency number of @voc in the current target vocabulary )
   tvoc@ over = if  zap exit  then                       ( @voc is the target vocabulary → index 0 )
   fqvoc$ tvoc@ dep# unless  cr ." Vocabulary " type$ ."  is not a dependency of " tvoc@ vocabulary. terminate  then ;
 : @dep ( # -- @voc )  ?dup unless  tvoc@ exit  then   ( #th dependency of the target vocabulary )
-  1- §DEPS segment rot DEPENDENCY# u* #-> DEPENDENCY# u< if  abort" Invalid dependency index"  then
-  DEPENDENCY.#VOCA + d@ @vte ;
-: >voc# ( dep# -- voc# )  @dep vte# ;                 ( Absolute vocabulary number voc# of dep# in current target vocabulary )
+  1- §DEPS tsegrange rot DEPENDENCY# u* #-> DEPENDENCY# u< if  abort" Invalid dependency index"  then
+  DEPENDENCY.#VOCA + d@ #voc@ ;
+: >voc# ( dep# -- voc# )  @dep @voc# ;                ( Absolute vocabulary number voc# of dep# in current target vocabulary )
+: >dep# ( voc# -- dep# )  #voc@ dep# ;                ( Dependency index dep# of vocabulary index voc# )
 : @vocdep ( @voc # -- @voc' )  ?dup if                ( #th dependency of vocabulary @voc )
-  1- >r §DEPS vocseg r> DEPENDENCY# u* #-> DEPENDENCY# u< if  abort" Invalid dependency index"  then
-  DEPENDENCY.#VOCA + d@ dup . @vte  then ;
+  1- >r §DEPS segrange r> DEPENDENCY# u* #-> DEPENDENCY# u< if  abort" Invalid dependency index"  then
+  DEPENDENCY.#VOCA + d@ dup . #voc@  then ;
 : depfix ( @voc @dep -- @voc @dep )                   ( Insert absolute #VOCA at dep entry @dep in vocabulary @voc )
   dup DEPENDENCY.@NAME + @ >localName findVocabulary ?dup unless  cr ." Dependency " qtype$ ."  not found!" terminate then
-  vte# over DEPENDENCY.#VOCA + d! ;
+  @voc# over DEPENDENCY.#VOCA + d! ;
 
 
 
@@ -393,7 +366,7 @@ defer target&,
 ------
 A locator is a relocatable pointer at a location in a vocabulary, consisting of:
   • a vocabulary index
-  • a segment number
+  • a segment number or type selector
   • a segment offset
 
 A pair of locators, one source locator and one target locator, forms a relocation entry ("relocEnt").  In a relocEnt, both
@@ -430,10 +403,10 @@ it possible to distinguish several different locator types (substructures of str
 --- Locator Primitives ---
 
 : >>offset ( & -- u )  %LOCATOR.OFFSET and ;          ( extract offset u from locator & )
-: >>segment ( & -- seg# )  LOCATOR.SEGMENT u>> %LOCATOR.SEGMENT and ;       ( extract seg# from locator & )
-: >>voc# ( & -- voc# )  LOCATOR.VOCABULARY u>> %LOCATOR.VOCABULARY and ;    ( extract vocabulary index voc# from locator & )
-: >>@voc ( & -- @voc )  >>voc# @dep ;                                       ( extract vocabulary address @voc from locator & )
-: >>extra ( & -- u )  LOCATOR.EXTRA u>> %LOCATOR.EXTRA and ;                ( extract extra info )
+: >>segment ( & -- seg# )  LOCATOR.SEGMENT u>> %LOCATOR.SEGMENT and ;     ( extract seg# from locator & )
+: >>voc# ( & -- voc# )  LOCATOR.VOCABULARY u>> %LOCATOR.VOCABULARY and ;  ( extract vocabulary index voc# from locator & )
+: >>@voc ( & -- @voc )  >>voc# #voc@ ;                                    ( extract vocabulary address @voc from locator & )
+: >>extra ( & -- u )  LOCATOR.EXTRA u>> %LOCATOR.EXTRA and ;              ( extract extra info )
 : <<extra ( & %u -- &' )                              ( set the extra field or locator & to %u )
   %LOCATOR.EXTRA and LOCATOR.EXTRA u<< swap %LOCATOR.EXTRA LOCATOR.EXTRA u<< andn or ;
 : !seg# ( seg# -- #seg# )                             ( validate segment number )
@@ -442,42 +415,40 @@ it possible to distinguish several different locator types (substructures of str
 --- Locator Operations ---
 
 defer reloc,
-: &. ( & -- )  dup >>@voc vocabulary. '.' emit  dup >>segment segment. '#' emit >>offset addr. ;  ( print locator & )
-: >& ( @voc seg# offs -- & )                          ( create locator from @voc, seg# and offs )
+: &. ( & -- )  dup >>@voc vocabulary. '.' emit  dup >>segment seg$. '#' emit >>offset addr. ;  ( print locator & )
+: >& ( @voc seg# offs -- & )  !u4                     ( create locator from @voc, seg# and offs )
 (  cr ." >&: Voc=" 2 pick dup hex. "vocabulary". ." , segment=" over . ." , offset=" dup hex. )
-  dup $100000000 u> if  cr ." Offset too big: " hex. abort  then
-  swap !seg#  LOCATOR.SEGMENT u<< +  swap voc#  LOCATOR.VOCABULARY u<< + ;
-: >T& ( seg# offs -- & )  !u4                         ( create locator from target vocabulary, seg# and offs )
-  swap !seg#  LOCATOR.SEGMENT u<< + ;
+  swap !seg#  LOCATOR.SEGMENT u<< +  swap @voc#  LOCATOR.VOCABULARY u<< + ;
+: >T& ( seg# offs -- & )  tvoc@ -rot >& ;             ( create locator from target vocabulary, seg# and offs )
 : &> ( & -- @voc seg# offs )  dup >>@voc over >>segment rot >>offset ;    ( explode locator into its components )
 : &>a ( & -- a )  dup >>@voc  over >>segment  case    ( resolve locator & to address )
     §VOCA of  endof
-    addr@  0 endcase
+    @segaddr  0 endcase
   swap >>offset + ;
-: &seg ( seg# -- & )  swap 0 >T& ;                    ( create locator to start of segment seg# in target vocabulary )
-: &seg→| ( seg# -- & )  dup segused@ >T& ;            ( create locator to end of segment seg# in target vocabulary )
-: &segoffs ( u seg# -- & )  swap >T& ;                ( create locator for offset u in segment seg# of target vocabulary )
-: &tseg ( -- & )  tseg#@ 0 >T& ;                      ( create locator to start of current target segment )
-: &tseg→| ( -- & )  tseg#@ &seg→| ;                   ( create locator to end of current target segment )
-:noname tseg#@ &seg→| ;  is &there
-: &voc ( @voc -- & )  15 0 >& ;                       ( create locator to vocabulary @voc itself )
+: &tseg→| ( seg# -- & )  dup tsegsize >T& ;           ( create locator to end of segment seg# in target vocabulary )
+: &tsegoffs ( u seg# -- & )  swap >T& ;               ( create locator for offset u in segment seg# of target vocabulary )
+: &t ( -- & )  tseg#@ 0 >T& ;                         ( create locator to start of current target segment )
+: &t→| ( -- & )  tseg#@ &tseg→| ;                     ( create locator to end of current target segment )
+:noname tseg#@ &tseg→| ;  is &there
+: &voc ( @voc -- & )  §VOCA 0 >& ;                    ( create locator to vocabulary @voc itself )
 : &tvoc ( -- & )  tvoc@ &voc ;                        ( create locator to target vocabulary itself )
 : &&! ( &s &t -- )  &>a swap &>a ! ;                  ( relocate s to t, full-cell source )
 : c&&! ( &s &t -- )  &>a swap &>a dup 4+ rot r- swap d! ; ( relocate s to t, code-to-code, max. 32 bits )
-: a& ( a @voc seg# -- & )  2dup addr@  3 roll r- >& ; ( create locator for address a in segment seg# of vocabulary @voc )
-: t&, ( & -- )  &tseg→| over &>a t,  reloc, ;         ( punch & into current target segment and create relocation entry )
+: a& ( a @voc seg# -- & )  2dup @segaddr  3 roll r- >& ;  ( create locator for address a in segment seg# of vocabulary @voc )
+: t&, ( & -- )  &t→| over &>a t,  reloc, ;            ( punch & into current target segment and create relocation entry )
 :noname t&, ; is target&,
-: t&! ( & a seg# -- )  ??" Q" tvoc@ swap a& ??" q" 2dup &>a swap &>a swap ! ??" S" reloc, ;  ( punch & at address a in target
-segment seg# )
-: s&, ( & seg# -- )  →tseg#↑  t&,  tseg#↓ ;           ( punch & into target segment seg# and create relocation entry )
-: t& ( a seg# -- & )  tuck  segaddr@ - >T& ;          ( create locator for address a in target segment seg# )
-: vt& ( @voc a seg# -- & )  2 pick over addr@ rot r− >& ;   ( create locator for address a in #seg segment of vocabulary @voc )
-: withVoc ( @voc &1 -- &2 )  dup >>segment swap >>offset >& ;    ( replace voc# in &1 with @voc )
-: +&there ( offs -- & )  tseg#@ swap tsegused@ + >T& ; ( Locator for offset offs from end of current target segment )
+: t&! ( & a seg# -- )  tvoc@ swap a& 2dup &>a swap &>a swap ! reloc, ;  ( punch & at address a in target segment seg# )
+: s&, ( & seg# -- )  ↑tseg!  t&,  ↓tseg ;             ( punch & into target segment seg# and create relocation entry )
+: t& ( a seg# -- & )  tuck  @segaddr - >T& ;          ( create locator for address a in target segment seg# )
+: vt& ( @voc a seg# -- & )  2 pick over @segaddr rot r− >& ;  ( create locator for address a in #seg segment of vocabulary @voc )
+: withVoc ( @voc &1 -- &2 )  dup >>segment swap >>offset >& ; ( replace voc# in &1 with @voc )
+: +&there ( offs -- & )  tseg#@ swap tsegsize + >T& ; ( Locator for offset offs from end of current target segment )
 : >extra ( & %u -- &' )  over >>extra or <<extra ;    ( add flags %u to locator & )
 : &+ ( & off -- &' )  over %LOCATOR.OFFSET and + !u4 swap %LOCATOR.OFFSET andn or ;   ( add off to offset of & )
 : &>& ( & @voc -- &' )                                ( replaces voc index of & relative to @voc with an index relative to tvoc )
   dup >>voc# over >>segment rot >>offset 2swap @vocdep -rot >& ;
+: abs>dep ( & -- &' )                                 ( replace vocabulary in locator & with dependency index in target vocabulary )
+  &> -rot LOCATOR.SEGMENT u<< -rot voc# LOCATOR.VOCABULARY u<< + + ;
 
 
 
@@ -494,51 +465,42 @@ variable relocs
 
 --- Relocation Primitives ---
 
-: relocSource. ( @source -- )                         ( print the relocation source )
-  dup >>@voc vocabulary. '.' emit  dup >>segment segment. '#' emit  >>offset addr. ;  alias relocTarget.
 : _!sourceValid ( &s -- &s )  dup >>segment           ( check if source reference is valid )
-  dup §DEPS = swap §CODE §TEXT within or unless  cr ." Invalid source segment: " >>segment segment. abort  then
-  dup >>@voc over >>segment vocuse over >>offset u< if  cr ." Out of segment length: " >>offset . tvoc. abort  then ;
+  dup §DEPS = swap §CODE §TEXT within or unless  cr ." Invalid source segment: " >>segment seg$. abort  then
+  dup >>@voc over >>segment segsize over >>offset u< if  cr ." Out of segment length: " >>offset . tvoc. abort  then ;
 : _!targetValid ( &t -- &t )  dup >>segment           ( check if target reference is valid )
-  dup §VOCA = swap §DICT §PARA within or unless  cr ." Invalid target segment: " >>segment segment. abort  then
-  dup >>@voc over >>segment vocuse over >>offset u< if  cr ." Out of segment length: " dup >>offset . >>@voc voc.  abort
+  dup §VOCA = swap §DICT §PARA within or unless  cr ." Invalid target segment: " >>segment seg$. abort  then
+  dup >>@voc over >>segment segsize over >>offset u< if  cr ." Out of segment length: " dup >>offset . >>@voc voc.  abort
   then ;
-: _!valid ( &t &s -- &t &s )                          ( make sure both locators are valid )
-  _!sourceValid swap _!targetValid swap ;
+: _!valid ( &t &s -- &t &s )  _!sourceValid swap _!targetValid swap ;   ( make sure both locators are valid )
 
 --- Relocation Operations ---
 
 :noname ( &t &s -- )                                  ( Add relocation with source &s and target &t to relocation table )
-  _!valid  §RELS →tseg#↑ t, t, tseg#↓ ; is reloc,
+  _!valid  §RELS ↑tseg! t, t, ↓tseg ; is reloc,
 : codereloc, ( &t &s -- )  %CODE-LOCATION >extra reloc, ;
-: relocs. ( -- )  §RELS >seg heap RelocEntry# u/ 0 udo    ( Prints the relocation table )
-  cr dup RELOC.SOURCE + @ relocSource.  space ." -> "  dup RELOC.TARGET + @ relocTarget.  RelocEntry# +  loop  drop ;
-: reloc ( @rel -- )  dup RELOC.SOURCE + @  swap RELOC.TARGET + @
-  over >>extra %CODE-LOCATION and if  c&&!  else  &&!  then ;
+: relocs. ( -- )  §RELS @tsegdescr heap RelocEntry# u/ 0 udo    ( Prints the relocation table )
+  cr dup RELOC.SOURCE + @ &.  space ." -> "  dup RELOC.TARGET + @ &.  RelocEntry# +  loop  drop ;
+: reloc ( @rel -- )  dup RELOC.SOURCE + @  swap RELOC.TARGET + @  over >>extra %CODE-LOCATION and if  c&&!  else  &&!  then ;
 : relocate ( @voc -- )                                ( relocate vocabulary @voc )
-  dup §DEPS vocseg 0 udo  depfix  DEPENDENCY# + DEPENDENCY# +loop  drop
-  dup §RELS vocseg 0 udo  dup reloc  RelocEntry# tuck +  swap +loop  2drop ;
+  dup §DEPS segrange 0 udo  depfix  DEPENDENCY# + DEPENDENCY# +loop  drop
+  dup §RELS segrange 0 udo  dup reloc  RelocEntry# tuck +  swap +loop  2drop ;
 : relocDeps ( @voc -- )                               ( relocate dependency table of vocabulary @voc )
-  dup §RELS vocseg 0 udo  dup RELOC.SOURCE + @ >>segment §DEPS = if  dup reloc  then  RelocEntry# tuck +  swap +loop 2drop ;
+  dup §RELS segrange 0 udo  dup RELOC.SOURCE + @ >>segment §DEPS = if  dup reloc  then  RelocEntry# tuck +  swap +loop 2drop ;
 
 variable DATASEG#
 variable CODESEG#
 : _fixreloc ( & -- &' )  dup >>segment case
     §CODE of  CODESEG# @  endof
     §DATA of  DATASEG# @  endof
-    cr ." Cannot resolve relocation to " segment. '!' emit  0 endcase
+    cr ." Cannot resolve relocation to " seg$. '!' emit  0 endcase
   &+ ;
-: insert-compact-voc ( @voc -- )                      ( copy the words of vocabulary @voc into the current target vocabulary )
-  cr ." Copying code segment ..." §CODE segused@ CODESEG# !  §CODE →tseg#↑  dup §CODE vocseg ta#,  tseg#↓
-  cr ." Copying data segment ..." §DATA segused@ DATASEG# !  §DATA →tseg#↑  dup §DATA vocseg ta#,  tseg#↓
-  cr ." Adjusting relocations ..." §RELS →tseg#↑  §RELS vocseg  RelocEntry# u/ 0 udo  @++ _fixreloc t,  @++ _fixreloc t,  loop  drop  tseg#↓
+: insert-voc ( @voc -- )                              ( copy the words of vocabulary @voc into the current target vocabulary )
+  cr ." Copying code segment ..." §CODE segsize CODESEG# !  §CODE ↑tseg!  dup §CODE segrange ta#,  ↓tseg
+  cr ." Copying data segment ..." §DATA segsize DATASEG# !  §DATA ↑tseg!  dup §DATA segrange ta#,  ↓tseg
+  cr ." Adjusting relocations ..." §RELS ↑tseg!  §RELS segrange  RelocEntry# u/ 0 udo
+    @++ _fixreloc t,  @++ _fixreloc t,  loop  drop  ↓tseg
   cr ." Insertion done." ;
-: insert-structured-voc ( @voc -- )                   ( copy the words of vocabulary @voc into the current target vocabulary )
-  ***TODO*** ;
-: insert-voc ( @voc -- )  dup vocmodel case
-  COMPACT-VOC of  insert-compact-voc  endof
-  STRUCTURED-VOC of  insert-structured-voc  endof
-  unknown-vocabulary-model  endcase ;
 variable COPIED
 : extend ( voc$ -- )                                  ( makes the target vocabulary extend the specified vocabulary )
   cr ." Adding dependency to " loadedModule @ "vocabulary".  depend ;
@@ -547,20 +509,78 @@ create DEPENDENCIES  256 cells allot                  ( translation table for de
 
 
 
+=== Virtual Method Lookup Table ===
+
+0000  dup constant VMTE.VOC#                          ( Absolute vocabulary number )
+   4+ dup constant VMTE.#VMTE                         ( Number of entries in the following array )
+   4+ dup constant VMTE.@VMTE                         ( Start of the VMTE array, each entry is a method address )
+      dup constant VMTE.Header#
+
+
+
+=== Module Shipping ===
+
+create ModulePath  256 allot
+create BaseDir$  ," /home/dio/.force/lib" \ 256 allot  s" HOME" getenv dup BaseDir$ c!  BaseDir$ 1+ swap cmove
+create Headline$  19621112 d,  version d,  segments 1- d,  0 d,  32 allot  here Headline$ - constant Headline#
+variable SegHeader
+: moddir ( @voc -- p$ )  ModulePath dup c0!           ( Parent directory p$ of module path )
+  BaseDir$ $+>$  '/' ?c+>$  over c" Package" !para@ $+>$ ;
+: modpath ( @voc -- p$ )  ModulePath dup c0!          ( Module path p$ of vocabulary @voc )
+  moddir  '/' ?c+>$  swap c" Name" !para@ $+>$  c" .4ce" $+>$ ;
+: writeSegmentHeader ( @voc #file u -- @voc #file )   ( write segment size u )
+  >x 2dup swap x> segsize SegHeader !  SegHeader cell rot write-file throw ;
+: writeHeader ( @voc #file -- @voc #file )            ( write the module header for vocabulary @voc to file #file )
+  over vocabulary$ count 31 min Headline$ 16 + 2dup c! 1+ swap cmove
+  dup Headline$ Headline# rot write-file throw          ( write headline with magic number and version )
+  segments 1- 0 do  i writeSegmentHeader  loop             ( write usage and size of each segment )
+  segments 1- 1 and if  SegHeader 0!  SegHeader cell 2 pick write-file throw  then ;
+: writeSegment ( @voc #file u -- @voc #file )         ( write segment u of vocabulary @voc to file #file )
+  >x 2dup swap x> segrange 16 ->| rot write-file throw ;
+: writeDictionary ( @voc #file -- @voc #file )  §DICT writeSegment ;
+: writeCodeSegment ( @voc #file -- @voc #file )  §CODE writeSegment ;
+: writeDataSegment ( @voc #file -- @voc #file )  §DATA writeSegment ;
+: writeTextSegment ( @voc #file -- @voc #file )  §TEXT writeSegment ;
+: writeParameterTable ( @voc #file -- @voc #file )  §PARA writeSegment ;
+: writeRelocationTable ( @voc #file -- @voc #file )
+  over §RELS segrange RelocEntry# u/ 0 do  ( @voc #file @rel )
+    2dup RELOC.SOURCE + @ ( @voc #file @rel #file &s )  4 pick abs>dep SegHeader !  SegHeader cell rot write-file throw
+    2dup RELOC.TARGET + @ ( @voc #file @rel #file &t )  4 pick abs>dep SegHeader !  SegHeader cell rot write-file throw
+    RelocEntry# +  loop  drop ;
+: writeDependencyTable ( @voc #file -- @voc #file )  §DEPS writeSegment ;
+: writeDebugSegment ( @voc #file -- @voc #file )  §DBUG writeSegment ;
+: writeVirtualMethodTable ( @voc #file -- @voc #file )
+  over §VMLT segrange 0 do  ( @voc #file @vmte )
+    2dup VMTE.VOC# + d@ ( @voc #file @vmte #file #voc )  >dep# SegHeader !  SegHeader 4 rot write-file throw
+    2dup VMTE.#VMTE + dup d@ cells 4+ ( @voc #file @vmte #file a # )  rot write-file throw
+    dup VMTE.#VMTE + d@ cells 8+ tuck + swap +loop  drop ;
+: shipVoc ( @voc -- )                                 ( ship vocabulary @voc )
+  cr ." Shipping vocabulary " dup "vocabulary". space
+  ModulePath over c" Package" !para@ $>$  '/' ?c+>$  over c" Name" !para@ $+>$  drop
+  dup moddir count 511 mkdir-parents drop               ( create the intermediate directories )
+  dup modpath count w/o create-file throw               ( open a new file with path derived from vocabulary path )
+  ." to " ModulePath qtype$
+  writeHeader  writeDictionary  writeCodeSegment  writeDataSegment  writeTextSegment  writeParameterTable
+  writeRelocationTable  writeDependencyTable  writeDebugSegment  writeVirtualMethodTable
+  close-file throw  2drop ;                             ( close file )
+: shipVocabulary ( -- )  targetVoc @ shipVoc ;        ( ship the current target vocabulary )
+
+
+
 === Search Order ===
 
 newHeap SearchOrder
 
 : addSearchVoc ( @voc -- )  SearchOrder h, ;          ( append vocabulary @voc to the search order => "also @voc" )
-: previousOrder ( -- )  cell SearchOrder hused−! ;    ( remove last search order entry => previous )
+: previousOrder ( -- )  cell SearchOrder hsize−! ;    ( remove last search order entry => previous )
 : removeSearchVoc ( @voc -- )                         ( remove last occurrence of vocabulary @voc from the search order )
-  SearchOrder -heap cellu/ 0 ?do  cell− dup @ 2 pick = if
-    dup cell+ swap i move  cell SearchOrder hused−!  drop unloop exit  then  loop
+  SearchOrder -heap cell/ 0 ?do  cell− dup @ 2 pick = if
+    dup cell+ swap i move  cell SearchOrder hsize−!  drop unloop exit  then  loop
   drop cr ." Warning: vocabulary «" vocabulary. ." » not found in search list! ⇒ not removed." ;
 : primary ( -- @voc|0 )                               ( Last = primary search list entry, or 0 if none )
   SearchOrder hempty? if  0  else  SearchOrder >hend  cell- @  then ;
 : searchlist. ( -- )  cr ." Search order:"            ( print the search order )
-  SearchOrder heap cellu/ 0 ?do
+  SearchOrder heap cell/ 0 ?do
     dup @  cr ." • " dup vocabulary.  dup targetVoc @ = if  space ." *"  then  ."  @" hex.  cell+  loop  drop ;
 
 
@@ -587,7 +607,7 @@ variable #FOUND-FILES
   x> xdrop close-dir throw  #FOUND-FILES @ case
     0 of  endof
     1 of  2drop  FOUND-FILE true  endof
-    #FOUND-FILES has-multiple-results  0 endcase ;
+    #FOUND-FILES has-multiple-results!  0 endcase ;
 : lookup-file ( $1 -- $2 t | $1 f )                   ( lookup file $1 in the package tree, return absolute path $2 if found )
   LOCAL-USER find-file  ?dup unless  LOCAL-SYSTEM find-file  then ;
 
@@ -663,8 +683,8 @@ variable file
   MODULE-HEADER 128 tuck file @ read-file throw = unlessever  ."  failed (to read header)" 0 else
     MODULE-HEADER Headline$ 16 tuck compare ifever  ."  failed: incompatible headers" 0 else
       MODULE-HEADER 16 + cr ." → vocabulary " dup qtype$  createVocabulary
-      MODULE-HEADER Headline# + segments 0 do           ( read segments )
-        ." , "  i segname type$ dup @ ?dup if  ."  (" dup . ." B)"
+      MODULE-HEADER Headline# + segments 1- 0 do           ( read segments )
+        ." , "  i seg$ type$ dup @ ?dup if  ."  (" dup . ." B)"
           dup lastVoc @ i >segment hset over 16 ->| file @ read-file throw swap 16 ->| - ifever
             ."  failed (EOF)!" terminate  then  then
         cell+ loop  drop  then  then
@@ -692,19 +712,19 @@ variable baseClass
       MODULE-PATH c" ~/.force" ?loadSource unless
       MODULE-PATH c" /usr/force" ?loadModule unless
       MODULE-PATH c" /usr/force" ?loadSource unless
-      MODULE-PATH module-not-found-in-package-tree
+      MODULE-PATH module-not-found-in-package-tree!
       then then then then  else                           ( relative module name: prefix with current package )
     currentPackage c@ if
       MODULE-PATH2 currentPackage $>$ '/' ?c+>$ MODULE-PATH $+>$ c" ~/.force" ?loadModule unless
       MODULE-PATH2 c" ~/.force" ?loadSource unless
       MODULE-PATH2 c" /usr/force" ?loadModule unless
       MODULE-PATH2 c" /usr/force" ?loadSource unless
-      MODULE-PATH2 module-not-found-in-package-tree
-      then then then then  else  MODULE-PATH module-not-found-in-package-tree  then  then
+      MODULE-PATH2 module-not-found-in-package-tree!
+      then then then then  else  MODULE-PATH module-not-found-in-package-tree!  then  then
     lastVoc @ loadedModule !  targetVoc ! lastVoc !  then ;
 :noname ( @voc -- )                                       ( load depdendencies of vocabulary @voc )
   dup voc.
-  dup §DEPS vocseg ?dup if
+  dup §DEPS segrange ?dup if
     0 udo dup @ loadModule  DEPENDENCY# tuck + swap +loop drop  cr ." → Vocabulary " dup "vocabulary". space dup  else
     ." , " then  2drop ;  is loadDeps
 
@@ -821,21 +841,16 @@ variable LAST_COMP                                    ( Last word compiled into 
 : flags@ ( @word -- u )  w@ ;                         ( Flags of word @word )
 : flags+! ( %u @word -- )  wor! ;                     ( Set bit mask u as flags in word @word )
 : resetFlags ( -- )  autoFlags 0! nextFlags 0! ;
-: >ccf ( @word -- a )  flags %INDIRECT and swap       ( Address of code field of compact word )
+: >CF ( @word -- a )  flags %INDIRECT and swap        ( Address of code field )
   2 + count + swap if  cell ->| @  else  2 ->| 2 +  then ;
-: &ccfa ( @voc @word -- &cfa )                        ( Reference to CFA of compact word @word in vocabulary @voc )
-  >ccf over §CODE addr@ - §CODE swap >& ;
-: &ccf ( @voc @word -- &cf )                          ( Reference to code field of compact word @word in vocabulary @voc )
-  flags swap >ccf swap %INDIRECT and if  @  else  2+  then  §CODE vt& ;
-: &scfa ( @voc @word -- &cfa )                        ( Reference to CFA of structured word )
-  2 cells+ @ §CODE swap >& ;
-: >cnext ( @word -- @word' )                          ( Skip to next word from compact word @word )
+: &CFA ( @voc @word -- &cfa )                         ( Reference to CFA of word @word in vocabulary @voc )
+  >CF over §CODE @segaddr - §CODE swap >& ;
+: &CF ( @voc @word -- &cf )                           ( Reference to code field of word @word in vocabulary @voc )
+  flags swap >CF swap %INDIRECT and if  @  else  2+  then  §CODE vt& ;
+: >next ( @word -- @word' )                           ( Skip to next word from word @word )
   dup 2 + count +                                     ( skip flags and name )
   swap flags@ %INDIRECT and if  cell ->| cell+  else  2 ->| dup w@ 2+ +  then    ( skip CF )
   2 ->| 2 + ;
-: >snext ( @word -- word' )  3 cells+ ;               ( Skip to next word from structured word @word )
-: cword$ ( @word -- $ )  2 + ;                        ( Name of compact word )
-: sword$ ( @word -- $ )  sNFA + @ ;                   ( Name of structured word )
 : method? ( @word -- @word ? )  flags %CODETYPE 0- ;  ( whether @word is a method [regular, constructor or destructor] )
 : regularMethod? ( @word -- @word ? )  flags %CODETYPE and %METHOD = ;
 : constructor? ( @word -- @word ? )  flags %CODETYPE and %CONSTRUCTOR = ;
@@ -843,100 +858,27 @@ variable LAST_COMP                                    ( Last word compiled into 
 
 --- Word Operations ---
 
-( CFA locator: )
-: &CFA ( @voc @word -- &cfa )  over vocmodel case     ( CFA locator for word @word in vocabulary @voc )
-    COMPACT-VOC of  &ccfa  endof
-    STRUCTURED-VOC of  &scfa  endof
-    unknown-vocabulary-model  endcase ;
-
-( name of word: )
-: structName, ( a$ -- & )                             ( punch a$ into text segment of target word and return its locator )
-  §TEXT →tseg#↑  t$,  tseg#↓ ;
-: word$ ( @voc @word -- $ )  swap vocmodel case       ( Name of word @word in vocabulary @voc )
-    COMPACT-VOC of  cword$  endof
-    STRUCTURED-VOC of  sword$  endof
-    unknown-vocabulary-model  endcase ;
-
-( create word: )
-: createCompactWord ( a$ -- )                         ( create compact word with name a$; only flags and name are allocated! )
-  §CODE →tseg#↑  &tseg→| &lastWord !  nextFlags @ tw,  t$,  tseg#↓ ;
-: _createStructuredWord ( &cfa a$ -- )                ( create structured word with name a$ and CFA &cfa )
-  structName, §DICT →tseg#↑  &tseg→| &lastWord !  nextFlags @ t, t&, t&,  tseg#↓ ;
-: createStructuredWord ( a$ -- )  §CODE &seg→| swap _createStructuredWord ;
+: word$ ( @word -- $ )  2 + ;                         ( Name of word @word in vocabulary @voc )
 : createWord ( a$ -- )  wordComplete 0!  #INLINED 0!  ( create word with name a$ )
-  VOCAMODEL @ case
-    COMPACT-VOC of  createCompactWord  endof
-    STRUCTURED-VOC of  createStructuredWord  endof
-    unknown-vocabulary-model  endcase
-  autoFlags @ nextFlags ! ;
-
-( create alias: )
-: createIndirectAlias ( a$ @word -- )                 ( create alias for indirect word )
+  §CODE ↑tseg!  &t→| &lastWord !  nextFlags @ tw,  t$,  ↓tseg  autoFlags @ nextFlags ! ;
+: _createIndirectAlias ( a$ @word -- )                 ( create alias for indirect word )
   flags nextFlags !                                     ( copy flags )
-  §CODE seg→| >r                                        ( save current length of code segment )
-  drop &lastWord @ swap createCompactWord               ( create word )
-  &>a dup >ccf §CODE t&  §CODE →tseg#↑ cell talign, t&, ( copy CFA )
+  §CODE tseg→| >r                                       ( save current length of code segment )
+  drop &lastWord @ swap createWord                      ( create word )
+  &>a dup >CF §CODE t&  §CODE ↑tseg! cell talign, t&,   ( copy CFA )
   cell talign,  4 + r> r− !uword tw,                    ( punch word length )
-  tseg#↓ ;
-: createCompactAlias ( a$ -- )                        ( create compact alias for last word )
-  currentWord@ flags %INDIRECT and if  createIndirectAlias  exit  then    ( handle indirect target separately )
+  ↓tseg ;
+: createAlias ( a$ -- )                               ( create an alias of the last word with name a$ )
+  currentWord@ flags %INDIRECT and if  _createIndirectAlias  exit  then ( handle indirect target separately )
   flags %INDIRECT or nextFlags !                        ( copy flags )
-  §CODE seg→| >r                                        ( save current length of code segment )
-  drop &lastWord @ swap createCompactWord               ( create word )
-  §CODE →tseg#↑ &>a tvoc@ over &ccfa  cell talign,  t&, ( insert indirection to original CFA )
+  §CODE tseg→| >r                                       ( save current length of code segment )
+  drop &lastWord @ swap createWord                      ( create word )
+  §CODE ↑tseg! &>a tvoc@ over &CFA  cell talign,  t&,   ( insert indirection to original CFA )
   cell talign,  8 + r> r− !uword tw,                    ( punch word length )
-  tseg#↓ ;
-: createStructuredAlias ( a$ -- )                     ( create compact alias for last word )
-  currentWord@ flags nextFlags !                        ( copy flags )
-  dup &scfa rot createStructuredWord ;                  ( create word with same CFA )
-: createAlias ( a$ -- )  VOCAMODEL @ case             ( create an alias of the last word with name a$ )
-    COMPACT-VOC of  createCompactAlias  endof
-    STRUCTURED-VOC of  createStructuredAlias  endof
-    unknown-vocabulary-model  endcase
-  autoFlags @ nextFlags ! ;
-
-( find word: )
-: findCompactWord ( $ @voc -- @word t | $ f )         ( look up compact word $ in vocabulary @voc )
-  0 >r                          ( nothing found yet )
-  §CODE >segment dup >hend >x   ( save end-of-segment address on x-stack )
-  haddr@ begin  dup x@ u< while ( while not at end: compare and register if matches )
-    2dup 2 + $$= if  rdrop dup >r  then  >cnext  repeat
-  x> 2drop  r> dup if  nip true  else  drop false  then ;
-: findStructuredWord ( $ @voc -- @word t | $ f )      ( look up sructured word $ in vocabulary @voc )
-  0 >r                          ( nothing found yet )
-  dup §DICT >segment >hend >x   ( save end-of-segment address on x-stack )
-  begin  dup x@ u< while        ( while not at end: compare and register if matches )
-    2dup sNFA + @ $$= if  rdrop dup >r  then  >snext  repeat
-  x> 2drop  r> dup if  nip true  else  drop false  then ;
-: findLocalWord ( $ @voc -- @word t | $ f )           ( look up word $ in vocabulary @voc, returning its word address if found )
-  dup vocmodel case
-    COMPACT-VOC of  findCompactWord  endof
-    STRUCTURED-VOC of  findStructuredWord  endof
-    unknown-vocabulary-model  endcase ;
-: findWord ( $ -- @voc @word t | $ f )                ( find word $ in search order, returning its voc and word address )
-  SearchOrder -heap cellu/ 0 do
-    cell- cr ." Looking up word in " dup @ "vocabulary".
-    dup @ 2 pick over findLocalWord if  2swap 2drop true unloop exit  then  2drop  loop
-  drop false ;
-
-( get word locator: )
-: @cw>& ( @voc @word -- &w )  §CODE vt& ;
-: @sw>& ( @voc @word -- &w )  §DICT vt& ;
-: @w>& ( @voc @word -- &w )  over vocmodel case       ( word locator for word @word in vocabulary @voc )
-  COMPACT-VOC of  @cw>&  endof
-  STRUCTURED-VOC of  @sw>&  endof
-  unknown-vocabulary-model  endcase ;
-
-( punch word: )
-: compactWord, ( @voc @word -- )                      ( punch compact word @word in @voc into target code segment )
-  dup LAST_COMP !  &ccf withVoc §CODE s&, ;
-: structuredWord, ( @voc @word -- )  §DICT t& withVoc §CODE s&, ;    ( punch structured word in @voc into target code segment )
-: word, ( @voc @word -- )          ( punch word @word in vocabulary @voc into target code segment )
-  flags %JOIN and mayLink @ and if  %JOIN over flags+!  then  mayLink off
-  dup vocmodel case
-    COMPACT-VOC of  compactWord,  endof
-    STRUCTURED-VOC of  structuredWord,  endof
-    unknown-vocabulary-model  endcase ;
+  ↓tseg  autoFlags @ nextFlags ! ;
+: @w>& ( @voc @word -- &w )  §CODE vt& ;              ( word locator for word @word in vocabulary @voc )
+: word, ( @voc @word -- )                             ( punch word @word in vocabulary @voc into target code segment )
+  flags %JOIN and mayLink @ and if  %JOIN over flags+!  then  mayLink off  dup LAST_COMP !  &CF withVoc §CODE s&, ;
 
 ( print word: )
 : printFlags ( flags -- )
@@ -968,95 +910,131 @@ variable LAST_COMP                                    ( Last word compiled into 
   dup %CONDITION and if  ."  • condition"  then
   dup %RELOCS and if  ."  • with relocations"  then
   drop ;
-: printCompactAlias ( @word -- )                      ( print information about compact alias )
-  cr ." Compact alias @" dup hex.
+: alias. ( @word -- )                                 ( print information about compact alias )
+  cr ." Alias @" dup hex.
   flags printFlags                                      ( print flags )
   2+ cr ." Name: "  dup qtype$                          ( print name )
   count + cell ->|
   dup @ cr ." Code: " dup 2- w@ bare-hexline            ( print code )
   cell+ 2 ->| cr ." Word Length: " w@ . ;               ( print word length )
-: printCompactWord ( @word -- )                       ( print information about compact word )
-  flags %INDIRECT and if  printCompactAlias exit  then
-  cr ." Compact word @" dup hex.
+: word. ( @word -- )                                  ( print information about word @word in vocabulary @voc )
+  flags %INDIRECT and if  alias. exit  then
+  cr ." Word @" dup hex.
   flags printFlags                                      ( print flags )
   2+ cr ." Name: "  dup qtype$  count +                 ( print name )
   2 ->| cr ." Code: " dup 2+ over w@ bare-hexline       ( print code )
   dup 2+ swap w@ + 2 ->| cr ." Word Length: " w@ . ;    ( print word length )
-: printStructuredWord ( @ word -- )                   ( print information about structured word )
-  cr ." Structured word @" dup hex.
-  flags printFlags                                      ( print flags )
-  over sNFA + dup @  cr ." Name: " qtype$               ( print name )
-  sCFA + @ cr ." Code: " dup 2+ swap w@ bare-hexline ;  ( print code )
-: word. ( @voc @word -- )  swap vocmodel case         ( print information about word @word in vocabulary @voc )
-    COMPACT-VOC of  printCompactWord  endof
-    STRUCTURED-VOC of  printStructuredWord  endof
-    unknown-vocabulary-model  endcase ;
 
-( prefix: )
 : isprefix? ( w$ -- ? )  count 0- swap 'a' '{' within and ;  ( Check if name w$ suggests it be a prefix )
-: cprefix? ( @word -- -? )                             ( Check if compact word @word is a prefix in a composite )
-  flags %PREFIX and swap 2 + isprefix? or ;
-: sprefix? ( @word -- -? )  ***TODO*** ;
-: prefix? ( @voc @word -- -? )  swap vocmodel case     ( Check if word @word in vocabulary @voc is a prefix in a composite )
-  COMPACT-VOC of  cprefix?  endof
-  STRUCTURED-VOC of  sprefix?  endof
-  unknown-vocabulary-model  endcase ;
+: prefix? ( @word -- -? )  flags %PREFIX and swap 2 + isprefix? or ;  ( Check if word @word is a prefix in a composite )
 
 
 
 === Word Table ===
 
-newHeap Words
-newHeap HashEntries
-PAGESIZE cellu/ =variable WordSlots
+newHeap GlobalWords
+newHeap GlobalHashEntries
+newHeap GlobalNames
 
 --- Dictionary Entry Structure ---
 
 0000  dup constant DICT.WORD      ( Locator of word )
-cell+ dup constant DICT.NAME      ( Locator of name )
-cell+ dup constant DICT.NEXT      ( Address of next hash entry with same hash value )
+cell+ dup constant DICT.NAME      ( Offset of name in GlobalNames )
+cell+ dup constant DICT.NEXT      ( Offset of next hash entry with same hash value )
 cell+ constant DICTENTRY#         ( Size of a dictionary entry )
+
+--- Holding ---
+
+variable IntValue
+variable CharValue
+variable @StringValue
+variable Vocabulary#Value
+variable UseGlobalNames
+create FloatValue  10 allot
+
+variable Held
+variable Held2
+1 constant IntHeld
+2 constant FloatHeld
+3 constant CharHeld
+4 constant StringHeld
+5 constant ConditionHeld
+6 constant BitTestHeld
+7 constant VocabularyHeld
+
+: holdInt ( n -- )  IntValue !  IntHeld Held ! ;
+: holdFloat ( -- F: r -- )  FloatValue f!  FloatHeld Held ! ;
+: holdChar ( uc -- )  CharValue !  CharHeld Held ! ;
+: holdString ( $ -- )  @StringValue !  StringHeld Held ! ;
+: holdCondition ( -- )  ConditionHeld Held ! ;
+: holdBitTest ( -- )  BitTestHeld Held ! ;
+: holdCondExpr ( -- )  ConditionHeld Held2 ! ;
+: holdBTExpr ( -- )  BitTestHeld Held2 ! ;
+: holdVocabulary ( -- )  VocabularyHeld Held ! ;
 
 --- Dictionary Methods ---
 
-: dict@ ( -- @dict )  Words !hactive haddr@ ;         ( Address of word table )
-: dict@# ( -- @dict #dict )  Words !hactive heap ;    ( Address and length of word table )
-: $hash ( $ -- u )                                    ( Compute hash u of string $ )
-  count 0 -rot 0 do  c@++ rot 4 <u< + swap  loop  drop
-  0 8 0 do  over WordSlots @ 1- and xor swap 8 u>> swap  loop  nip ;
+: dict@ ( -- @dict )  GlobalWords !hactive haddr@ ;   ( Address of word table )
+: dict@# ( -- @dict #dict )  GlobalWords !hactive |heap| ( Address and capacity of word table )
+  ?dup unlessever  drop GlobalWords dup hcapa@ swap 0hallot  then ;
+: $hash ( $ # -- u )                                  ( compute hash u of string $ with hash size #|#=2ⁿ )
+  >x count 0 -rot 1+ 1 do  @c++ i * rot + swap  loop  drop  x> 1- and ;
+(  0 8 0 do  over x@ 1- and xor swap 8 u>> swap  loop  nip x> drop ; )
 : &word$ ( &w -- w$ )  &>a word$ ;                    ( Name w$ of word with referent &w )
-: &hash ( &w -- u )  tvoc@ swap &word$ $hash ;        ( Compute hash u of word w )
-: word$>dict ( &w w$ -- )  swap dup &hash             ( Add word locator &w to word table under name w$ )
-  DICTENTRY# HashEntries 0hallot drop  dict@ rot cells+  xchg @  tuck DICT.NEXT + !  rot over DICT.NAME + !  DICT.WORD + ! ;
-: word>dict ( &w -- )  dup &word$ word$>dict ;        ( Add word locator &w to word table under its own name )
-: findTargetWord ( w$ -- &w t | w$ f )                ( Look up word in word table )
-  dict@ over $hash cells+ @
-  begin dup while  dup DICT.NAME + @ 2 pick $$= if  DICT.WORD + @ nip true exit  then  DICT.NEXT + @  repeat ;
-create TARGETWORDNAME$  256 allot
+: &hash ( &w # -- u )  swap &word$ swap $hash ;       ( compute hash u of word w with hash size # [:=2ⁿ] )
+: useGlobalNames@ ( -- ? )  tvoc@ c" GlobalNames" !para@ 1+ c@ ;
+: _!wck ( w$ &w -- &w )  dup &null = if               ( assert entry is not ambiguous [&null] )
+  over ambiguous-word!  then  nip ;
+: lookupWord ( w$ @d #d -- &w t | w$ f )              ( lookup word w$ in hashtable @d#d, returning its locator &w if found )
+  cell/ >x  over x@ $hash cells+ @
+  begin dup while  dup DICT.NAME + @ 2 pick $$= if  x> drop  DICT.WORD + @ _!wck true exit  then  DICT.NEXT + @  repeat  x> drop ;
+: _set ( &w w$ @de -- )  DICT.WORD + dup @ &null = if  drop 2drop exit  then  ( already ambiguous: quit )
+  2 pick >>@voc over @ >>@voc = if   nip ! exit  then                         ( same voc: overwrite )
+  &null swap !  2drop ;                                                       ( different vocs: mark ambigous [&null] )
+: +>word ( &w w$ @d #d -- )                           ( add word &w with name w$ to dictionary @d with capacity #d )
+  ??" w0" 2 pick swap cell/ $hash ??" w1"
+  cells dup $FF8 u> if  abort  then +  ( &w w$ @e )
+  ??" w2" begin dup @ while  @ dup DICT.NAME + @ ( &w w$ @e w'$ ) 2 pick $$= if  ( &w w$ @e )  DICT.WORD + _set exit  then  DICT.NEXT +  repeat
+  ( &w w$ @e )  DICTENTRY# GlobalHashEntries ??" w4" !hactive DICTENTRY# !hfree ??" w5" hallot drop  ( &w w$ @e @e2 ) ??" w6" dup rot ! ( &w w$ @e2 )
+  ??" w7" tuck DICT.NAME + ! ( &w @e2 )  ??" w8" tuck DICT.WORD + !  DICT.NEXT + 0!  ??" w9" ;
+: $+>word ( &w "w$" @d #d -- )                        ( add word &w with volatile name w$ to dictionary @d with capacity #d )
+  ??" x0" GlobalNames !hactive >hend >r  rot GlobalNames h$,  r> -rot ??" x9" +>word ;
+: findGlobalWord ( w$ -- &w t | w$ f )  dict@# lookupWord ;  ( lookup word in global word table, returning its locator if found )
+: _segrange ( @voc seg# -- a # )  2dup segsize unlessever  2dup @segdescr PAGESIZE swap 0hallot 2drop  then  segrange ;
+: findLocalWord ( $ @voc -- &w t | $ f )  §LWLT _segrange lookupWord ;  ( lookup word $ in vocabulary @voc )
 : getTargetWord ( w$ -- &w )                          ( get the word or method locator for word or method w$, or fail )
-  tvoc@ ?dup if  findLocalWord if  @w>&  exit  then  then   ( look up current target vocabulary first )
-  findTargetWord if  exit  then                             ( then look up the word by itself; might also be a method! )
-  SearchOrder -heap cellu/ 0 do  cell−                      ( loop through search order, looking up qualified names )
-    over prefix? if  TARGETWORDNAME$ 2 pick $>$ over $+>$  else  TARGETWORDNAME$ over $>$ 2 pick $+>$  then
-    findTargetWord if  -rot 2drop unloop exit  then  drop  loop  drop
-  cr ." Word not found: " qtype$ abort ;
-: addWord ( w$ &w -- )  ***TODO*** ;                  ( add word &w under name w$ to the word table )
+  findGlobalWord unlessever  tvoc@ findLocalWord unlessever  cr ." Word not found: " qtype$ abort  then  then ;
+: findWord ( $ -- &w t | $ f )                        ( lookup word with name $ in the search order, returning locator &w if found )
+  Held @ VocabularyHeld = if  Held 0! Vocabulary#Value @0! findLocalWord exit  then  findGlobalWord ;
+: addLocalWord ( &w w$ @voc -- )  ??" l0" dup >r §LWLT 2dup @segaddr -rot segcapacity r> voc. ??" l1" +>word ??" l9" ;
+create GLOBAL_NAME  1024 allot
+: >prefix ( @voc w$ -- $ )  GLOBAL_NAME swap $>$ swap vocabulary$ $+>$ ;
+: >suffix ( @voc w$ -- $ )  GLOBAL_NAME rot vocabulary$ $>$ swap $+>$ ;
+: _>voc ( &w w$ x -- @voc w$ x )  rot >>@voc -rot ;
+: >globalname ( &w w$ -- $ )                          ( Global name of w$ with word &w )
+  over &>a flags@ %PREFIX and over  count 0> swap c@ 'a' '{' within and or ??" >g" _>voc if  ??" >p" >prefix  else  ??" >s" >suffix  then ;
+: addGlobalWord ( &w w$ -- )  2dup dict@#  $+>word  useGlobalNames@ if  2dup 2dup >globalname nip dict@# $+>word  then  2drop ;
+: addWord ( &w -- )                                   ( add word &w to local and global word lookup tables )
+  ??" a1" dup &>a word$ ( &w w$ )  2dup ??" a2" addGlobalWord  tvoc@ ??" a3" addLocalWord ;
+: globalDict. ( -- )                                  ( prints the global dictionary )
+  cr ." Global Dictionary: @"  dict@# over hex.  cell/ 0 do  dup
+    begin dup @ while  @ dup DICT.NAME + @  cr  i 0 <# # # # # # #> type space type$ ." : "  dup DICT.WORD + @ hex. ."  -> " dup DICT.NEXT + @ hex.
+      DICT.NEXT +  repeat  drop  cell+ loop  drop ;
+: endword ( -- )  &lastWord @ addWord  -1 wordComplete ! globalDict. ; ( finalize current word definition )
 
-------
-: indexCompactVoc ( @voc -- )                         ( index compact vocabulary @voc )
-  dup §CODE !SEGMENT heap  begin dup while  ( @voc a # )
-    over flags@ %VISIBILITY and %PRIVATE - if  over §CODE vt& >x  2 #->  over x@ addWord ...
-      x> drop  then
-  ... ;
-: indexStructuredVoc ( @voc -- )                      ( index structured vocabulary @voc )
-  ... ;
-: indexVocabulary ( @voc -- )  dup vocmodel case      ( append the word index of @voc to the word table )
-    COMPACT-VOC of  indexCompactVoc  endof
-    STRUCTURED-VOC of  indexStructuredVoc  endof
-    unknown-vocabulary-model  endcase ;
-------
-
-
+---8<---
+: lookupWord ( $ @ht -- &word t | $ f )               ( lookup word $ in hash table @ht )
+  over hash ...
+: findLocalWord ( $ @voc -- &word t | $ f )           ( lookup word $ in vocabulary @voc, returning its word address if found )
+  §LWLT @segaddr lookupWord ;
+: findGlobalWord ( $ -- &word t | $ f )               ( lookup word in global word lookup table; return its locator if found )
+  GlobalWords @ lookupWord ;
+: findWord ( $ -- @voc @word t | $ f )                ( find word $ in search order, returning its voc and word address )
+  SearchOrder -heap cell/ 0 do
+    cell- cr ." Looking up word in " dup @ "vocabulary".
+    dup @ 2 pick over findLocalWord if  2swap 2drop true unloop exit  then  2drop  loop
+  drop false ;
+--->8---
 
 === Code Generator ===
 
@@ -1083,25 +1061,25 @@ variable @COMP-WORDS                                  ( Compiler wordlist / voca
   cr ." Compiler word " qtype$ space ." not found!"  terminate ;
 
 : code-range ( @word -- a # )                         ( Determine the code range w/o length, enter and exit code )
-  >ccf dup 2 - w@ ENTER# #-> EXIT# − TRIM @ #-> ;
+  >CF dup 2 - w@ ENTER# #-> EXIT# − TRIM @ #-> ;
 : code# ( @word -- # )  code-range nip ;
 : _r, ( ΔC @rel -- )  tuck @ swap  &+  t, RELOC.TARGET + @ t, ;    ( append relocation @rel, source-shifted by ΔC )
-: inline-reloc, ( @word a -- )  §RELS →tseg#↑         ( Duplicate relocations of @word, biased to base a )
-  over >ccf ENTER# + −  swap code-range over + §CODE segaddr@ tuck − -rot − swap  §RELS segment RelocEntry# / 0 ?do
+: inline-reloc, ( @word a -- )  §RELS ↑tseg!         ( Duplicate relocations of @word, biased to base a )
+  over >CF ENTER# + −  swap code-range over + §CODE @tsegaddr tuck − -rot − swap  §RELS tsegrange RelocEntry# / 0 ?do
     dup RELOC.SOURCE + @ >>offset 2over within if  3 pick over _r,  then  RelocEntry# + loop  4 #drop
-  tseg#↓ ;
+  ↓tseg ;
 ( TODO ?inline-join is machine-specific, so should be moved into machine-code vocabulary )
 : ?inline-join ( @word -- @word )  LASTCONTRIB @ ?dup if  flags nip %LINK and if
-  flags %JOIN and if  there 1- c@ $58 ( RAX POP ) = if  dup >ccf ENTER# + c@ $50 ( RAX PUSH ) = if
-    1 dup TRIM !  §CODE >seg hused−!  then  then  then  then  then ;
+  flags %JOIN and if  there 1- c@ $58 ( RAX POP ) = if  dup >CF ENTER# + c@ $50 ( RAX PUSH ) = if
+    1 dup TRIM !  §CODE @tsegdescr hsize−!  then  then  then  then  then ;
 : ?>joiner ( @word -- @word )  #INLINED @ unless  flags %JOIN and if  %JOIN currentWord@ flags+!  then  then ;
 : ?>linker ( @word -- @word )  #INLINED @ unless  flags %LINK and if  %LINK currentWord@ flags+!  then  then ;
 : inline-call, ( @voc @word -- )  cr ." Inline call: " &CFA dup hex. &CALL, ;
 : inline-copy, ( @voc @word -- )  ?>linker  ?>joiner  ?inline-join  there >x  nip dup code-range ta#,  x> inline-reloc,  TRIM 0! ;
 
-: int-indirect, ( n -- )  indirect-threading-not-supported ;
-: int-direct, ( n -- )  c" lit" findWord if  §CODE →tseg#↑  word, t,  tseg#↓  else  word-not-found  then ;
-: int-token, ( n -- )  token-threading-not-supported ;
+: int-indirect, ( n -- )  indirect-threading-not-supported! ;
+: int-direct, ( n -- )  c" lit" findWord if  §CODE ↑tseg!  word, t,  ↓tseg  else  word-not-found!  then ;
+: int-token, ( n -- )  token-threading-not-supported! ;
 : int-inline, ( n -- )  dup -1 = if  drop c" lit-1"  else  dup nsize case
   0 of  drop c" lit0"  endof
   1 of  dup 0< if  c" lit1"  else  c" ulit1"  then  endof
@@ -1109,28 +1087,28 @@ variable @COMP-WORDS                                  ( Compiler wordlist / voca
   4 of  dup 0< if  c" lit4"  else  c" ulit4"  then  endof
   8 of  dup 0< if  c" lit8"  else  c" ulit8"  then  endof
   cr ." Invalid literal size: " . terminate  endcase  then  compExec ;
-: float-indirect, ( -- F: r -- )  indirect-threading-not-supported ;
-: float-direct, ( -- F: r -- )  c" litf" findWord if  §CODE →tseg#↑  word, f,  tseg#↓  else  word-not-found  then ;
-: float-token, ( -- F: r -- )  token-threading-not-supported ;
+: float-indirect, ( -- F: r -- )  indirect-threading-not-supported! ;
+: float-direct, ( -- F: r -- )  c" litf" findWord if  §CODE ↑tseg!  word, f,  ↓tseg  else  word-not-found! then ;
+: float-token, ( -- F: r -- )  token-threading-not-supported! ;
 : float-inline, ( -- F: r -- )  c" litf" compExec ;
-: string-indirect, ( &$ -- )  indirect-threading-not-supported ;
-: string-direct, ( &$ -- )  c" lit$" findWord if  §CODE →tseg#↑ word, t&,  tseg#↓  else  word-not-found  then ;
-: string-token, ( &$ -- )  token-threading-not-supported ;
+: string-indirect, ( &$ -- )  indirect-threading-not-supported! ;
+: string-direct, ( &$ -- )  c" lit$" findWord if  §CODE ↑tseg! word, t&,  ↓tseg  else  word-not-found! then ;
+: string-token, ( &$ -- )  token-threading-not-supported! ;
 : string-inline, ( &$ -- )  c" lit$" compExec ;
-: word-indirect, ( @voc @word -- )  indirect-threading-not-supported ;
-: word-direct, ( @voc @word -- )  §CODE →tseg#↑ word, t&,  tseg#↓ ;
-: word-token, ( @voc @word -- )  token-threading-not-supported ;
+: word-indirect, ( @voc @word -- )  indirect-threading-not-supported! ;
+: word-direct, ( @voc @word -- )  §CODE ↑tseg! word, t&,  ↓tseg ;
+: word-token, ( @voc @word -- )  token-threading-not-supported! ;
 : word-inline, ( @voc @word -- )
   dup >r flags %INLINE and over code# MAX-BARE-COPY < or if inline-copy, else inline-call, then
   #INLINED 1+! r> dup LASTCONTRIB ! LAST_COMP ! ;
-: voc-indirect, ( @voc -- )  indirect-threading-not-supported ;
-: voc-direct, ( @voc -- )  c" vocabulary" findWord if  §CODE →tseg#↑ word, t&,  tseg#↓  else  word-not-found  then ;
-: voc-token, ( @voc -- )  token-threading-not-supported ;
+: voc-indirect, ( @voc -- )  indirect-threading-not-supported! ;
+: voc-direct, ( @voc -- )  c" vocabulary" findWord if  §CODE ↑tseg! word, t&,  ↓tseg  else  word-not-found! then ;
+: voc-token, ( @voc -- )  token-threading-not-supported! ;
 : voc-inline, ( @voc -- )  c" vocabulary" compExec ;
 
 : resolveExxit ( ae a -- ae )  2dup - swap 4- d! ;  ( Resolves EXXIT at address a to actual exit at ae )
 : resolveExxits ( -- )              ( Resolves all the unresolved EXXITs on the X stack; without reloc, as inside same method )
-  §CODE seg→|  YDEPTH 0 ?do  Y> resolveExxit  loop  drop ;
+  §CODE tseg→|  YDEPTH 0 ?do  Y> resolveExxit  loop  drop ;
 
 : invokeMethod ( @methref @word -- )
   ;
@@ -1394,36 +1372,11 @@ variable FORC                                         ( if we are in Forcembler 
 : resolveForward ( ctrl:ba -- )  tseg→| CTRL> tuck − swap 4- d! ;
 : finishDef ( -- )
   LAST_COMP @ ?dup if  flags %LINK and if  %LINK currentWord@ flags+!  then  drop  then
-  CTRLDEPTH if  unbalanced-definition  then ;
+  CTRLDEPTH if  unbalanced-definition!  then ;
 : smashCondition ( -- cc )                            ( remove condition buildup from the code segment, to replace with ?JMP )
-  §CODE >seg >hend 9 - c@ $F and $4000000 ( ← Forcembler Condition Code ) or
-  10 §CODE >seg hused−! ;
-: smashBitTest ( -- cc )  3 §CODE >seg hused−!  $4000003 ;  ( remove bit test buildup from the code segment )
-
---- Holding ---
-
-variable IntValue
-variable CharValue
-variable @StringValue
-create FloatValue  10 allot
-
-variable Held
-variable Held2
-1 constant IntHeld
-2 constant FloatHeld
-3 constant CharHeld
-4 constant StringHeld
-5 constant ConditionHeld
-6 constant BitTestHeld
-
-: holdInt ( n -- )  IntValue !  IntHeld Held ! ;
-: holdFloat ( -- F: r -- )  FloatValue f!  FloatHeld Held ! ;
-: holdChar ( uc -- )  CharValue !  CharHeld Held ! ;
-: holdString ( $ -- )  @StringValue !  StringHeld Held ! ;
-: holdCondition ( -- )  ConditionHeld Held ! ;
-: holdBitTest ( -- )  BitTestHeld Held ! ;
-: holdCondExpr ( -- )  ConditionHeld Held2 ! ;
-: holdBTExpr ( -- )  BitTestHeld Held2 ! ;
+  §CODE @tsegdescr >hend 9 - c@ $F and $4000000 ( ← Forcembler Condition Code ) or
+  10 §CODE @tsegdescr hsize−! ;
+: smashBitTest ( -- cc )  3 §CODE @tsegdescr hsize−!  $4000003 ;  ( remove bit test buildup from the code segment )
 
 --- Clause Vocabulary ---
 
@@ -1510,28 +1463,28 @@ previous definitions
     DIRECT-THREADED of  int-direct,  endof
     TOKEN-THREADED of  int-token,  endof
     INLINED of  int-inline,  endof
-    unknown-code-model  endcase ;
+    unknown-code-model!  endcase ;
 
-: float, ( -- F: r -- )  §TEXT →tseg#↑  &tseg→| tf, tseg#↓  code-model@ case
+: float, ( -- F: r -- )  §TEXT ↑tseg!  &t→| tf, ↓tseg  code-model@ case
     INDIRECT-THREADED of  float-indirect,  endof
     DIRECT-THREADED of  float-direct,  endof
     TOKEN-THREADED of  float-token,  endof
     INLINED of  float-inline,  endof
-    unknown-code-model  endcase ;
+    unknown-code-model!  endcase ;
 
 : char, ( uc -- )  code-model@ case
     INDIRECT-THREADED of  int-indirect,  endof
     DIRECT-THREADED of  int-direct,  endof
     TOKEN-THREADED of  int-token,  endof
     INLINED of  int-inline,  endof
-    unknown-code-model  endcase ;
+    unknown-code-model!  endcase ;
 
-: string, ( a$ -- )  §TEXT →tseg#↑  &tseg→| swap t$, tseg#↓  code-model@ case
+: string, ( a$ -- )  §TEXT ↑tseg!  &t→| swap t$, ↓tseg  code-model@ case
     INDIRECT-THREADED of  string-indirect,  endof
     DIRECT-THREADED of  string-direct,  endof
     TOKEN-THREADED of  string-token,  endof
     INLINED of  string-inline,  endof
-    unknown-code-model  endcase ;
+    unknown-code-model!  endcase ;
 :noname ( a$ -- )  string, ; is str,
 
 : vocabulary, ( @voc --)  code-model@ case
@@ -1539,16 +1492,16 @@ previous definitions
     DIRECT-THREADED of  voc-direct,  endof
     TOKEN-THREADED of  voc-token,  endof
     INLINED of  voc-inline,  endof
-    unknown-code-model  endcase ;
+    unknown-code-model!  endcase ;
 
 : punchWord ( @voc @word -- )  code-model@ case
     INDIRECT-THREADED of  word-indirect,  endof
     DIRECT-THREADED of  word-direct,  endof
     TOKEN-THREADED of  word-token,  endof
     INLINED of  word-inline,  endof
-    unknown-code-model  endcase ;
+    unknown-code-model!  endcase ;
 
-: insertJmp ( cc -- )  §CODE →tseg#↑  9 >tseg hused−!  quit ;
+: insertJmp ( cc -- )  §CODE ↑tseg!  9 @tdescr hsize−!  quit ;
 
 : ?punchLiteral ( -- )  Held @0! case
       IntHeld of  IntValue @ int,  endof
@@ -1557,6 +1510,7 @@ previous definitions
       StringHeld of  @StringValue @ string,  endof
       ConditionHeld of  endof
       BitTestHeld of  endof
+      VocabularyHeld of  Vocabulary#Value @0! #voc@ vocabulary,  endof
       dup if  cr ." Invalid holding type: " dup . terminate  then  endcase ;
 
 --- Loose Clauses ---
@@ -1597,28 +1551,22 @@ variable @codeAddr                                    ( Start address of current
 : insertExit ( -- )  « EXIT, » ;
 
 : enterMethod ( -- )                                  ( start definition )
-  §CODE →tseg#↑  1024 !tfree  2 talign,  0 tw,  tseg→| @codeAddr !  insertEnter  tseg#↓  mayLink on ;
+  §CODE ↑tseg!  1024 !tfree  2 talign,  0 tw,  t→| @codeAddr !  insertEnter  ↓tseg  mayLink on ;
 : exitMethod ( -- )                                   ( close definition )
-  resolveExxits  §CODE →tseg#↑  insertExit                ( punch EXIT into code )
-  relocs dup @ swap 0! if  %RELOCS currentWord@ flags+!  then    ( set relocations flag if relocations, and clear them )
-  tvoc@ vocmodel case
-    COMPACT-VOC of
-      tseg→| @codeAddr @ tuck - swap 2 − w!               ( update code length )
-      2 talign,  ??" C"  tseg→| 2 + ??" c" currentWord@  ??" D" - tw,  ??" E"  endof     ( punch the word length )
-    STRUCTURED-VOC of
-      endof
-    unknown-vocabulary-model  endcase
-  ??" F"
-  tseg#↓ ;
+  resolveExxits  §CODE ↑tseg!  insertExit                ( punch EXIT into code )
+  relocs dup @ swap 0! if  %RELOCS currentWord@ flags+!  then ( set relocations flag if relocations, and clear them )
+  t→| @codeAddr @ tuck - swap 2 − w!                  ( update code length )
+  2 talign,  ??" C"  t→| 2 + ??" c" currentWord@  ??" D" - tw,  ??" E"  ( punch the word length )
+  ↓tseg  &lastWord @ addWord ;                        ( add word to word lookup tables )
 
 --- Code for Classes ---
 
-: pseg→|& ( -- )  §DATA &seg→|  « PUSHPFA, » ;
+: pseg→|& ( -- )  §DATA &tseg→|  « PUSHPFA, » ;
 : createTypeCheck ( -- )                             ( creates the !<class> word )
   MODULE-NAME $/ '!' c+>$ tvoc@ vocabulary$ $+>$ createWord  cr ." > class check"
-  §CODE →tseg#↑  enterMethod
-  &tvoc « LIT&, » c" !type" findWord if  punchWord  else  word-not-found$  then
-  exitMethod  -1 wordComplete !  tseg#↓ ;
+  §CODE ↑tseg!  enterMethod
+  &tvoc « LIT&, » c" !type" findWord if  punchWord  else  word-not-found$!  then
+  ↓tseg  endword ;
 
 create METHODNAME  256 allot
 variable DYNAMIC#
@@ -1640,52 +1588,52 @@ previous
 
 : createDynamic ( addr$ -- )                          ( create adress in instance data space )
   %VISIBILITY nextFlags andn!  %PRIVATE nextFlags or!  createWord  cr ." > dynamic address"
-  §CODE →tseg#↑  lvl>0  enterMethod  tvoc@ c" Size" !para@ 1+ @ « #PLUS, »
-  exitMethod  lvl>  -1 wordComplete !  tseg#↓  lvl> ;
+  §CODE ↑tseg!  lvl>0  enterMethod  tvoc@ c" Size" !para@ 1+ @ « #PLUS, »
+  ↓tseg  endword  lvl> ;
 : createDynamicVal ( # &tp|&null val$ -- )            ( create dynamic value val$ of size # and type &tp )
   %VISIBILITY nextFlags andn!  %PRIVATE nextFlags or! dup >x  createWord  ( create basic val )  cr ." > dynamic base val"
   drop ( until we store the type somewhere )
-  §CODE →tseg#↑  lvl>0  enterMethod  tvoc@ c" Size" !para@ 1+ dup >x @ dup DYNAMIC# ! « #PLUS, »  dup abs x> +!
-  exitMethod  -1 wordComplete !  tseg#↓  lvl>
+  §CODE ↑tseg!  lvl>0  enterMethod  tvoc@ c" Size" !para@ 1+ dup >x @ dup DYNAMIC# ! « #PLUS, »  dup abs x> +!
+  ↓tseg  endword  lvl>
   METHODNAME x> $>$ '@' c+>$  createWord              ( create getter )  cr ." > getter"
-  §CODE →tseg#↑  lvl>0  enterMethod  DYNAMIC# @ swap lvl++ « ##FETCH, »  exitMethod  -1 wordComplete !  tseg#↓  lvl> ;
+  §CODE ↑tseg!  lvl>0  enterMethod  DYNAMIC# @ swap lvl++ « ##FETCH, »  ↓tseg  endword  lvl> ;
 : createDynamicVar ( # &tp|0 var$ -- )                  ( create dynamic variable var$ of size # and type &tp )
   %VISIBILITY nextFlags andn!  %PRIVATE nextFlags or! dup >x  createWord  ( create basic var )  cr ." > dynamic base var"
   drop ( until we store the type somewhere )
-  §CODE →tseg#↑  lvl>0  enterMethod  tvoc@ c" Size" !para@ 1+ dup >x @ dup DYNAMIC# ! « #PLUS, »  dup abs x> +!
-  exitMethod  -1 wordComplete !  tseg#↓  lvl>
+  §CODE ↑tseg!  lvl>0  enterMethod  tvoc@ c" Size" !para@ 1+ dup >x @ dup DYNAMIC# ! « #PLUS, »  dup abs x> +!
+  ↓tseg  endword  lvl>
   METHODNAME x@ $>$ '@' c+>$  createWord                ( create getter )  cr ." > getter"
-  §CODE →tseg#↑  lvl>0  enterMethod  DYNAMIC# @ over « ##FETCH, »  exitMethod  -1 wordComplete !  tseg#↓  lvl>
+  §CODE ↑tseg!  lvl>0  enterMethod  DYNAMIC# @ over « ##FETCH, »  ↓tseg  endword  lvl>
   METHODNAME x> $>$ '!' c+>$  createWord                ( create setter )  cr ." > setter"
-  §CODE →tseg#↑  lvl>0  enterMethod  DYNAMIC# @ swap lvl++ « ##STORE, »  exitMethod  -1 wordComplete !  tseg#↓  lvl> ;
+  §CODE ↑tseg!  lvl>0  enterMethod  DYNAMIC# @ swap lvl++ « ##STORE, »  ↓tseg  endword  lvl> ;
 : allotDynamic ( # -- )  cr ." Dynamic allot " dup .  tvoc@ c" Size" !para@ 1+ +! ; ( allot # bytes of any value in instance data space )
 : 0allotDynamic ( # -- )  cr ." Dynamic 0allot " dup .  tvoc@ c" Size" !para@ 1+ +! ; ( allot # bytes of value 0 in instance data space )
 : createStatic ( addr$ -- )                           ( create adress in instance data space )
   %VISIBILITY nextFlags andn!  %PRIVATE nextFlags or!  createWord  cr ." > static address"
-  §CODE →tseg#↑  lvl>0  enterMethod  pseg→|&  exitMethod  -1 wordComplete !  tseg#↓  lvl> ;
+  §CODE ↑tseg!  lvl>0  enterMethod  pseg→|&  ↓tseg  endword  lvl> ;
 : createStaticVal ( x # &tp|0 val$ -- )  >x           ( create static value val$ with value x, size # and type &tp )
   METHODNAME x@ $>$ '@' c+>$  createWord              ( create getter )  cr ." > getter"
-  §CODE →tseg#↑  lvl>0  enterMethod  0 swap lvl>1 pseg→|& « ##FETCH, »  exitMethod  -1 wordComplete !  tseg#↓  lvl>
-  %VISIBILITY nextFlags andn!  %PRIVATE nextFlags or! x>  createWord  §CODE →tseg#↑  ( create base val )  cr ." > static base val"
-  drop  lvl>1  enterMethod  exitMethod  lvl>  -1 wordComplete !  tseg#↓ ;
+  §CODE ↑tseg!  lvl>0  enterMethod  0 swap lvl>1 pseg→|& « ##FETCH, »  ↓tseg  endword  lvl>
+  %VISIBILITY nextFlags andn!  %PRIVATE nextFlags or! x>  createWord  §CODE ↑tseg!  ( create base val )  cr ." > static base val"
+  drop  lvl>1  enterMethod  lvl>  ↓tseg  endword ;
 : createStaticVar ( # &tp|0 var$ -- )  >x  drop       ( create static variable val$ with size # and type &tp )
   METHODNAME x@ $>$ '@' c+>$  createWord                ( create getter )  cr ." > getter"
-  §CODE →tseg#↑  lvl>0  enterMethod  0 over lvl>1 pseg→|& lvl2+ « ##FETCH, »  exitMethod  -1 wordComplete !  tseg#↓  lvl>
+  §CODE ↑tseg!  lvl>0  enterMethod  0 over lvl>1 pseg→|& lvl2+ « ##FETCH, »  ↓tseg  endword  lvl>
   METHODNAME x@ $>$ '!' c+>$  createWord                ( create setter )  cr ." > setter"
-  §CODE →tseg#↑  lvl>0  enterMethod  0 over lvl>1 pseg→|& lvl2+ « ##STORE, »  exitMethod  -1 wordComplete !  tseg#↓  lvl>
-  %VISIBILITY nextFlags andn!  %PRIVATE nextFlags or! x>  createWord  §CODE →tseg#↑  ( create base val )  cr ." > static base var"
-  lvl>1  0 swap #pf,  enterMethod  exitMethod  lvl>  -1 wordComplete !  tseg#↓ ;
+  §CODE ↑tseg!  lvl>0  enterMethod  0 over lvl>1 pseg→|& lvl2+ « ##STORE, »  ↓tseg  endword  lvl>
+  %VISIBILITY nextFlags andn!  %PRIVATE nextFlags or! x>  createWord  §CODE ↑tseg!  ( create base val )  cr ." > static base var"
+  lvl>1  0 swap #pf,  enterMethod  lvl>  ↓tseg  endword ;
 : createStaticObject ( &tp obj$ -- )                  ( create direct static object obj$ of type &tp )
   over &>a c" Size" !para@ 1+ @ >x                      ( = size of object instance )
   cr ." Object size: " x@ .
   %VISIBILITY nextFlags andn!  %PRIVATE nextFlags or!  createWord
-  §DATA →tseg#↑  dup t&,  tseg#↓
-  §CODE →tseg#↑  lvl>1  enterMethod  « PUSHPFA, »  exitMethod  lvl>  -1 wordComplete !  tseg#↓
-  §DATA →tseg#↑  x> tallot, tseg#↓ ;
+  §DATA ↑tseg!  dup t&,  ↓tseg
+  §CODE ↑tseg!  lvl>1  enterMethod  « PUSHPFA, »  lvl>  ↓tseg  endword
+  §DATA ↑tseg!  x> tallot, ↓tseg ;
 : allotStatic ( # -- )                                ( allot # bytes of any value in vocabulary data space )
-  cr ." Static allot " dup .  §DATA >seg hallot 2drop ;
+  cr ." Static allot " dup .  §DATA @tsegdescr hallot 2drop ;
 : 0allotStatic ( # -- )                               ( allot # bytes of value 0 in vocabulary data space )
-  cr ." Static 0allot " dup .  §DATA >seg 0hallot 2drop ;
+  cr ." Static 0allot " dup .  §DATA @tsegdescr 0hallot 2drop ;
 
 --- Main ---
 
@@ -1708,8 +1656,8 @@ create bit$ ," bit"
   >stringClause if  execute exit  then
   2dup @COMP-WORDS @ search-wordlist if
     -rot 2drop [ also Forcembler ] depth 1- 0 max dup >B ADP+ execute B> ADP- [ previous ] exit  then
-  over 1- findVocabulary  ?dup if  -rot 2drop cr ." Punching vocabulary " dup "vocabulary". vocabulary, exit  then  drop
-  word-not-found ;
+  over 1- findVocabulary  ?dup if  -rot 2drop Vocabulary#Value !  holdVocabulary exit  then  drop
+  word-not-found! ;
 :noname ( $ -- )  compile ; is compile,
 
 
@@ -1755,10 +1703,10 @@ vocabulary VocabularyWords
 also VocabularyWords definitions  context @ VOC-WORDS !
 
 : vocabulary; ( -- )                                  ( end vocabulary definition: ship vocabulary )
-  VOC-WORDS @ unvoc  shipVocabulary  target↓  %STATIC autoFlags andn! ;
+  VOC-WORDS @ unvoc  shipVocabulary  target>  %STATIC autoFlags andn! ;
 : extends ( >name -- )                                ( load entire vocabulary into current vocabulary )
-  readName findVocabulary ?dup unless  vocabulary-not-found  then
-  dup voctype@ ?dup if  0 invalid-vocabulary-type  then  insert-voc ;
+  readName findVocabulary ?dup unless  vocabulary-not-found!  then
+  dup voctype@ ?dup if  0 invalid-vocabulary-type!  then  insert-voc ;
 : val ( &type|# >name -- )                            ( create an unmodifiable field member of type &type or size # )
   dup 2 cells u≤ if  ( size )  &null  else  ( type )  cell swap  then  readName  cr ." val " dup qtype$  createStaticVal ;
 : var ( &type|# >name -- )                            ( create a modifiable field member of type &type or size # )
@@ -1782,7 +1730,7 @@ vocabulary ClassWords
 also ClassWords definitions  context @ CLASS-WORDS !
 
 : class; ( -- )                                       ( end class definition: ship class )
-  createTypeCheck CLASS-WORDS @ unvoc  shipVocabulary  target↓ ;
+  createTypeCheck CLASS-WORDS @ unvoc  shipVocabulary  target> ;
 : val ( &type|# >name -- )                            ( create an unmodifiable field member of type &type or size # )
   dup 2 cells u≤ if  ( it's a size )  &null  else  ( it's a type )  cell swap  then  readName  cr ." val " dup qtype$
   nextFlags @ %STATIC and if  createStaticVal  else  createDynamicVal  then ;
@@ -1813,7 +1761,7 @@ vocabulary InterfaceWords
 also InterfaceWords definitions  context @ INTERFACE-WORDS !
 
 : interface; ( -- )                                   ( end interface definition: ship interface )
-  createTypeCheck INTERFACE-WORDS @ unvoc  shipVocabulary  target↓ ;
+  createTypeCheck INTERFACE-WORDS @ unvoc  shipVocabulary  target> ;
 
 previous definitions
 
@@ -1827,7 +1775,7 @@ vocabulary StructWords
 also StructWords definitions  context @ STRUCT-WORDS !
 
 : structure; ( -- )                                   ( end structure definition: ship structure )
-  createTypeCheck STRUCT-WORDS @ unvoc  shipVocabulary  target↓ ;
+  createTypeCheck STRUCT-WORDS @ unvoc  shipVocabulary  target> ;
 : val ( &type|# >name -- )                            ( create an unmodifiable field member of type &type or size # )
   dup 2 cells u≤ if  ( it's a size )  &null  else  ( it's a type )  cell swap  then  readName  cr ." val " dup qtype$
   createDynamicVal ;
@@ -1848,10 +1796,10 @@ vocabulary EnumWords
 also EnumWords definitions  context @ ENUM-WORDS !
 
 : enum; ( -- )                                        ( end enum definition: ship enum )
-  shipVocabulary  ENUM-WORDS @ unvoc  baseClass @ ?dup if  unvoc  then  target↓ ;
+  shipVocabulary  ENUM-WORDS @ unvoc  baseClass @ ?dup if  unvoc  then  target> ;
 : symbol ( >name -- )                                 ( add a symbol to the enum )
-  readName  cr ." constant " dup qtype$  createWord  §CODE →tseg#↑
-  tvoc@ c" Next" !para@ 1+ dup @ lvl>1  enterMethod  int,  exitMethod  lvl>  -1 wordComplete !  tseg#↓
+  readName  cr ." constant " dup qtype$  createWord  §CODE ↑tseg!
+  tvoc@ c" Next" !para@ 1+ dup @ lvl>1  enterMethod  int,  lvl>  ↓tseg  endword
   1+!  tvoc@ c" Count" !para@ 1+ 1+! ;
 
 previous definitions
@@ -1866,10 +1814,10 @@ vocabulary EnumsetWords
 also EnumsetWords definitions  context @ ENUMSET-WORDS !
 
 : enumset; ( -- )                                     ( end enum definition: ship enum )
-  shipVocabulary  ENUMSET-WORDS @ unvoc  baseClass @ ?dup if  unvoc  then  target↓ ;
+  shipVocabulary  ENUMSET-WORDS @ unvoc  baseClass @ ?dup if  unvoc  then  target> ;
 : symbol ( >name -- )                                 ( add a symbol to the enumset )
-  readName  cr ." enumset constant " dup qtype$  createWord  §CODE →tseg#↑
-  tvoc@ c" Next" !para@ 1+ dup @ lvl>1  enterMethod  int,  exitMethod  lvl>  -1 wordComplete !  tseg#↓
+  readName  cr ." enumset constant " dup qtype$  createWord  §CODE ↑tseg!
+  tvoc@ c" Next" !para@ 1+ dup @ lvl>1  enterMethod  int,  lvl>  ↓tseg  endword
   1+!  tvoc@ c" Count" !para@ 1+ 1+! ;
 : count ( -- # )  tvoc@ c" Count" !para@ 1+ @ ;       ( number of symbols in the enumset )
 : next ( -- # )  tvoc@ c" Next" !para@ 1+ @ ;         ( index of the next symbol in the enumset )  alias size
@@ -1932,7 +1880,7 @@ also compiler definitions  context @ @COMP-WORDS !
 : then ( ctrl:ba -- )  « THEN, »  LAST_COMP0! ;
 : ?? ( >tag -- )  readName cr 27 emit ." [1;106m" type$ .sh 27 emit ." [0m" ;
 : ( ( >...rpar -- )  c" )" comment-bracket ;          \ skips a parenthesis-comment
-: ;  finishDef  exitMethod  -1 wordComplete !  LASTCONTRIB 0!  LAST_COMP0!  doInterpret ;     \ finish definition
+: ;  finishDef  endword  LASTCONTRIB 0!  LAST_COMP0!  doInterpret ;     \ finish definition
 
 previous definitions
 
@@ -1945,7 +1893,7 @@ also ForcemblerWords  definitions  context @ @FORCEMBLER-WORDS !
 
 : SAVE, ( -- )  « PUSH, »  %JOIN currentWord@ flags+! ;    ( Insert DUP and mark word as joiner )
 : RESTORE, ( -- )  « DROP, »  %LINK currentWord@ flags+! ; ( Insert DROP and mark word as linker )
-: ; ( -- )  tseg#↓  exitMethod  -1 wordComplete !  FORC 0!  %INLINE currentWord@ flags+! ;    ( Finish code word )
+: ; ( -- )  ↓tseg  endword  FORC 0!  %INLINE currentWord@ flags+! ;    ( Finish code word )
 
 previous definitions
 
@@ -1976,7 +1924,8 @@ also Interpreter definitions  context @ @INTERPRETER !
 10 constant Real
 
 : vocabulary ( >name -- )                             ( create a vocabulary with name from input stream )
-  readName  cr ." vocabulary " dup qtype$  createVocabulary  §PARA →tseg#↑  c" Package" t$, currentPackage t$,  tseg#↓ ;
+  readName  cr ." vocabulary " dup qtype$  createVocabulary
+  §PARA ↑tseg!  c" Package" t$, currentPackage t$,  c" GlobalNames" t$, 1 tc, -1 tc,  ↓tseg ;
 : package ( >name -- )                                ( adds a package specification to the vocabulary )
   currentPackage readName  cr ." package " dup qtype$ $>$ drop ;
 : also ( >name -- )                                   ( push vocabulary with name from input stream onto search order )
@@ -1995,14 +1944,14 @@ also Interpreter definitions  context @ @INTERPRETER !
 : fallible ( -- )  %FALLIBLE currentWord@ flags+! ;   ( Mark current word as fallible )
 : target ( -- @voc|0 )  tvoc@ ;                       ( Current target vocabulary )
 : constant ( x >name -- )                             ( create a constant with value x )
-  readName  cr ." constant " dup qtype$  createWord  §CODE →tseg#↑
-  lvl>1  enterMethod  int,  exitMethod  lvl>  -1 wordComplete !  tseg#↓ ;
+  readName  cr ." constant " dup qtype$  createWord  §CODE ↑tseg!
+  lvl>1  enterMethod  int,  lvl>  ↓tseg  endword ;
 : variable ( >name -- )                               ( create a variable with initial value 0 )
-  readName  cr ." variable " dup qtype$  createWord  §CODE →tseg#↑
-  lvl>0  enterMethod  pseg→|&  §DATA →tseg#↑  0 t,  tseg#↓  exitMethod  lvl>  -1 wordComplete !  tseg#↓ ;
+  readName  cr ." variable " dup qtype$  createWord  §CODE ↑tseg!
+  lvl>0  enterMethod  pseg→|&  §DATA ↑tseg!  0 t,  ↓tseg  lvl>  ↓tseg  endword ;
 : =variable ( x >name -- )                            ( create a variable with initial value x )
-  readName  cr ." =variable " dup qtype$  createWord  §CODE →tseg#↑
-  lvl>1  enterMethod  pseg→|&  §DATA →tseg#↑  t,  tseg#↓  exitMethod  lvl>  -1 wordComplete !  tseg#↓ ;
+  readName  cr ." =variable " dup qtype$  createWord  §CODE ↑tseg!
+  lvl>1  enterMethod  pseg→|&  §DATA ↑tseg!  t,  ↓tseg  lvl>  ↓tseg  endword ;
 : import ( >path -- )  readName                       ( import the file with the specified path or name )
   cr ." Importing " dup qtype$  loadModule ;
 : requires ( >name -- )  readName loadModule depend ; ( import the specified file and make it a dependency of the current voc )
@@ -2017,33 +1966,34 @@ also Interpreter definitions  context @ @INTERPRETER !
 : vocabulary: ( >name -- )  vocabulary  0 >voctype    ( create vocabulary and set up for definitions )
   lastVoc @ addSearchVoc  definitions  als0 VocabularyWords  resetFlags %STATIC %PUBLIC or dup autoFlags or! nextFlags or! ;
 : class: ( >name -- )  vocabulary  1 >voctype         ( create class and set up for its body )
-  lastVoc @ addSearchVoc  definitions  als0 ClassWords  §PARA →tseg#↑  c" Size" t$, cell tc, 0 t, tseg#↓
+  lastVoc @ addSearchVoc  definitions  als0 ClassWords  §PARA ↑tseg!  c" Size" t$, cell tc, 0 t, ↓tseg
   resetFlags %PRIVATE dup autoFlags or! nextFlags or! ;
 : interface: ( >name -- )  vocabulary  2 >voctype     ( create interface and set up for its body )
   resetFlags %PUBLIC or dup autoFlags or! nextFlags or!
   lastVoc @ addSearchVoc  definitions  als0 InterfaceWords ;
 : enum: ( >name -- )  vocabulary  3 >voctype          ( create byte enum and set up for its body )
   resetFlags %PRIVATE or dup autoFlags or! nextFlags or!
-  §PARA →tseg#↑  c" Next" t$, cell tc, 0 t,  c" Count" t$, cell tc, 0 t,  tseg#↓
+  §PARA ↑tseg!  c" Next" t$, cell tc, 0 t,  c" Count" t$, cell tc, 0 t,  ↓tseg
   c" /force/internal/enumbase1" loadModule  extend
   loadedModule @ baseClass !  lastVoc @ addSearchVoc  definitions  als0 EnumWords ;
 : enumset: ( # >name -- )  vocabulary  4 >voctype     ( create enum set of size # and set up for its body )
   resetFlags %PRIVATE or dup autoFlags or! nextFlags or!
-  §PARA →tseg#↑  c" Next" t$, cell tc, 0 t,  c" Count" t$, cell tc, 0 t,  tseg#↓
+  §PARA ↑tseg!  c" Next" t$, cell tc, 0 t,  c" Count" t$, cell tc, 0 t,  ↓tseg
   MODULE-NAME c" /force/internal/enumsetbase" $>$ swap abs u+>$ loadModule  extend
   loadedModule @ baseClass !  lastVoc @ addSearchVoc  definitions  als0 EnumsetWords ;
 : structure: ( >name -- )  vocabulary  5 >voctype     ( create structure and set up for its body )
   resetFlags %PRIVATE or dup autoFlags or! nextFlags or!
-  lastVoc @ addSearchVoc  definitions  als0 StructWords  §PARA →tseg#↑  c" Size" t$, cell tc, 0 t, tseg#↓ ;
+  lastVoc @ addSearchVoc  definitions  als0 StructWords  §PARA ↑tseg!  c" Size" t$, cell tc, 0 t, ↓tseg ;
 : code: ( >name -- )                                  ( create machine code word )
   cr ." Entering definition with depth " depth . ."  (should be 0)"
-  readName  cr ." code: " dup type$  createWord  enterMethod  -1 FORC !  §CODE →tseg#↑ ;
+  readName  cr ." code: " dup type$  createWord  enterMethod  -1 FORC !  §CODE ↑tseg! ;
 : alias ( >name -- )                                  ( create an alias for the last word with the given name )
   readname  cr ." alias " dup qtype$  createAlias ;
 : public: ( -- )  %VISIBILITY autoFlags andn!  %PUBLIC autoFlags or! ;        ( set default visibility to public )
 : private: ( -- )  %VISIBILITY autoFlags andn!  %PRIVATE autoFlags or! ;      ( set default visibility to private )
 : protected: ( -- )  %VISIBILITY autoFlags andn!  %PROTECTED autoFlags or! ;  ( set default visibility to protected )
 : package: ( -- )  %VISIBILITY autoFlags andn!  %PACKAGE autoFlags or! ;      ( set default visibility to package )
+: NoGlobalNames ( -- )  tvoc@ c" GlobalNames" !para@ 1+ c0! ;
 : traceIt ( -- )  loadedModule @ cr ." >>>>>>> Tracing " dup "vocabulary". traceVoc ! ;
 : trace ( -- )  cr ." >>>>>>>>> trace <<<<<<<" traceVoc @ voc. ;
 : print" ( >..." -- )  '"' readString qtype$ ;
@@ -2066,11 +2016,11 @@ also Interpreter definitions  context @ @INTERPRETER !
 : !def ( >name -- )                                   ( check presence of definition in current vocabulary )
   readName  cr ." Check presence of definition " dup qtype$ space
   currentVoc @ findLocalWord if
-    ." successful: @" dup hex. ."  (Code#" currentVoc @ §CODE addr@ - hex. ')' emit  else
+    ." successful: @" dup hex. ."  (Code#" currentVoc @ §CODE @segaddr - hex. ')' emit  else
     yellow ." failed." normal drop  testErrors 1+!  then ;
 : !code ( >name >... >";" -- )                        ( validate code )
   readName  cr ." Verify code of word " dup qtype$ space
-  currentVoc @ findLocalWord unless  yellow ." : word not found!" normal  testErrors 1+!  else  currentVoc @ over word.
+  currentVoc @ findLocalWord unless  yellow ." : word not found!" normal  testErrors 1+!  else  dup word.
     cr ." Code: "
     currentVoc @ swap &CFA &>a  begin  readName dup c@ over c" ;" $$= invert and while
       dup c" <<" $$= if  drop -1 codecomp !  else  dup c" >>" $$= if  drop 0 codecomp !  else

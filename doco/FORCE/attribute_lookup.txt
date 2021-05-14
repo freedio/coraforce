@@ -1,0 +1,76 @@
+Defining and Looking up Attributes
+==================================
+
+This document goes from general to more specific, and specific rules override general ones.
+
+Vocabularies
+------------
+Dictionary:
+- Each vocabulary has a dictionary, in which attributes are registered in the order they appear as locators to the corresponding
+  code.
+Attribute Lookup Tables:
+- Each vocabulary has a "Dynamic Attribute Lookup Table" (DALT), in which all its non-private attributes (fields and methods) are
+  registered only by their local name.  In this table, registering an attribute that already exists overwrites the previous entry.
+- Looking up an attribute in this table requires a vocabulary reference.
+- Additionally, there is a "Global Attribute Lookup Table" (GALT), in which all public attributes (fields and methods) are
+  registered by their local name and their composite name (composed of vocabulary name and attribute name according to the
+  composition rules).  Registering a new attribute will overwrite an existing entry only if there is already an entry from the same
+  vocabulary with the same attribute name.
+- Lookups without a vocabulary prefix will check the global lookup table only.
+- Both lookup tables are transient, i.e. they are not saved to the generated module.
+- During compilation, the dynamic attribute lookup table is built up attribute by attribute, as they occur, including private
+  attributes.  At the same time, each public attribute is also registered in the global attribute lookup table.
+- When a module is loaded, its DALT is freshly constructed, and a scan over all attributes is made; all non-private attributes are
+  registered in it.  On top, each public attribute is also registered in the GALT.
+
+Extensions
+----------
+- Vocabularies can extend other vocabularies according to inheritence rules (e.g. classes can inherit from classes, and vocabularies
+  from vocabularies, but not crosswise).
+- The "extends" keyword indicating such an inheritence situation will merge the DALT of the extended vocabulary into the new one
+  (filtering out private entries), merging its former contents with the inherited attributes.  If multiple "extends" keywords are
+  present (this case is called "multiple inheritence"), later extensions will override earlier ones.  However, composite names will
+  also be generated, so that e.g. a subclass can address commonly named attributes of all superclasses by using the composite name
+  scheme.
+- The "extends" keyword also appends the non-private part of the dictionary of the superclass to the dictionary of the subclass.
+- The first definition in the vocabulary will prevent "extends" from succeeding, i.e. all extensions have to be prior to the first
+  definition in the vocabulary itself.
+
+Traits
+------
+- Traits are feature definitions.
+- The "implements" keyword indicating such a feature definition will merge the trait's DALT into the new class with a null-reference
+  for as yet unknown words to indicate that the words are not yet implemented.  Later "extends" or definitions in the current class
+  can override the null-reference and thus implement the trait.
+- Additionally, a virtual method table for the trait is created.
+
+Invocation of methods: local
+----------------------------
+- At compile time, a method call is inserted into the code.
+- At runtime, the call is executed.
+
+Invocation of methods: same class
+---------------------------------
+- At compile time, if the specification class is a regular class, the number of the word in the specification class (#) is looked
+  up, and a call to that message number for the specification class is inserted into the code.
+- At runtime, method number # is looked up in the effective class, and a call to that method is executed.
+- "Same class" is a special case of "subclass" and can therefore be treated the same.
+
+Invocation of methods: subclass
+-------------------------------
+- At compile time, if the specification class is a regular class, the number of the word in the specification class (#) is looked
+  up, and a call to that message number for the specification class is inserted into the code.
+- At runtime, method number # is looked up in the effective class, and a call to that method is executed.
+- Since the effective class is a subclass (extension) of the specification class, this works, since the subclass must by design
+  have the same methods in the same order, and then some.
+
+Invocation of methods: subclass with multiple inheritence
+---------------------------------------------------------
+
+Invocation of methods: trait
+----------------------------
+- At compile time, if the specification class is a trait, the number of the word in the specification trait (#m) is looked up, and
+  a virtual call to that message number for the specification trait is inserted into the code along with the trait's vocabulary
+  number (#v), thus an index of the form #v.#m.
+- At runtime, method number m# in the virtual method table of #v is looked up, and a call to that address executed.
+

@@ -86,18 +86,18 @@ protected static :: (next)  ( TODO implement ) ;;
 	test;
 
 ( Divides u by the cell size. )
-: cellu/ ( u -- u/cell# )  CELLUBY, ;
+: cell/ ( u -- u/cell# )  CELLUBY, ;
 
-	test: cellu/: checks if cell size division is correct.
+	test: cell/: checks if cell size division is correct.
 	given sp0!  1024
-	when: cellu/
+	when: cell/
 	then: 1024 TARGET_ARCH_CELL_SIZE u/ !=
 		  depth 0 !=
 	test;
 
-	test: cellu/: checks if cellu/ fails gracefully on an empty stack.
+	test: cell/: checks if cell/ fails gracefully on an empty stack.
 	given sp0!
-	when: capture{ cellu/ }capture
+	when: capture{ cell/ }capture
 	then: captured@ ParameterStackUnderflow !=
 		  depth 0 !=
 	test;
@@ -315,7 +315,7 @@ private variable RSP0
 	test;
 
 ( Returns the number of occupied stack cells. )
-: depth ( -- # )  sp0 sp@ MINUS, cellu/ 1- ;
+: depth ( -- # )  sp0 sp@ MINUS, cell/ 1- ;
 
 	test: depth: checks if the initial depth is 0.
 	given sp0!
@@ -964,11 +964,11 @@ private variable RSP0
 	test;
 
 ( Pushes return stack depth n. )
-: rdepth ( -- n )  rp0 rp@ r− cellu/ ;
+: rdepth ( -- n )  rp0 rp@ r− cell/ ;
 
 	test: rdepth: checks if the return stack depth is correctly reported.
 	given sp0!
-	when: rp@ rp0 - cellu/ rdepth
+	when: rp@ rp0 - cell/ rdepth
 	then: !=
 		  depth 0 !=
 	test;

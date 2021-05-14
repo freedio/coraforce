@@ -5,7 +5,7 @@
 import /force/intel/64/macro/CoreMacro
 package /force/intel/64/core
 
-vocabulary: ForthBase
+vocabulary: ForthBase  NoGlobalNames
 
 --- On stack comments:  we use
     ? ("truebool")  for true boolean (0 or -1)
@@ -59,13 +59,13 @@ public:
 : %cell ( -- %cell:C )  CELLSHIFT, ;                  ( Cell Shift )
 : cell+ ( x -- x+cell# )  CELLPLUS, ;                 ( add cell size to x )
 : cells ( n -- n*cell# )  CELLTIMES, ;                ( multiply n with cell size )
-: cellu/ ( u -- u/cell# )  CELLUBY, ;                 ( divide u through cell size )
+: cell/ ( u -- u/cell# )  CELLBY, ;                   ( divide u through cell size )
 
 : half ( -- half#:C )  HALF, ;                        ( Half cell size )
 : %half ( -- %half:C )  HALFSHIFT, ;                  ( Half cell Shift )
 : half+ ( x -- x+cell# )  HALFPLUS, ;                 ( add half cell size to x )
 : halves ( n -- n*cell# )  HALFTIMES, ;               ( multiply n with half cell size )
-: halfu/ ( u -- u/cell# )  HALFUBY, ;                 ( divide u through half cell size )
+: half/ ( u -- u/cell# )  HALFBY, ;                   ( divide u through half cell size )
 
 0 constant false                                      ( the value considered 'false' )
 -1 constant true                                      ( the value considered 'real true' )
@@ -265,6 +265,19 @@ alias −−o!  alias −−v!  alias −−2!                    ( aliases with
 : q@ ( a -- q )  QFETCH, ;                            ( fetch unsigned quad word from address )
 : h@ ( a -- h )  HFETCH, ;                            ( fetch signed oct word from address )
 : o@ ( a -- o )  OFETCH, ;                            ( fetch unsigned oct word from address )
+
+--- Fetch and clear ---
+
+: b@0! ( a -- b )  BFETCHZ, ;                         ( fetch signed byte from address )
+: c@0! ( a -- c )  CFETCHZ, ;                         ( fetch unsigned byte from address )
+: s@0! ( a -- s )  SFETCHZ, ;                         ( fetch signed word from address )
+: w@0! ( a -- w )  WFETCHZ, ;                         ( fetch unsigned word from address )
+: i@0! ( a -- i )  IFETCHZ, ;                         ( fetch signed double word from address )
+: d@0! ( a -- d )  DFETCHZ, ;                         ( fetch unsigned double word from address )
+: l@0! ( a -- l )  QFETCHZ, ;                         ( fetch signed quad word from address )
+: q@0! ( a -- q )  QFETCHZ, ;                         ( fetch unsigned quad word from address )
+: h@0! ( a -- h )  HFETCHZ, ;                         ( fetch signed oct word from address )
+: o@0! ( a -- o )  OFETCHZ, ;                         ( fetch unsigned oct word from address )
 
 --- Fetch with post-increment ---
 
@@ -661,7 +674,7 @@ variable XSP
 : x@ ( -- x X: x -- x )  XSP @ cell - @ ;             ( copy top of X stack onto parameter stack )
 : 2x@ ( -- x X: x y - -x y )  XSP @ 2 cells - @ ;     ( copy second of X stack onto parameter stack )
 : xdrop ( -- X: x -- )  cell XSP -! ;                 ( drop top of X stack )
-: xdepth ( -- n X: -- )  XSP @ XSTACK - cellu/ ;      ( Depth of X stack in cells )
+: xdepth ( -- n X: -- )  XSP @ XSTACK - cell/ ;       ( Depth of X stack in cells )
 
 
 

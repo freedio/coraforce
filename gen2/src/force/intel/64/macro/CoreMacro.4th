@@ -25,9 +25,9 @@
   DS:R15:  Address of Z-Stack Descriptor
 )
 
-package //force/intel/64/macro
+package /force/intel/64/macro
 
-vocabulary: CoreMacro ( AMD64 )
+vocabulary: CoreMacro  NoGlobalNames
 
 === Helpers ===
 
@@ -44,17 +44,15 @@ code: CELL, ( -- cell# )  SAVE,  EAX EAX XOR  CELL # EAX ADD ;
 code: CELLSHIFT, ( -- #cell )  SAVE,  EAX EAX XOR  CELL 8 * # EAX ADD ;
 code: CELLPLUS, ( u -- u+cell# )  CELL # RAX ADD ;
 code: CELLTIMES, ( u -- u×cell# )  CELL% # RAX SHL ;
-code: CELLUBY, ( u×cell# -- u )  CELL% # RAX SHR ;
+code: CELLBY, ( u×cell# -- u )  CELL% # RAX SHR ;
 
 code: HALF, ( -- half# )  SAVE,  EAX EAX XOR  HALF # EAX ADD ;
 code: HALFSHIFT, ( -- #half )  SAVE,  EAX EAX XOR  HALF 8 * # EAX ADD ;
 code: HALFPLUS, ( u -- u+half# )  HALF # RAX ADD ;
 code: HALFTIMES, ( u -- u×half# )  HALF% # RAX SHL ;
-code: HALFUBY, ( u×half# -- u )  HALF% # RAX SHR ;
+code: HALFBY, ( u×half# -- u )  HALF% # RAX SHR ;
 
 code: BLANK, ( -- ␣ )  SAVE,  EAX EAX XOR  $20 # EAX ADD ;
-
-
 
 
 
@@ -128,6 +126,17 @@ code: LFETCH, ( @l -- l )  0 [RAX] RAX MOV ;
 code: QFETCH, ( @q -- q )  0 [RAX] RAX MOV ;
 code: HFETCH, ( @h -- h )  QWORD PTR CELL [RAX] PUSH  0 [RAX] RAX MOV ;
 code: OFETCH, ( @h -- h )  QWORD PTR CELL [RAX] PUSH  0 [RAX] RAX MOV ;
+
+code: BFETCHZ, ( @b -- b )  BYTE PTR 0 [RAX] RDX MOVSX  0 # BYTE PTR 0 [RAX] MOV  RDX RAX MOV ;
+code: CFETCHZ, ( @c -- c )  BYTE PTR 0 [RAX] RDX MOVZX  0 # BYTE PTR 0 [RAX] MOV  RDX RAX MOV ;
+code: SFETCHZ, ( @s -- s )  WORD PTR 0 [RAX] RDX MOVSX  0 # WORD PTR 0 [RAX] MOV  RDX RAX MOV ;
+code: WFETCHZ, ( @w -- w )  WORD PTR 0 [RAX] RDX MOVZX  0 # WORD PTR 0 [RAX] MOV  RDX RAX MOV ;
+code: IFETCHZ, ( @i -- i )  EDX EDX XOR  0 [RAX] EDX XCHG  RDX RAX MOV  CDQE ;
+code: DFETCHZ, ( @i -- i )  EDX EDX XOR  0 [RAX] EDX XCHG  RDX RAX MOV ;
+code: LFETCHZ, ( @l -- l )  EDX EDX XOR  0 [RAX] RDX XCHG  RDX RAX MOV ;
+code: QFETCHZ, ( @q -- q )  EDX EDX XOR  0 [RAX] RDX XCHG  RDX RAX MOV ;
+code: HFETCHZ, ( @h -- h )  QWORD PTR CELL [RAX] PUSH  EDX EDX XOR  RDX CELL [RAX] MOV  0 [RAX] RDX XCHG  RDX RAX MOV ;
+code: OFETCHZ, ( @h -- h )  QWORD PTR CELL [RAX] PUSH  EDX EDX XOR  RDX CELL [RAX] MOV  0 [RAX] RDX XCHG  RDX RAX MOV ;
 
 code: STORECINC, ( a c -- a+1 )  RAX RDX MOV  RAX POP  DL 0 [RAX] MOV  RAX INC ;
 code: STOREWINC, ( a w -- a+2 )  RAX RDX MOV  RAX POP  DX 0 [RAX] MOV  2 # RAX ADD ;

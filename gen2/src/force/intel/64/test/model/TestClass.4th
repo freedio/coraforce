@@ -14,8 +14,9 @@ class: TestClass
 
 
 
-  === Interface ===
+  === Fields ===
 
+public:
   U1 val CharVal
   U2 val WordVal
   U4 var DwordVar
@@ -31,22 +32,17 @@ class: TestClass
 
 (  String val StringVal )
 
-  def X
-  def y
-  constructor new
-
-(  destructor destroy )
 
 
+  === Methods ===
 
-  === Implementation ===
-
-: X ( -- ) ;
-: y ( -- ) ;
-: new ( -- )
-  42 my CharVal c!  60000 my WordVal w!  -100,000,000 my DwordVar d!  1234567890ABCDEFH my QwordVal q!  -1 0 my OwordVar o!
-  -13 my ByteVar b!  -4096 my ShortVar s!  -1 my IntVal i!  -1 my LongVar l!  -1 0 my HugeVal o!
-  π my RealVar f!  ( "Hello, World!" my StringVal ! ) ;
-: destroy ( -- ) ;
+public:
+  : X ( -- ) ;
+  : y ( -- ) ;
+  constructor: new ( -- )
+    42 my CharVal c!  60000 my WordVal w!  -100,000,000 my DwordVar d!  1234567890ABCDEFH my QwordVal q!  -1 0 my OwordVar o!
+    -13 my ByteVar b!  -4096 my ShortVar s!  -1 my IntVal i!  -1 my LongVar l!  -1 0 my HugeVal o!
+    π my RealVar f!  ( "Hello, World!" my StringVal ! ) ;
+  destructor: destroy ( -- ) ;
 
 class;

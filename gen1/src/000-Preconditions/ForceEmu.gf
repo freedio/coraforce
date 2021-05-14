@@ -14,14 +14,16 @@
 : zap ( x -- 0 )  drop 0 ;
 : dupe ( x y -- x x y )  >r dup r> ;
 : − ( n1 n2 -- n1−n2 ) - ;
+: r- ( n1 n2 -- n2-n1 )  swap - ;
+: r− ( n1 n2 -- n2-n1 )  swap - ;
 : ≤ ( n1 n2 -- ? ) <= ;
 : u≤ ( u1 u2 -- ? ) u<= ;
 : ≠ ( n1 n2 -- ? ) <> ;
 : << ( x1 n -- x2 )  lshift ;
 : u<< ( x1 n -- x2 )  lshift ;
-: >> ( x1 n -- x2 )  over 0< if  swap abs rshift negate  else  rshift  then ;
+: >> ( x1 n -- x2 )  over 0< if  swap negate rshift negate  else  rshift  then ;
 : u>> ( x1 n -- x2 )  rshift ;
-: <u< ( x # -- x' )  2dup u<< -rot 64 swap - u>> or ;
+: <u< ( x # -- x' )  2dup u<< -rot 64 r- u>> or ;
 : 0- ( n -- ? )  0= 0= ;
 : u+ ( u1 u2 -- u3 ) + ;
 : u- ( u1 u2 -- u3 ) - ;
@@ -52,8 +54,6 @@
 : 8* ( n -- n*8 )  3 << ;
 : 4/ ( n -- n/8 )  2 >> ;
 : 8/ ( n -- n/8 )  3 >> ;
-: r- ( n1 n2 -- n2-n1 )  swap - ;
-: r− ( n1 n2 -- n2-n1 )  swap - ;
 : r! ( a x -- )  swap ! ;
 : ->| ( u1 u2 -- n*u2 )  tuck 1- + over / swap * ;          ( Round up u1 to a whole number of u2 [n*u2]. 0 is left as 0 )
 : cells+ ( u₁ u₂ -- u₁+u₂×cell )  cells + ;
@@ -64,7 +64,7 @@
 : -2cells ( -- -2cells )  2 cells negate ;
 : -3cells ( -- -3cells )  3 cells negate ;
 : -4cells ( -- -4cells )  4 cells negate ;
-: cellu/ ( u -- u' )  cell / ;
+: cell/ ( u -- u' )  cell / ;
 : cell% ( -- u% )  cell 1 64 0 ?do  2dup <= if  2drop i unloop exit  then  2*  loop  2drop  64 ;
 : half ( -- half )  cell 2/ ;
 : half% ( -- u% )  cell% 2/ ;
@@ -220,6 +220,7 @@
 : === ( -- )  c" ===" commentbracket ;
 : --- ( -- )  c" ---" commentbracket ;
 : ------ ( -- )  c" ------" textbracket ;
+: ---8<--- ( -- )  c" --->8---" textbracket ;
 
 : udo postpone u+do ; immediate
 
@@ -270,7 +271,7 @@
 
 create ASTACK 1024 allot
 create ASP  ASTACK ,
-: A?  ASP @ ASTACK - cell / ;
+: A?  ASP @ ASTACK - cell/ ;
 : >A  ( cr ." ---- " dup hex. ." >A[" A? 0 <# #s #> type ']' emit )   ASP @ !  8 ASP +! ;
 : A>  8 ASP -!  ASP @ @  ( cr ." ---- A[" A? 0 <# #s #> type ." ]> " dup hex. ) ;
 : A@  ASP @ 8- @ ;
@@ -281,7 +282,7 @@ create BSP  BSTACK ,
 : B>  8 BSP -!  BSP @ @ ;
 : B@  BSP @ 8- @ ;
 : B2@  BSP @ 16 - @ ;
-: BDEPTH  BSP @ BSTACK - cell / ;
+: BDEPTH  BSP @ BSTACK - cell/ ;
 
 create XSTACK 4096 allot
 create XSP  XSTACK ,
@@ -290,14 +291,14 @@ create XSP  XSTACK ,
 : X@  XSP @ 8- @ ;
 : 2X@  XSP @ 16 - @ ;
 : XDROP  8 XSP -! ;
-: XDEPTH  XSP @ XSTACK - cell / ;
+: XDEPTH  XSP @ XSTACK - cell/ ;
 
 create YSTACK 1024 allot
 create YSP  YSTACK ,
 : >Y  YSP @ !  8 YSP +! ;
 : Y>  8 YSP -!  YSP @ @ ;
 : Y@  YSP @ 8- @ ;
-: YDEPTH  YSP @ YSTACK - cell / ;
+: YDEPTH  YSP @ YSTACK - cell/ ;
 
 : there  here ;
 : toff 0 ;
