@@ -1,0 +1,33 @@
+Invoking a constructor -> TestClass new
+ 0. on the stack, there is a method reference: classRef:method#*16
+ 1. object on stack must be a class -> insert code to push the last selected vocabulay (TestClass) -> « RAX PUSH  TestClass # RAX MOV »
+ 2. object on stack must be an instance -> insert code to invoke createInstance -> « createInstance # CALL »
+ 3. createInstance is fallible by nature -> insert exception handling code -> ???
+ 4. invoke constructor like a normal method.
+
+Invoking a normal method -> aTestClass print (or: printTestClass, or: TestClass print, if print alone is not unique)
+ 0. on the compile-time stack, there is a method reference: classRef:method#*16
+ 1. object on run-time stack must be an instance
+ 2. insert code to retrieve instance's class -> « RAX PUSH  0 [RAX] EAX MOV  Classes [RAX] *cell RAX MOV »
+ 3. find VMAT base for invocation:  « RBX PUSH  2CELLS 4+ [RSP] EBX MOV  invocationBase # CALL (unroll!) »
+ 4. invoce code at implementation address: « 2CELLS [RSP] EDX MOV  RBX POP  CELL [RAX] [RDX] CALL »
+
+invocationBase
+--------------
+RSI PUSH
+@DEPS [RAX] RDX MOV         ; RDX = @DEPS
+→DEPS [RAX] RCX MOV         ; RCX = #bytes in deps
+%cell 1+ # RCX SHR          ; RCX = #deps
+ESI ESI XOR
+FOR
+CELL [RDX] EBX CMP  = IF
+   @VMAT [RAX] RDX MOV  0 [RDX] [RSI] RAX MOV  RSI POP  RET  THEN
+2 CELLS # ESI ADD
+NEXT
+RSI POP
+failed: class (RAX) does not implement/extend class# (EBX) 
+
+
+
+
+TODO: Insert vocabulary itself as dependency into §DEPS
